@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { signInWithGoogle, auth } from "@/lib/firebase";
+import { signInWithGoogle, signInWithFacebook, auth } from "@/lib/firebase";
 import { FcGoogle } from "react-icons/fc";
 import Navbar from "@/components/Navbar";
 
@@ -37,7 +37,13 @@ export default function Login() {
                 Sign in with Google
               </Button>
               <Button
-                onClick={() => signInWithFacebook()}
+                onClick={async () => {
+                  try {
+                    await signInWithFacebook();
+                  } catch (error) {
+                    console.error("Facebook login error:", error);
+                  }
+                }}
                 className="w-full flex items-center justify-center gap-2 bg-[#1877F2] hover:bg-[#1865D1]"
               >
                 <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
