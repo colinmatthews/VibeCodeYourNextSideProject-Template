@@ -1,5 +1,12 @@
+
 import { initializeApp } from "firebase/app";
-import { getAuth, signInWithRedirect, GoogleAuthProvider, FacebookAuthProvider } from "firebase/auth";
+import { 
+  getAuth, 
+  signInWithPopup,
+  GoogleAuthProvider, 
+  FacebookAuthProvider,
+  onAuthStateChanged 
+} from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -12,13 +19,23 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
+
 const googleProvider = new GoogleAuthProvider();
+googleProvider.addScope('profile');
+googleProvider.addScope('email');
+
 const facebookProvider = new FacebookAuthProvider();
 
-export function signInWithGoogle() {
-  return signInWithRedirect(auth, googleProvider);
+export async function signInWithGoogle() {
+  try {
+    const result = await signInWithPopup(auth, googleProvider);
+    return result.user;
+  } catch (error) {
+    console.error("Google sign-in error:", error);
+    throw error;
+  }
 }
 
 export function signInWithFacebook() {
-  return signInWithRedirect(auth, facebookProvider);
+  return signInWithPopup(auth, facebookProvider);
 }
