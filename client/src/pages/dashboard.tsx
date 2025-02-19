@@ -19,16 +19,6 @@ export default function Dashboard() {
   const { data: contacts = [], refetch } = useQuery<Contact[]>({
     queryKey: ["/api/contacts"],
   });
-
-  if (loading) {
-    return <div className="container mx-auto py-8">Loading...</div>;
-  }
-
-  if (!user) {
-    setLocation("/login");
-    return null;
-  }
-
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
       await apiRequest("DELETE", `/api/contacts/${id}`);
@@ -41,6 +31,15 @@ export default function Dashboard() {
       });
     },
   });
+
+  if (loading) {
+    return <div className="container mx-auto py-8">Loading...</div>;
+  }
+
+  if (!user) {
+    setLocation("/login");
+    return null;
+  }
 
   const filteredContacts = contacts.filter(
     (contact) =>
