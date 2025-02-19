@@ -22,7 +22,11 @@ export default function Navbar() {
     <nav className="border-b bg-background">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <Link href="/">
-          <span className="text-xl font-bold">Contact Manager</span>
+          <span className="text-xl font-bold">
+            <span className="bg-gradient-to-r from-red-500 via-purple-500 to-blue-500 text-transparent bg-clip-text">
+              Red<span className="bg-gradient-to-r from-purple-500 to-blue-500 text-transparent bg-clip-text">Azul</span>
+            </span>
+          </span>
         </Link>
         <div className="flex items-center gap-4">
           <Link href="/pricing">
