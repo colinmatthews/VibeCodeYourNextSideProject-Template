@@ -12,7 +12,8 @@ import Landing from "@/pages/landing"; // Added import for Landing page
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Landing} /> {/* Added Landing page route */}
+      <Route path="/" component={Landing} />
+      <Route path="/login" component={Login} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/contacts/new" component={NewContact} />
       <Route path="/contacts/edit/:id" component={EditContact} />
