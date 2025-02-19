@@ -25,6 +25,9 @@ export default function Navbar() {
           <span className="text-xl font-bold">Contact Manager</span>
         </Link>
         <div className="flex items-center gap-4">
+          <Link href="/pricing">
+            <Button variant="ghost">Pricing</Button>
+          </Link>
           {user ? (
             <>
               <Link href="/dashboard">
