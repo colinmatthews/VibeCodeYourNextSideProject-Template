@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
 
+import Navbar from "@/components/Navbar";
+
 export default function Landing() {
   const [email, setEmail] = useState("");
 
@@ -20,6 +22,7 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <Navbar />
       {/* Hero Section */}
       <section className="bg-gradient-to-b from-primary/10 to-background py-20 px-4">
         <div className="container mx-auto text-center">
