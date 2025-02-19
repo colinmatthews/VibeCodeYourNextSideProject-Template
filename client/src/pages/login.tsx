@@ -21,8 +21,7 @@ export default function Login() {
   }, [setLocation]);
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <Navbar />
+    <div className="flex-1 flex flex-col">
       <div className="flex-1 flex items-center justify-center bg-gradient-to-b from-primary/10 to-background">
         <Card className="w-full max-w-md mx-4">
           <CardHeader className="text-center">

@@ -11,14 +11,19 @@ import Landing from "@/pages/landing"; // Added import for Landing page
 
 function Router() {
   return (
-    <Switch>
-      <Route path="/" component={Landing} />
-      <Route path="/login" component={Login} />
-      <Route path="/dashboard" component={Dashboard} />
-      <Route path="/contacts/new" component={NewContact} />
-      <Route path="/contacts/edit/:id" component={EditContact} />
-      <Route component={NotFound} />
-    </Switch>
+    <div className="min-h-screen flex flex-col">
+      <Navbar />
+      <div className="flex-1">
+        <Switch>
+          <Route path="/" component={Landing} />
+          <Route path="/login" component={Login} />
+          <Route path="/dashboard" component={Dashboard} />
+          <Route path="/contacts/new" component={NewContact} />
+          <Route path="/contacts/edit/:id" component={EditContact} />
+          <Route component={NotFound} />
+        </Switch>
+      </div>
+    </div>
   );
 }
 
