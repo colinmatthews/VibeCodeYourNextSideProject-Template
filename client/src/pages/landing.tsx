@@ -35,9 +35,9 @@ export default function Landing() {
       <section className="py-16 px-4">
         <div className="container mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
           {[
-            "/img/social-1.jpg",
-            "/img/social-2.jpg",
-            "/img/social-3.jpg"
+            "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=800&q=80",
+            "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=800&q=80",
+            "https://images.unsplash.com/photo-1600880292203-757bb62b4baf?auto=format&fit=crop&w=800&q=80"
           ].map((src, i) => (
             <div key={i} className="rounded-lg overflow-hidden shadow-lg">
               <img
