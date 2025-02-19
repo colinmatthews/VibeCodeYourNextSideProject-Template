@@ -9,6 +9,7 @@ import NewContact from "@/pages/contacts/new";
 import EditContact from "@/pages/contacts/edit";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing"; // Added import for Landing page
+import Footer from "@/components/Footer";
 
 function Router() {
   return (
@@ -24,6 +25,7 @@ function Router() {
           <Route component={NotFound} />
         </Switch>
       </div>
+      <Footer />
     </div>
   );
 }
