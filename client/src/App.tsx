@@ -7,11 +7,12 @@ import Dashboard from "@/pages/dashboard";
 import NewContact from "@/pages/contacts/new";
 import EditContact from "@/pages/contacts/edit";
 import NotFound from "@/pages/not-found";
+import Landing from "@/pages/landing"; // Added import for Landing page
 
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Login} />
+      <Route path="/" component={Landing} /> {/* Added Landing page route */}
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/contacts/new" component={NewContact} />
       <Route path="/contacts/edit/:id" component={EditContact} />
