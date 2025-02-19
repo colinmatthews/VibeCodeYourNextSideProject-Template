@@ -12,8 +12,18 @@ import type { Contact } from "@shared/schema";
 
 export default function Dashboard() {
   const [, setLocation] = useLocation();
+  const { user, loading } = useAuth();
   const { toast } = useToast();
   const [search, setSearch] = useState("");
+
+  if (loading) {
+    return <div className="container mx-auto py-8">Loading...</div>;
+  }
+
+  if (!user) {
+    setLocation("/login");
+    return null;
+  }
 
   const { data: contacts = [], refetch } = useQuery<Contact[]>({
     queryKey: ["/api/contacts"],
