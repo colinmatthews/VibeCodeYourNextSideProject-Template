@@ -77,6 +77,7 @@ export class Neo4jStorage implements IStorage {
   async createContact(
     contact: InsertContact & { userId: number },
   ): Promise<Contact> {
+    console.log("Storage: Creating contact with userId:", contact.userId);
     const session = this.driver.session();
     try {
       const id = this.currentContactId++;

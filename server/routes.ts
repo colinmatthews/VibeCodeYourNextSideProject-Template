@@ -36,8 +36,10 @@ export async function registerRoutes(app: Express) {
 
   app.post("/api/contacts", async (req, res) => {
     try {
+      console.log("Server: Received contact submission with raw userId:", req.body.userId);
       const contact = insertContactSchema.parse(req.body);
       const userId = Number(req.body.userId);
+      console.log("Server: Parsed userId:", userId);
       if (isNaN(userId)) {
         return res.status(400).json({ error: "Invalid user ID" });
       }

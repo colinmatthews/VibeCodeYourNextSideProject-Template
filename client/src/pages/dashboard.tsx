@@ -68,6 +68,7 @@ export default function Dashboard() {
           </DialogHeader>
           <ContactForm
             onSubmit={async (data: InsertContact) => {
+              console.log("Client: Submitting contact with user ID:", user?.uid);
               await apiRequest("POST", "/api/contacts", { ...data, userId: user?.uid });
               setIsNewContactOpen(false);
               refetch();
