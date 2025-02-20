@@ -36,7 +36,7 @@ export async function registerRoutes(app: Express) {
 
   app.post("/api/contacts", async (req, res) => {
     try {
-      console.log("Server: Received contact submission with raw userId:", req.body.userId);
+      console.log("Server: Received full contact data:", req.body);
       const contact = insertContactSchema.parse(req.body);
       const userId = req.body.userId?.toString();
       console.log("Server: Parsed userId:", userId);

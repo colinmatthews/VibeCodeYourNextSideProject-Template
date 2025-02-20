@@ -35,7 +35,10 @@ export function ContactForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit((data) => {
+        console.log("Contact form submission data:", data);
+        onSubmit(data);
+      })} className="space-y-4">
         <FormField
           control={form.control}
           name="firstName"
