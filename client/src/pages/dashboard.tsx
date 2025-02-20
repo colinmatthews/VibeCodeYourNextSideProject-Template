@@ -9,13 +9,16 @@ import { SearchBar } from "@/components/SearchBar";
 import { PaymentForm } from "@/components/PaymentForm";
 import { Plus } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
-import type { Contact } from "@shared/schema";
+import type { Contact, InsertContact } from "@shared/schema";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ContactForm } from "@/components/ContactForm";
 
 export default function Dashboard() {
   const [, setLocation] = useLocation();
   const { user, loading } = useAuth();
   const { toast } = useToast();
   const [search, setSearch] = useState("");
+  const [isNewContactOpen, setIsNewContactOpen] = useState(false);
   const { data: contacts = [], refetch } = useQuery<Contact[]>({
     queryKey: ["/api/contacts"],
   });
@@ -52,10 +55,29 @@ export default function Dashboard() {
     <div className="container mx-auto py-8 space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Contacts</h1>
-        <Button onClick={() => setLocation("/contacts/new")}>
+        <Button onClick={() => setIsNewContactOpen(true)}>
           <Plus className="mr-2 h-4 w-4" /> New Contact
         </Button>
       </div>
+
+      <Dialog open={isNewContactOpen} onOpenChange={setIsNewContactOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>New Contact</DialogTitle>
+          </DialogHeader>
+          <ContactForm
+            onSubmit={async (data: InsertContact) => {
+              await apiRequest("POST", "/api/contacts", data);
+              setIsNewContactOpen(false);
+              refetch();
+              toast({
+                title: "Contact created",
+                description: "The contact has been successfully created.",
+              });
+            }}
+          />
+        </DialogContent>
+      </Dialog>
 
       <SearchBar value={search} onChange={setSearch} />
 
