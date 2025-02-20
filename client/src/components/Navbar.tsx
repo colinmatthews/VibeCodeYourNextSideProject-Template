@@ -1,4 +1,5 @@
 
+import * as React from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { auth } from "@/lib/firebase";
