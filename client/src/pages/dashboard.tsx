@@ -20,7 +20,11 @@ export default function Dashboard() {
   const [search, setSearch] = useState("");
   const [isNewContactOpen, setIsNewContactOpen] = useState(false);
   const { data: contacts = [], refetch } = useQuery<Contact[]>({
-    queryKey: [`/api/contacts?userId=${user?.uid}`],
+    queryKey: ['contacts', user?.uid],
+    queryFn: async () => {
+      const response = await apiRequest('GET', `/api/contacts?userId=${user?.uid}`);
+      return response;
+    },
     enabled: !!user,
   });
   const deleteMutation = useMutation({
