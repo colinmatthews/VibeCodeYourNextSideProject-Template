@@ -20,7 +20,8 @@ export default function Dashboard() {
   const [search, setSearch] = useState("");
   const [isNewContactOpen, setIsNewContactOpen] = useState(false);
   const { data: contacts = [], refetch } = useQuery<Contact[]>({
-    queryKey: ["/api/contacts"],
+    queryKey: [`/api/contacts?userId=${user?.uid}`],
+    enabled: !!user,
   });
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
@@ -67,7 +68,7 @@ export default function Dashboard() {
           </DialogHeader>
           <ContactForm
             onSubmit={async (data: InsertContact) => {
-              await apiRequest("POST", "/api/contacts", data);
+              await apiRequest("POST", "/api/contacts", { ...data, userId: user?.uid });
               setIsNewContactOpen(false);
               refetch();
               toast({
