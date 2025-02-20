@@ -80,6 +80,7 @@ export class Neo4jStorage implements IStorage {
     const session = this.driver.session();
     try {
       const id = this.currentContactId++;
+
       const result = await session.executeWrite(tx =>
         tx.run(
           `
