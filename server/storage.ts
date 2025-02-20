@@ -69,10 +69,27 @@ export class Neo4jStorage implements IStorage {
     return this.contacts.get(id);
   }
 
-  async getContactsByUserId(userId: number): Promise<Contact[]> {
-    return Array.from(this.contacts.values()).filter(
-      (contact) => contact.userId === userId,
-    );
+  async getContactsByUserId(userId: string): Promise<Contact[]> {
+    const session = this.driver.session();
+    try {
+      const result = await session.executeRead(tx =>
+        tx.run(
+          `
+          MATCH (c:Contact)
+          WHERE c.userId = $userId
+          RETURN c
+          `,
+          { userId }
+        )
+      );
+      
+      return result.records.map(record => {
+        const contact = record.get('c').properties;
+        return contact as Contact;
+      });
+    } finally {
+      await session.close();
+    }
   }
 
   async createContact(

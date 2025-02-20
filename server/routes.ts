@@ -31,8 +31,13 @@ export async function registerRoutes(app: Express) {
     if (!userId) {
       return res.status(400).json({ error: "Invalid user ID" });
     }
-    const contacts = await storage.getContactsByUserId(userId);
-    res.json(contacts);
+    try {
+      const contacts = await storage.getContactsByUserId(userId);
+      res.json(contacts || []);
+    } catch (error) {
+      console.error("Error fetching contacts:", error);
+      res.json([]);
+    }
   });
 
   app.post("/api/contacts", async (req, res) => {
