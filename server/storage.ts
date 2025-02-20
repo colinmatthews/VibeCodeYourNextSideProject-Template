@@ -16,13 +16,12 @@ export interface IStorage {
 }
 
 import neo4j from 'neo4j-driver';
+import { v4 as uuidv4 } from 'uuid';
 
 export class Neo4jStorage implements IStorage {
   private driver: neo4j.Driver;
   private currentUserId: number;
-  private currentContactId: number;
-
-  private contacts: Map<number, Contact>;
+  private contacts: Map<string, Contact>;
 
   constructor() {
     this.driver = neo4j.driver(
@@ -33,7 +32,6 @@ export class Neo4jStorage implements IStorage {
       )
     );
     this.currentUserId = 1;
-    this.currentContactId = 1;
     this.contacts = new Map();
   }
 
@@ -83,7 +81,7 @@ export class Neo4jStorage implements IStorage {
     console.log("Storage: Creating contact with userId:", contact.userId);
     const session = this.driver.session();
     try {
-      const id = this.currentContactId++;
+      const id = uuidv4();
 
       const result = await session.executeWrite(tx =>
         tx.run(
