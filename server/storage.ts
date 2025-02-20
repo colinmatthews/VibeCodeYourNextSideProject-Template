@@ -83,10 +83,19 @@ export class Neo4jStorage implements IStorage {
         )
       );
       
-      return result.records.map(record => {
+      const contacts = result.records.map(record => {
         const contact = record.get('c').properties;
-        return contact as Contact;
+        return {
+          id: contact.id,
+          firstName: contact.firstName,
+          lastName: contact.lastName,
+          email: contact.email,
+          phone: contact.phone,
+          userId: contact.userId
+        } as Contact;
       });
+      console.log("Fetched contacts:", contacts);
+      return contacts;
     } finally {
       await session.close();
     }
