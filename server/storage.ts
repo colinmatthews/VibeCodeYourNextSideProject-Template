@@ -22,6 +22,8 @@ export class Neo4jStorage implements IStorage {
   private currentUserId: number;
   private currentContactId: number;
 
+  private contacts: Map<number, Contact>;
+
   constructor() {
     this.driver = neo4j.driver(
       process.env.NEO4J_URI || 'neo4j://localhost:7687',
@@ -32,6 +34,7 @@ export class Neo4jStorage implements IStorage {
     );
     this.currentUserId = 1;
     this.currentContactId = 1;
+    this.contacts = new Map();
   }
 
   async getUser(id: number): Promise<User | undefined> {
