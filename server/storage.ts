@@ -15,15 +15,21 @@ export interface IStorage {
   deleteContact(id: number): Promise<void>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private contacts: Map<number, Contact>;
+import neo4j from 'neo4j-driver';
+
+export class Neo4jStorage implements IStorage {
+  private driver: neo4j.Driver;
   private currentUserId: number;
   private currentContactId: number;
 
   constructor() {
-    this.users = new Map();
-    this.contacts = new Map();
+    this.driver = neo4j.driver(
+      process.env.NEO4J_URI || 'neo4j://localhost:7687',
+      neo4j.auth.basic(
+        process.env.NEO4J_USER || 'neo4j',
+        process.env.NEO4J_PASSWORD || 'password'
+      )
+    );
     this.currentUserId = 1;
     this.currentContactId = 1;
   }
@@ -71,10 +77,30 @@ export class MemStorage implements IStorage {
   async createContact(
     contact: InsertContact & { userId: number },
   ): Promise<Contact> {
-    const id = this.currentContactId++;
-    const newContact: Contact = { ...contact, id };
-    this.contacts.set(id, newContact);
-    return newContact;
+    const session = this.driver.session();
+    try {
+      const id = this.currentContactId++;
+      const result = await session.executeWrite(tx =>
+        tx.run(
+          `
+          CREATE (c:Contact {
+            id: $id,
+            userId: $userId,
+            firstName: $firstName,
+            lastName: $lastName,
+            email: $email,
+            phone: $phone
+          })
+          RETURN c
+          `,
+          { ...contact, id }
+        )
+      );
+      const newContact: Contact = { ...contact, id };
+      return newContact;
+    } finally {
+      await session.close();
+    }
   }
 
   async updateContact(
