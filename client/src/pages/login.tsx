@@ -1,14 +1,19 @@
 
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { signInWithGoogle, signInWithFacebook, auth } from "@/lib/firebase";
+import { signInWithGoogle, signInWithGithub, signInWithEmail, signUpWithEmail, auth } from "@/lib/firebase";
 import { FcGoogle } from "react-icons/fc";
-import Navbar from "@/components/Navbar";
+import { FaGithub } from "react-icons/fa";
+import { toast } from "@/hooks/use-toast";
 
 export default function Login() {
   const [, setLocation] = useLocation();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isSignUp, setIsSignUp] = useState(false);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
@@ -20,6 +25,23 @@ export default function Login() {
     return () => unsubscribe();
   }, [setLocation]);
 
+  const handleEmailAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      if (isSignUp) {
+        await signUpWithEmail(email, password);
+      } else {
+        await signInWithEmail(email, password);
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
+
   return (
     <div className="flex-1 flex flex-col">
       <div className="flex-1 flex items-center justify-center bg-gradient-to-b from-primary/10 to-background">
@@ -28,6 +50,31 @@ export default function Login() {
             <CardTitle className="text-2xl font-bold">Welcome Back</CardTitle>
           </CardHeader>
           <CardContent>
+            <form onSubmit={handleEmailAuth} className="space-y-4 mb-4">
+              <Input
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+              <Input
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <Button type="submit" className="w-full">
+                {isSignUp ? "Sign Up" : "Sign In"}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full"
+                onClick={() => setIsSignUp(!isSignUp)}
+              >
+                {isSignUp ? "Already have an account? Sign In" : "Need an account? Sign Up"}
+              </Button>
+            </form>
             <div className="space-y-2">
               <Button
                 onClick={() => signInWithGoogle()}
@@ -39,17 +86,19 @@ export default function Login() {
               <Button
                 onClick={async () => {
                   try {
-                    await signInWithFacebook();
-                  } catch (error) {
-                    console.error("Facebook login error:", error);
+                    await signInWithGithub();
+                  } catch (error: any) {
+                    toast({
+                      title: "Error",
+                      description: error.message,
+                      variant: "destructive"
+                    });
                   }
                 }}
-                className="w-full flex items-center justify-center gap-2 bg-[#1877F2] hover:bg-[#1865D1]"
+                className="w-full flex items-center justify-center gap-2 bg-[#24292e] hover:bg-[#1b1f23]"
               >
-                <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
-                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                </svg>
-                Sign in with Facebook
+                <FaGithub className="w-5 h-5" />
+                Sign in with GitHub
               </Button>
             </div>
           </CardContent>

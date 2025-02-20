@@ -3,8 +3,10 @@ import { initializeApp } from "firebase/app";
 import { 
   getAuth, 
   signInWithPopup,
-  GoogleAuthProvider, 
-  FacebookAuthProvider,
+  GoogleAuthProvider,
+  GithubAuthProvider,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
   onAuthStateChanged 
 } from "firebase/auth";
 
@@ -24,7 +26,7 @@ const googleProvider = new GoogleAuthProvider();
 googleProvider.addScope('profile');
 googleProvider.addScope('email');
 
-const facebookProvider = new FacebookAuthProvider();
+const githubProvider = new GithubAuthProvider();
 
 export async function signInWithGoogle() {
   try {
@@ -36,6 +38,14 @@ export async function signInWithGoogle() {
   }
 }
 
-export function signInWithFacebook() {
-  return signInWithPopup(auth, facebookProvider);
+export function signInWithGithub() {
+  return signInWithPopup(auth, githubProvider);
+}
+
+export function signUpWithEmail(email: string, password: string) {
+  return createUserWithEmailAndPassword(auth, email, password);
+}
+
+export function signInWithEmail(email: string, password: string) {
+  return signInWithEmailAndPassword(auth, email, password);
 }
