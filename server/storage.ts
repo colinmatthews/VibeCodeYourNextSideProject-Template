@@ -120,4 +120,4 @@ export class Neo4jStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new Neo4jStorage();
