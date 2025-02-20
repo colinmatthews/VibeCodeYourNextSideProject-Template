@@ -5,6 +5,7 @@ import { storage } from "./storage";
 import { insertContactSchema, insertUserSchema } from "@shared/schema";
 import { sendEmail } from "./mail";
 import Stripe from "stripe";
+import { create } from "domain";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
   apiVersion: "2023-10-16" as const, // Fix the API version type
@@ -43,10 +44,13 @@ export async function registerRoutes(app: Express) {
       if (!userId) {
         return res.status(400).json({ error: "Invalid user ID" });
       }
+      console.log("x");
       const created = await storage.createContact({ ...contact, userId });
 
+      console.log("y", created);
       // Send email notification
       const user = await storage.getUser(userId);
+      console.log("z", created);
       if (user) {
         await sendEmail({
           to: user.email,
@@ -54,11 +58,15 @@ export async function registerRoutes(app: Express) {
           subject: "New Contact Added",
           text: `A new contact ${contact.firstName} ${contact.lastName} has been added to your contacts.`,
         });
+        console.log("a", created);
       }
 
+      console.log("b", created);
       res.json(created);
     } catch (error) {
-      res.status(400).json({ error: "Invalid contact data" });
+      res
+        .status(400)
+        .json({ error: "Invalid contact data", errorDetails: error.message });
     }
   });
 
@@ -72,7 +80,10 @@ export async function registerRoutes(app: Express) {
       const updated = await storage.updateContact(id, contact);
       res.json(updated);
     } catch (error) {
-      res.status(400).json({ error: "Invalid contact data" });
+      res.status(400).json({
+        error: "Invalid PATCH contact data",
+        errorDetails: error.message,
+      });
     }
   });
 
