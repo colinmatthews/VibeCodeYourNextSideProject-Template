@@ -11,7 +11,7 @@ export const users = pgTable("users", {
 
 export const contacts = pgTable("contacts", {
   id: serial("id").primaryKey(),
-  userId: serial("user_id").notNull(),
+  userId: text("user_id").notNull(),
   firstName: varchar("first_name", { length: 100 }).notNull(),
   lastName: varchar("last_name", { length: 100 }).notNull(),
   email: varchar("email", { length: 255 }).notNull(),

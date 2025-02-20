@@ -26,8 +26,8 @@ export async function registerRoutes(app: Express) {
 
   // Contact routes
   app.get("/api/contacts", async (req, res) => {
-    const userId = Number(req.query.userId);
-    if (isNaN(userId)) {
+    const userId = req.query.userId?.toString();
+    if (!userId) {
       return res.status(400).json({ error: "Invalid user ID" });
     }
     const contacts = await storage.getContactsByUserId(userId);
@@ -38,9 +38,9 @@ export async function registerRoutes(app: Express) {
     try {
       console.log("Server: Received contact submission with raw userId:", req.body.userId);
       const contact = insertContactSchema.parse(req.body);
-      const userId = Number(req.body.userId);
+      const userId = req.body.userId?.toString();
       console.log("Server: Parsed userId:", userId);
-      if (isNaN(userId)) {
+      if (!userId) {
         return res.status(400).json({ error: "Invalid user ID" });
       }
       const created = await storage.createContact({ ...contact, userId });
