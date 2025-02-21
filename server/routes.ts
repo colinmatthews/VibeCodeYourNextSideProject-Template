@@ -71,8 +71,12 @@ export async function registerRoutes(app: Express) {
     } catch (error) {
       res
         .status(400)
-        .json({ error: "Invalid contact data", errorDetails: error.message });
-    }
+        .json({ 
+          error: "Invalid contact data", 
+          errorDetails: error.message, 
+          file: error.filename || 'unknown', 
+          stack: error.stack || 'No stack trace available'
+        });
   });
 
   app.patch("/api/contacts/:id", async (req, res) => {
