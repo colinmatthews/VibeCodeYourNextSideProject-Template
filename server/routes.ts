@@ -15,15 +15,6 @@ export async function registerRoutes(app: Express) {
   const server = createServer(app);
 
   // User routes
-  app.get("/api/users", async (_req, res) => {
-    try {
-      const users = await storage.getAllUsers();
-      res.json(users);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch users" });
-    }
-  });
-
   app.post("/api/users", async (req, res) => {
     try {
       const user = insertUserSchema.parse(req.body);

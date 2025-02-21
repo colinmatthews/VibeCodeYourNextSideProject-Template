@@ -41,9 +41,6 @@ export default function Dashboard() {
     },
   });
 
-  // Placeholder:  Replace this with actual user fetching logic.
-  const users = []; // Replace with your actual user data fetching
-
   if (loading) {
     return <div className="container mx-auto py-8">Loading...</div>;
   }
@@ -61,30 +58,7 @@ export default function Dashboard() {
   );
 
   return (
-    <div className="container mx-auto py-8 space-y-8">
-      <div>
-        <h2 className="text-2xl font-bold mb-4">Users</h2>
-        <div className="border rounded-lg">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Premium</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Firebase ID</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {users.map((user) => (
-                <tr key={user.id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.email}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.isPremium ? 'Yes' : 'No'}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.firebaseId}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+    <div className="container mx-auto py-8 space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Contacts</h1>
         <Button onClick={() => setIsNewContactOpen(true)}>

@@ -149,33 +149,6 @@ export class Neo4jStorage implements IStorage {
   async deleteContact(id: number): Promise<void> {
     this.contacts.delete(id);
   }
-
-  async getAllUsers(): Promise<User[]> {
-    const session = this.driver.session();
-    try {
-      const result = await session.executeRead(tx =>
-        tx.run(
-          `
-          MATCH (u:User)
-          RETURN u
-          `
-        )
-      );
-      
-      const users = result.records.map(record => {
-        const user = record.get('u').properties;
-        return {
-          id: user.id,
-          email: user.email,
-          firebaseId: user.firebaseId,
-          isPremium: user.isPremium
-        } as User;
-      });
-      return users;
-    } finally {
-      await session.close();
-    }
-  }
 }
 
 export const storage = new Neo4jStorage();
