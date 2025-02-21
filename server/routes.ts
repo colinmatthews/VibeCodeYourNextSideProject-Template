@@ -77,6 +77,7 @@ export async function registerRoutes(app: Express) {
           file: error.filename || 'unknown', 
           stack: error.stack || 'No stack trace available'
         });
+    }
   });
 
   app.patch("/api/contacts/:id", async (req, res) => {
