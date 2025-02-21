@@ -67,6 +67,7 @@ export function ContactForm({
           )}
         />
 
+        {/* Temporarily commented out email field
         <FormField
           control={form.control}
           name="email"
@@ -80,7 +81,9 @@ export function ContactForm({
             </FormItem>
           )}
         />
+        */}
 
+        {/* Temporarily commented out phone field
         <FormField
           control={form.control}
           name="phone"
@@ -94,6 +97,7 @@ export function ContactForm({
             </FormItem>
           )}
         />
+        */}
 
         <Button type="submit" className="w-full" disabled={isLoading}>
           {isLoading ? "Saving..." : "Save Contact"}
