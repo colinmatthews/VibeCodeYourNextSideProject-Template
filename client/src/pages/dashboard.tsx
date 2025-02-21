@@ -23,8 +23,8 @@ export default function Dashboard() {
     queryKey: ['contacts', user?.uid],
     queryFn: async () => {
       const response = await apiRequest('GET', `/api/contacts?userId=${user?.uid}`);
-      console.log("Raw contact response:", response);
-      return Array.isArray(response) ? response : [];
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
     },
     enabled: !!user,
   });
