@@ -1,5 +1,4 @@
-
-import { useAuth } from "@/lib/auth";
+import { auth, useAuth } from "../lib/auth";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -16,7 +15,7 @@ export function PaymentMethodsList({ onSelect }: PaymentMethodsListProps) {
   const { user } = useAuth();
   const [showAddPaymentMethod, setShowAddPaymentMethod] = useState(false);
   const queryClient = useQueryClient();
-  
+
   const { data, isLoading } = useQuery({
     queryKey: ['paymentMethods', user?.uid],
     queryFn: () => fetch(`/api/payment-methods?firebaseId=${user?.uid}`).then(res => res.json()),
@@ -59,9 +58,9 @@ export function PaymentMethodsList({ onSelect }: PaymentMethodsListProps) {
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ firebaseId: user?.uid })
                       });
-                      
+
                       if (!response.ok) throw new Error('Failed to delete payment method');
-                      
+
                       queryClient.invalidateQueries(['paymentMethods', user?.uid]);
                     } catch (error) {
                       console.error('Error deleting payment method:', error);
@@ -74,7 +73,7 @@ export function PaymentMethodsList({ onSelect }: PaymentMethodsListProps) {
             </li>
           ))}
         </ul>
-        
+
         <Button onClick={() => setShowAddPaymentMethod(true)}>
           Add Payment Method
         </Button>
