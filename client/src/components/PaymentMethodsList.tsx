@@ -80,11 +80,34 @@ export function PaymentMethodsList() {
       <CardContent className="space-y-4">
         <ul className="space-y-2">
           {data?.paymentMethods?.map((method) => (
-            <li key={method.id} className="flex items-center gap-2">
-              <span>•••• {method.card.last4}</span>
-              <span className="text-muted-foreground">
-                Expires {method.card.exp_month}/{method.card.exp_year}
-              </span>
+            <li key={method.id} className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span>•••• {method.card.last4}</span>
+                <span className="text-muted-foreground">
+                  Expires {method.card.exp_month}/{method.card.exp_year}
+                </span>
+              </div>
+              <Button 
+                variant="destructive" 
+                size="sm"
+                onClick={async () => {
+                  try {
+                    const response = await fetch(`/api/payment-methods/${method.id}`, {
+                      method: 'DELETE',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ firebaseId: user?.uid })
+                    });
+                    
+                    if (!response.ok) throw new Error('Failed to delete payment method');
+                    
+                    queryClient.invalidateQueries(['paymentMethods', user?.uid]);
+                  } catch (error) {
+                    console.error('Error deleting payment method:', error);
+                  }
+                }}
+              >
+                Remove
+              </Button>
             </li>
           ))}
         </ul>

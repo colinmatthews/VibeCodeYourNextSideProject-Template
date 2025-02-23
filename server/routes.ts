@@ -391,6 +391,25 @@ export async function registerRoutes(app: Express) {
     }
   });
 
+  app.delete("/api/payment-methods/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { firebaseId } = req.body;
+      
+      const user = await storage.getUserByFirebaseId(firebaseId);
+      if (!user?.stripeCustomerId) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      await stripe.paymentMethods.detach(id);
+      
+      res.status(200).json({ success: true });
+    } catch (error) {
+      console.error('[PaymentMethods] Delete Error:', error);
+      res.status(500).json({ error: 'Failed to delete payment method' });
+    }
+  });
+
   app.post("/api/create-payment-intent", async (req, res) => {
     const { amount } = z.object({ amount: z.number() }).parse(req.body);
 
