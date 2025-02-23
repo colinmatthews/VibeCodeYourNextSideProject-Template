@@ -1,32 +1,59 @@
 
-import { auth } from './firebase';
-import {
-  signInWithPopup,
+import { createContext, useContext, useEffect, useState } from 'react';
+import { 
+  getAuth, 
+  signInWithPopup, 
   GoogleAuthProvider,
-  GithubAuthProvider,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  sendPasswordResetEmail
+  onAuthStateChanged,
+  signOut as firebaseSignOut,
+  User
 } from 'firebase/auth';
+import { app } from './firebase';
 
-export async function signInWithGoogle() {
-  const provider = new GoogleAuthProvider();
-  return signInWithPopup(auth, provider);
+const auth = getAuth(app);
+
+interface AuthContextType {
+  user: User | null;
+  loading: boolean;
+  signInWithGoogle: () => Promise<void>;
+  signOut: () => Promise<void>;
 }
 
-export async function signInWithGithub() {
-  const provider = new GithubAuthProvider();
-  return signInWithPopup(auth, provider);
+const AuthContext = createContext<AuthContextType | null>(null);
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+      setLoading(false);
+    });
+
+    return unsubscribe;
+  }, []);
+
+  const signInWithGoogle = async () => {
+    const provider = new GoogleAuthProvider();
+    await signInWithPopup(auth, provider);
+  };
+
+  const signOut = () => firebaseSignOut(auth);
+
+  return (
+    <AuthContext.Provider value={{ user, loading, signInWithGoogle, signOut }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
-export async function signInWithEmail(email: string, password: string) {
-  return signInWithEmailAndPassword(auth, email, password);
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 }
 
-export async function signUpWithEmail(email: string, password: string) {
-  return createUserWithEmailAndPassword(auth, email, password);
-}
-
-export async function resetPassword(email: string) {
-  return sendPasswordResetEmail(auth, email);
-}
+export { auth };
