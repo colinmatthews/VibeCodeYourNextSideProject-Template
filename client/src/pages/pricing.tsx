@@ -14,10 +14,11 @@ const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 export default function Pricing() {
   const { toast } = useToast();
   const { user } = useAuth();
-  const { data: userData } = useQuery(
-    [`/api/users/${user?.uid}`],
-    { enabled: !!user }
-  );
+  const { data: userData } = useQuery({
+    queryKey: ['user', user?.uid],
+    queryFn: () => fetch(`/api/users/${user?.uid}`).then(res => res.json()),
+    enabled: !!user
+  });
 
   const handleSuccess = () => {
     toast({
