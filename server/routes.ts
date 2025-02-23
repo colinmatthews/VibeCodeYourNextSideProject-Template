@@ -276,7 +276,7 @@ export async function registerRoutes(app: Express) {
         payment_behavior: 'default_incomplete',
         expand: ['latest_invoice.payment_intent'],
       });
-      console.log('[Subscription] Subscription created:', { 
+      console.log('[Subscription] Subscription request sent:', { 
         subscriptionId: subscription.id, 
         status: subscription.status 
       });
