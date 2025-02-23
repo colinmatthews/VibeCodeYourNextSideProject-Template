@@ -6,6 +6,7 @@ import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent, CardTitle, CardFooter } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Check } from "lucide-react";
 import { useState } from "react";
 import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
@@ -141,18 +142,32 @@ export default function Pricing() {
                 }
                 
                 try {
-                  console.log('[Pricing] Creating subscription for user:', user.uid);
+                  console.log('[Pricing] Opening payment form');
                   setShowPaymentForm(true);
-                  
-                  const handlePayment = async (paymentMethod) => {
-                    const response = await fetch('/api/create-subscription', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ 
-                        firebaseId: user.uid,
-                        paymentMethodId: paymentMethod.id
-                      })
-                    });
+                } catch (error: any) {
+                  handleError(error.message);
+                }
+              }}
+            >
+              {showPaymentForm ? (
+                <Dialog open={showPaymentForm} onOpenChange={setShowPaymentForm}>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Enter Payment Details</DialogTitle>
+                    </DialogHeader>
+                    <Elements stripe={stripePromise}>
+                      <CheckoutForm 
+                        onSuccess={async (paymentMethod) => {
+                          try {
+                            console.log('[Pricing] Creating subscription for user:', user.uid);
+                            const response = await fetch('/api/create-subscription', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ 
+                                firebaseId: user.uid,
+                                paymentMethodId: paymentMethod.id
+                              })
+                            });
 
                     if (!response.ok) {
                       const errorData = await response.json();
