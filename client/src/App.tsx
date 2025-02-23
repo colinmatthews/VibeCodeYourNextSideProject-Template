@@ -9,7 +9,8 @@ import Dashboard from "@/pages/dashboard";
 import NewContact from "@/pages/contacts/new";
 import EditContact from "@/pages/contacts/edit";
 import NotFound from "@/pages/not-found";
-import Landing from "@/pages/landing"; // Added import for Landing page
+import Landing from "@/pages/landing";
+import Signup from "@/pages/signup";
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
   constructor(props: { children: ReactNode }) {
