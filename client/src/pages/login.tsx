@@ -48,10 +48,20 @@ export default function Login() {
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email || !password) {
+      toast({
+        title: "Error",
+        description: "Please enter both email and password",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
       if (isSignUp) {
         const userCredential = await signUpWithEmail(email, password);
-        // Create Stripe customer for new signup
+
+        // Create Stripe customer for new user
         await fetch('/api/users/ensure-stripe', {
           method: 'POST',
           headers: {
@@ -62,45 +72,26 @@ export default function Login() {
             email: userCredential.user.email,
           }),
         });
+
         toast({
           title: "Success",
           description: "Account created successfully",
         });
         setLocation("/dashboard");
       } else {
-        try {
-          const userCredential = await signInWithEmail(email, password);
-          // Ensure Stripe customer exists for existing user
-          await fetch('/api/users/ensure-stripe', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              firebaseId: userCredential.user.uid,
-              email: userCredential.user.email,
-            }),
-          });
-          setLocation("/dashboard");
-        } catch (error: any) {
-          if (error.code === "auth/user-not-found") {
-            toast({
-              title: "Account not found",
-              description: "Please sign up for an account first",
-            });
-            setIsSignUp(true);
-            return;
-          }
-          if (error.code === "auth/wrong-password") {
-            toast({
-              title: "Invalid password",
-              description: "Please check your password and try again",
-              variant: "destructive"
-            });
-            return;
-          }
-          throw error;
-        }
+        const userCredential = await signInWithEmail(email, password);
+        // Ensure Stripe customer exists
+        await fetch('/api/users/ensure-stripe', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            firebaseId: userCredential.user.uid,
+            email: userCredential.user.email,
+          }),
+        });
+        setLocation("/dashboard");
       }
     } catch (error: any) {
       toast({
@@ -154,7 +145,7 @@ export default function Login() {
                       uid: userCredential.user.uid,
                       email: userCredential.user.email 
                     });
-                    
+
                     // Ensure Stripe customer exists
                     console.log("[Stripe] Ensuring customer exists");
                     await fetch('/api/users/ensure-stripe', {

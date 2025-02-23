@@ -46,16 +46,23 @@ export function signInWithGithub() {
 
 export async function signUpWithEmail(email: string, password: string) {
   try {
+    if (password.length < 6) {
+      throw new Error("Password must be at least 6 characters long");
+    }
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    await userCredential.user.sendEmailVerification();
     return userCredential;
   } catch (error: any) {
     if (error.code === "auth/email-already-in-use") {
       throw new Error("Email already in use. Please sign in instead.");
     }
+    if (error.code === "auth/invalid-email") {
+      throw new Error("Please enter a valid email address.");
+    }
     if (error.code === "auth/weak-password") {
       throw new Error("Password should be at least 6 characters long.");
     }
-    throw new Error(error.message);
+    throw error;
   }
 }
 
