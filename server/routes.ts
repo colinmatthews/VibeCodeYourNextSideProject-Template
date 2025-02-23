@@ -170,7 +170,7 @@ export async function registerRoutes(app: Express) {
 
       console.log("y", created);
       // Send email notification
-      const userForEmail = await storage.getUser(userId);
+      const userForEmail = await storage.getUserByFirebaseId(userId);
       console.log("z", created);
       if (userForEmail) {
         await sendEmail({
