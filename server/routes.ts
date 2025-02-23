@@ -244,7 +244,7 @@ export async function registerRoutes(app: Express) {
     try {
       console.log('[Subscription] Received subscription request');
       const { firebaseId, paymentMethodId } = req.body;
-      console.log('[Subscription] Looking up user:', firebaseId);
+      console.log('[Subscription] Processing payment for:', { firebaseId, paymentMethodId });
       let user = await storage.getUserByFirebaseId(firebaseId);
       
       if (!user) {
@@ -287,24 +287,26 @@ export async function registerRoutes(app: Express) {
         });
       }
       
-      if (!user.stripeCustomerId) {
-        console.log('[Subscription] Creating new Stripe customer');
-        const customer = await stripe.customers.create({
-          email: user.email,
-          metadata: {
-            firebaseId: user.firebaseId,
-          }
-        });
-        user = await storage.updateUserStripeCustomerId(user.id, customer.id);
-        console.log('[Subscription] Created new Stripe customer:', customer.id);
-      }
+      try {
+        if (!user.stripeCustomerId) {
+          console.log('[Subscription] Creating new Stripe customer');
+          const customer = await stripe.customers.create({
+            email: user.email,
+            payment_method: paymentMethodId,
+            metadata: {
+              firebaseId: user.firebaseId,
+            }
+          });
+          console.log('[Subscription] Created Stripe customer:', customer.id);
+          user = await storage.updateUserStripeCustomerId(user.id, customer.id);
+          console.log('[Subscription] Updated user with Stripe customer ID');
+        }
 
-      console.log('[Subscription] Creating Stripe subscription for customer:', user.stripeCustomerId);
-      
-      // Attach payment method to customer
-      await stripe.paymentMethods.attach(paymentMethodId, {
-        customer: user.stripeCustomerId,
-      });
+        console.log('[Subscription] Attaching payment method');
+        await stripe.paymentMethods.attach(paymentMethodId, {
+          customer: user.stripeCustomerId,
+        });
+        console.log('[Subscription] Payment method attached');
       
       // Set as default payment method
       await stripe.customers.update(user.stripeCustomerId, {
@@ -343,8 +345,14 @@ export async function registerRoutes(app: Express) {
         clientSecret: payment_intent.client_secret
       });
     } catch (error) {
-      console.error('Error creating subscription:', error);
-      res.status(400).json({ error: 'Could not create subscription' });
+      console.error('[Subscription] Error:', error);
+      if (error instanceof Stripe.errors.StripeError) {
+        console.error('[Subscription] Stripe error:', error.message);
+        res.status(400).json({ error: error.message });
+      } else {
+        console.error('[Subscription] Server error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+      }
     }
   });
 

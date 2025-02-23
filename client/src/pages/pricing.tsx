@@ -37,8 +37,10 @@ function CheckoutForm({ onSuccess, onError }) {
         return;
       }
 
+      console.log('[Payment] Created payment method:', paymentMethod.id);
       onSuccess(paymentMethod.id);
     } catch (err) {
+      console.error('[Payment] Error creating payment method:', err);
       onError(err.message);
     } finally {
       setProcessing(false);
