@@ -53,7 +53,19 @@ export default function Login() {
       if (isSignUp) {
         await signUpWithEmail(email, password);
       } else {
-        await signInWithEmail(email, password);
+        try {
+          await signInWithEmail(email, password);
+        } catch (error: any) {
+          if (error.code === "auth/user-not-found") {
+            toast({
+              title: "Account not found",
+              description: "Would you like to create an account?",
+            });
+            setLocation("/signup");
+            return;
+          }
+          throw error;
+        }
       }
     } catch (error: any) {
       toast({
