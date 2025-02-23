@@ -30,12 +30,19 @@ export async function registerRoutes(app: Express) {
         firebaseId: existingUser?.firebaseId
       });
 
-      // If user doesn't exist, create them first
       if (!existingUser) {
+        console.log("[Stripe] Creating new Stripe customer");
+        customer = await stripe.customers.create({
+          email,
+          metadata: { firebaseId }
+        });
+        stripeCustomerId = customer.id;
+        
         console.log("[User] Creating new user in database");
         const newUser = await storage.createUser({
           firebaseId,
           email,
+          stripeCustomerId,
           firstName: "",
           lastName: "",
           address: "",
@@ -44,16 +51,11 @@ export async function registerRoutes(app: Express) {
           postalCode: "",
           subscriptionType: "free"
         });
-        console.log("[User] Created new user:", newUser);
-        
-        // Create Stripe customer for new user
-        console.log("[Stripe] Creating new Stripe customer");
-        customer = await stripe.customers.create({
-          email,
-          metadata: { firebaseId }
+        console.log("[User] Created new user with Stripe customer:", {
+          userId: newUser.id,
+          stripeCustomerId
         });
-        stripeCustomerId = customer.id;
-        await storage.updateUserStripeCustomerId(newUser.id, customer.id);
+        
         return res.json({ stripeCustomerId });
       }
 
