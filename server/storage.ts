@@ -53,6 +53,14 @@ export class HybridStorage implements IStorage {
     return result.rows[0];
   }
 
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const result = await this.pgPool.query(
+      'SELECT * FROM users WHERE email = $1',
+      [email]
+    );
+    return result.rows[0];
+  }
+
   async createUser(user: InsertUser): Promise<User> {
     const result = await this.pgPool.query(
       `INSERT INTO users (
