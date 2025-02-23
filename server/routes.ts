@@ -18,10 +18,25 @@ export async function registerRoutes(app: Express) {
   app.post("/api/users", async (req, res) => {
     try {
       const user = insertUserSchema.parse(req.body);
-      const created = await storage.createUser(user);
+      
+      // Create Stripe customer
+      const customer = await stripe.customers.create({
+        email: user.email,
+        metadata: {
+          firebaseId: user.firebaseId
+        }
+      });
+      
+      // Create user with Stripe customer ID
+      const created = await storage.createUser({
+        ...user,
+        stripeCustomerId: customer.id
+      });
+      
       res.json(created);
     } catch (error) {
-      res.status(400).json({ error: "Invalid user data" });
+      console.error('Error creating user:', error);
+      res.status(400).json({ error: "Failed to create user" });
     }
   });
 
