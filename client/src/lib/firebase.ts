@@ -44,6 +44,16 @@ export function signInWithGithub() {
   return signInWithPopup(auth, githubProvider);
 }
 
+export async function sendPasswordResetEmail(email: string) {
+  try {
+    await auth.sendPasswordResetEmail(email);
+    return true;
+  } catch (error: any) {
+    console.error("Password reset error:", error);
+    throw error;
+  }
+}
+
 export async function signUpWithEmail(email: string, password: string) {
   try {
     if (password.length < 6) {

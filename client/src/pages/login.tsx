@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { signInWithGoogle, signInWithGithub, signInWithEmail, signUpWithEmail, auth } from "@/lib/firebase";
+import { signInWithGoogle, signInWithGithub, signInWithEmail, signUpWithEmail, auth, sendPasswordResetEmail } from "@/lib/firebase";
 import { FcGoogle } from "react-icons/fc";
 import { FaGithub } from "react-icons/fa";
 import { toast } from "@/hooks/use-toast";
@@ -171,7 +171,7 @@ export default function Login() {
                           return;
                         }
                         console.log("Sending password reset email to:", email);
-                        await auth.sendPasswordResetEmail(email);
+                        await sendPasswordResetEmail(email);
                         setPassword("");
                         toast({
                           title: "Success",
