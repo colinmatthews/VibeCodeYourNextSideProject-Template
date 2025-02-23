@@ -1,14 +1,14 @@
 import { useState } from "react";
-import { useLocation } from 'wouter';
-import { Card } from '@/components/ui/card';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { auth } from "@/lib/firebase";
+import { useLocation } from "wouter";
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from "firebase/auth";
+import { PaymentMethodsList } from "@/components/PaymentMethodsList";
+import { useUser } from "@/hooks/useUser";
+import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { useUser } from '@/hooks/useUser';
-import { getStripe } from '@/lib/stripe';
 
 export const PaymentMethodsList = () => {
   // We'll implement this later
@@ -17,6 +17,10 @@ export const PaymentMethodsList = () => {
 
 export default function Settings() {
   const [, setLocation] = useLocation();
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [error, setError] = useState("");
+  const { toast } = useToast();
   const { user } = useUser();
 
   return (
