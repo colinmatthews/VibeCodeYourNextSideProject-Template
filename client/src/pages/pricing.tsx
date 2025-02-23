@@ -133,44 +133,41 @@ export default function Pricing() {
             )}
             <Button 
               className="w-full" 
-              onClick={async () => {
+              onClick={() => {
                 console.log('[Pricing] Upgrade button clicked');
                 if (!user) {
                   console.log('[Pricing] No user found, redirecting to login');
                   setLocation("/login");
                   return;
                 }
-                
-                try {
-                  console.log('[Pricing] Opening payment form');
-                  setShowPaymentForm(true);
-                } catch (error: any) {
-                  handleError(error.message);
-                }
+                setShowPaymentForm(true);
               }}
             >
-              {showPaymentForm ? (
-                <Dialog open={showPaymentForm} onOpenChange={setShowPaymentForm}>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Enter Payment Details</DialogTitle>
-                    </DialogHeader>
-                    <Elements stripe={stripePromise}>
-                      <CheckoutForm 
-                        onSuccess={async (paymentMethod) => {
-                          try {
-                            console.log('[Pricing] Creating subscription for user:', user.uid);
-                            const response = await fetch('/api/create-subscription', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ 
-                                firebaseId: user.uid,
-                                paymentMethodId: paymentMethod.id
-                              })
-                            });
+              Upgrade to Pro
+            </Button>
 
-                    if (!response.ok) {
-                      const errorData = await response.json();
+            {showPaymentForm && (
+              <Dialog open={showPaymentForm} onOpenChange={setShowPaymentForm}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Enter Payment Details</DialogTitle>
+                  </DialogHeader>
+                  <Elements stripe={stripePromise}>
+                    <CheckoutForm 
+                      onSuccess={async (paymentMethod) => {
+                        try {
+                          console.log('[Pricing] Creating subscription for user:', user.uid);
+                          const response = await fetch('/api/create-subscription', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ 
+                              firebaseId: user.uid,
+                              paymentMethodId: paymentMethod.id
+                            })
+                          });
+
+                          if (!response.ok) {
+                            const errorData = await response.json();
                       throw new Error(errorData.error || 'Failed to create subscription');
                     }
 
