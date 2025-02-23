@@ -274,38 +274,27 @@ export async function registerRoutes(app: Express) {
         });
         user = await storage.updateUserStripeCustomerId(user.id, customer.id);
         console.log('[Subscription] Created new Stripe customer:', customer.id);
-      } else {
-        // Attach new payment method to existing customer
+      }
+
+      try {
+        // Try to attach the payment method, ignore if already attached
         await stripe.paymentMethods.attach(paymentMethodId, {
           customer: user.stripeCustomerId,
         });
-        
-        await stripe.customers.update(user.stripeCustomerId, {
-          invoice_settings: {
-            default_payment_method: paymentMethodId,
-          },
-        });
-      }
-      
-      if (!user.stripeCustomerId) {
-        console.log('[Subscription] Creating new Stripe customer');
-        const customer = await stripe.customers.create({
-          email: user.email,
-          payment_method: paymentMethodId,
-          metadata: {
-            firebaseId: user.firebaseId,
-          }
-        });
-        console.log('[Subscription] Created Stripe customer:', customer.id);
-        user = await storage.updateUserStripeCustomerId(user.id, customer.id);
-        console.log('[Subscription] Updated user with Stripe customer ID');
+      } catch (error) {
+        if (!error.message.includes('already been attached')) {
+          throw error;
+        }
+        console.log('[Subscription] Payment method already attached, continuing');
       }
 
-      console.log('[Subscription] Attaching payment method');
-      await stripe.paymentMethods.attach(paymentMethodId, {
-        customer: user.stripeCustomerId,
+      // Set as default payment method
+      await stripe.customers.update(user.stripeCustomerId, {
+        invoice_settings: {
+          default_payment_method: paymentMethodId,
+        },
       });
-      console.log('[Subscription] Payment method attached');
+      console.log('[Subscription] Payment method set as default');
 
       // Set as default payment method
       await stripe.customers.update(user.stripeCustomerId, {
