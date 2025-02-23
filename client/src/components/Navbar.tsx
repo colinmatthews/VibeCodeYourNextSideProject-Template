@@ -17,6 +17,7 @@ export default function Navbar() {
 
   const handleSignOut = () => {
     auth.signOut();
+    setLocation("/");
   };
 
   return (
