@@ -44,10 +44,32 @@ export function signInWithGithub() {
   return signInWithPopup(auth, githubProvider);
 }
 
-export function signUpWithEmail(email: string, password: string) {
-  return createUserWithEmailAndPassword(auth, email, password);
+export async function signUpWithEmail(email: string, password: string) {
+  try {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    return userCredential;
+  } catch (error: any) {
+    if (error.code === "auth/email-already-in-use") {
+      throw new Error("Email already in use. Please sign in instead.");
+    }
+    if (error.code === "auth/weak-password") {
+      throw new Error("Password should be at least 6 characters long.");
+    }
+    throw new Error(error.message);
+  }
 }
 
-export function signInWithEmail(email: string, password: string) {
-  return signInWithEmailAndPassword(auth, email, password);
+export async function signInWithEmail(email: string, password: string) {
+  try {
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    return userCredential;
+  } catch (error: any) {
+    if (error.code === "auth/user-not-found") {
+      throw new Error("No account found with this email.");
+    }
+    if (error.code === "auth/wrong-password") {
+      throw new Error("Invalid password.");
+    }
+    throw new Error(error.message);
+  }
 }

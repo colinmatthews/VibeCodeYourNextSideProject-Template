@@ -50,11 +50,27 @@ export default function Login() {
     e.preventDefault();
     try {
       if (isSignUp) {
-        await signUpWithEmail(email, password);
+        const userCredential = await signUpWithEmail(email, password);
+        // Create Stripe customer for new signup
+        await fetch('/api/users/ensure-stripe', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            firebaseId: userCredential.user.uid,
+            email: userCredential.user.email,
+          }),
+        });
+        toast({
+          title: "Success",
+          description: "Account created successfully",
+        });
+        setLocation("/dashboard");
       } else {
         try {
           const userCredential = await signInWithEmail(email, password);
-          // Ensure Stripe customer exists
+          // Ensure Stripe customer exists for existing user
           await fetch('/api/users/ensure-stripe', {
             method: 'POST',
             headers: {
@@ -65,13 +81,22 @@ export default function Login() {
               email: userCredential.user.email,
             }),
           });
+          setLocation("/dashboard");
         } catch (error: any) {
           if (error.code === "auth/user-not-found") {
             toast({
               title: "Account not found",
-              description: "Would you like to create an account?",
+              description: "Please sign up for an account first",
             });
-            setLocation("/signup");
+            setIsSignUp(true);
+            return;
+          }
+          if (error.code === "auth/wrong-password") {
+            toast({
+              title: "Invalid password",
+              description: "Please check your password and try again",
+              variant: "destructive"
+            });
             return;
           }
           throw error;
@@ -80,7 +105,7 @@ export default function Login() {
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Authentication failed",
         variant: "destructive"
       });
     }
