@@ -10,11 +10,6 @@ import { useUser } from "@/hooks/useUser";
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
-export const PaymentMethodsList = () => {
-  // We'll implement this later
-  return <div>Payment Methods</div>;
-};
-
 export default function Settings() {
   const [, setLocation] = useLocation();
   const [currentPassword, setCurrentPassword] = useState("");
