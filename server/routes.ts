@@ -21,12 +21,11 @@ export async function registerRoutes(app: Express) {
       const { firebaseId, email } = req.body;
       console.log("[Stripe] Received ensure-stripe request", { firebaseId, email });
       
-      // Check if user exists by email
       let stripeCustomerId;
       let customer;
-      const existingUser = await storage.getUserByEmail(email);
+      const existingUser = await storage.getUserByFirebaseId(firebaseId);
       
-      if (!existingUser) {
+      if (!existingUser?.stripeCustomerId) {
         console.log("[Stripe] Creating new Stripe customer");
         customer = await stripe.customers.create({
           email,
@@ -41,11 +40,11 @@ export async function registerRoutes(app: Express) {
           metadata: customer.metadata 
         });
       } else {
-        stripeCustomerId = user.stripeCustomerId;
+        stripeCustomerId = existingUser.stripeCustomerId;
       }
 
       // If user doesn't exist in our database, create them
-      if (!user) {
+      if (!existingUser) {
         console.log("[Database] Creating new user");
         const newUser = await storage.createUser({
           firebaseId,
