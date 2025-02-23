@@ -1,7 +1,8 @@
 
 import { type Contact, type InsertContact, type User, type InsertUser } from "@shared/schema";
 import neo4j from 'neo4j-driver';
-import { Pool } from 'pg';
+import pg from 'pg';
+const { Pool } = pg;
 
 export interface IStorage {
   // User operations
