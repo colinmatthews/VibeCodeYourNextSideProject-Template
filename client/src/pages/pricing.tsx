@@ -1,5 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAuth } from "@/hooks/use-auth";
+import { useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { Check } from "lucide-react";
 import { Elements } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
@@ -10,6 +13,11 @@ const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
 export default function Pricing() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const { data: userData } = useQuery(
+    [`/api/users/${user?.uid}`],
+    { enabled: !!user }
+  );
 
   const handleSuccess = () => {
     toast({
@@ -52,8 +60,16 @@ export default function Pricing() {
               </li>
             </ul>
           </CardContent>
-          <CardFooter>
-            <Button className="w-full">Get Started</Button>
+          <CardFooter className="flex flex-col gap-2">
+            {userData?.subscriptionType === 'free' && (
+              <p className="text-sm text-muted-foreground">You're using this plan</p>
+            )}
+            <Button 
+              className="w-full" 
+              onClick={() => !user && setLocation("/login")}
+            >
+              {user ? 'Current Plan' : 'Get Started'}
+            </Button>
           </CardFooter>
         </Card>
 
@@ -78,14 +94,26 @@ export default function Pricing() {
               </li>
             </ul>
           </CardContent>
-          <CardFooter>
-            <Elements stripe={stripePromise}>
-              <PaymentForm 
-                amount={1000}
-                onSuccess={handleSuccess}
-                onError={handleError}
-              />
-            </Elements>
+          <CardFooter className="flex flex-col gap-2">
+            {userData?.subscriptionType === 'pro' && (
+              <p className="text-sm text-muted-foreground">You're using this plan</p>
+            )}
+            {user ? (
+              <Elements stripe={stripePromise}>
+                <PaymentForm 
+                  amount={1000}
+                  onSuccess={handleSuccess}
+                  onError={handleError}
+                />
+              </Elements>
+            ) : (
+              <Button 
+                className="w-full" 
+                onClick={() => setLocation("/login")}
+              >
+                Get Started
+              </Button>
+            )}
           </CardFooter>
         </Card>
         <Card>
@@ -109,8 +137,17 @@ export default function Pricing() {
               </li>
             </ul>
           </CardContent>
-          <CardFooter>
-            <Button className="w-full" variant="outline">Contact Sales</Button>
+          <CardFooter className="flex flex-col gap-2">
+            {userData?.subscriptionType === 'enterprise' && (
+              <p className="text-sm text-muted-foreground">You're using this plan</p>
+            )}
+            <Button 
+              className="w-full" 
+              variant="outline"
+              onClick={() => !user && setLocation("/login")}
+            >
+              Contact Sales
+            </Button>
           </CardFooter>
         </Card>
       </div>
