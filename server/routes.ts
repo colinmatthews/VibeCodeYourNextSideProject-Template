@@ -290,7 +290,9 @@ export async function registerRoutes(app: Express) {
       const invoice = subscription.latest_invoice as Stripe.Invoice;
       const payment_intent = invoice.payment_intent as Stripe.PaymentIntent;
 
-      await storage.updateUserSubscription(user.id, 'pro');
+      if (subscription.status === 'active') {
+        await storage.updateUserSubscription(user.id, 'pro');
+      }
 
       res.json({
         subscriptionId: subscription.id,
