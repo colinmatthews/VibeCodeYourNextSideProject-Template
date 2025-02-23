@@ -48,6 +48,7 @@ export default function Login() {
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("[Auth] Handling email authentication");
     if (!email || !password) {
       toast({
         title: "Error",
@@ -59,9 +60,12 @@ export default function Login() {
 
     try {
       if (isSignUp) {
+        console.log("[Auth] Attempting email signup");
         const userCredential = await signUpWithEmail(email, password);
+        console.log("[Auth] Email signup successful", { uid: userCredential.user.uid });
 
         // Create Stripe customer for new user
+        console.log("[Stripe] Creating customer for new user");
         await fetch('/api/users/ensure-stripe', {
           method: 'POST',
           headers: {
@@ -72,14 +76,20 @@ export default function Login() {
             email: userCredential.user.email,
           }),
         });
+        console.log("[Stripe] Customer created successfully");
 
         toast({
           title: "Success",
-          description: "Account created successfully",
+          description: "Account created successfully"
         });
+        console.log("[Auth] Redirecting to dashboard after signup");
         setLocation("/dashboard");
       } else {
+        console.log("[Auth] Attempting email signin");
         const userCredential = await signInWithEmail(email, password);
+        console.log("[Auth] Email signin successful", { uid: userCredential.user.uid });
+
+        console.log("[Stripe] Ensuring customer exists for signin");
         // Ensure Stripe customer exists
         await fetch('/api/users/ensure-stripe', {
           method: 'POST',
@@ -91,12 +101,20 @@ export default function Login() {
             email: userCredential.user.email,
           }),
         });
+        console.log("[Stripe] Customer created successfully");
+
+        toast({
+          title: "Success",
+          description: "Account created successfully"
+        });
+        console.log("[Auth] Redirecting to dashboard after signin");
         setLocation("/dashboard");
       }
     } catch (error: any) {
+      console.error("[Auth] Authentication error:", error);
       toast({
         title: "Error",
-        description: error.message || "Authentication failed",
+        description: error.message,
         variant: "destructive"
       });
     }
