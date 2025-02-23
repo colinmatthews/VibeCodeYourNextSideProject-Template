@@ -23,7 +23,14 @@ export default function Settings() {
     }
 
     try {
+      console.log("Starting password change process");
+      // Validate new password
+      if (newPassword.length < 6) {
+        throw new Error("New password must be at least 6 characters long");
+      }
+
       // Re-authenticate user before changing password
+      console.log("Re-authenticating user");
       const credential = EmailAuthProvider.credential(
         auth.currentUser.email,
         currentPassword
@@ -31,8 +38,10 @@ export default function Settings() {
       await reauthenticateWithCredential(auth.currentUser, credential);
 
       // Update password
+      console.log("Updating password");
       await updatePassword(auth.currentUser, newPassword);
 
+      console.log("Password updated successfully");
       toast({
         title: "Success",
         description: "Password updated successfully"
@@ -42,9 +51,10 @@ export default function Settings() {
       setCurrentPassword("");
       setNewPassword("");
     } catch (error: any) {
+      console.error("Password change error:", error);
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to update password",
         variant: "destructive"
       });
     }
