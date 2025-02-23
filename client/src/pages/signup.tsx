@@ -15,7 +15,6 @@ export default function Signup() {
   const [lastName, setLastName] = useState("");
   const [address, setAddress] = useState("");
   const [, setLocation] = useLocation();
-  const { signUpWithEmail } = useAuth();
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
