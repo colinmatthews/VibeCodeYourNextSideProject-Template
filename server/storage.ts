@@ -143,21 +143,18 @@ export class Neo4jStorage implements IStorage {
     }
   }
 
-  async updateContact(
+  async updateUser(
     id: number,
-    contact: Partial<InsertContact>,
-  ): Promise<Contact> {
-    const existing = await this.getContact(id);
-    if (!existing) throw new Error("Contact not found");
+    userDetails: Partial<InsertUser>,
+  ): Promise<User> {
+    const existingUser = await this.getUser(id);
+    if (!existingUser) throw new Error("User not found");
 
-    const updated = { ...existing, ...contact };
-    this.contacts.set(id, updated);
-    return updated;
+    const updatedUser = { ...existingUser, ...userDetails };
+    this.users.set(id, updatedUser);
+    return updatedUser;
   }
 
-  async deleteContact(id: number): Promise<void> {
-    this.contacts.delete(id);
-  }
 }
 
 export const storage = new Neo4jStorage();

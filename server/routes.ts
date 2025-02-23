@@ -20,22 +20,24 @@ export async function registerRoutes(app: Express) {
     try {
       const { firebaseId, email } = req.body;
       const user = await storage.getUserByFirebaseId(firebaseId);
-      
+
+      console.log("User:", user);
       if (!user?.stripeCustomerId) {
         const customer = await stripe.customers.create({
           email,
           metadata: {
-            firebaseId
-          }
+            firebaseId,
+          },
         });
-        
+
+        console.log("Customer:", customer);
         await storage.updateUser(firebaseId, { stripeCustomerId: customer.id });
         return res.json({ stripeCustomerId: customer.id });
       }
-      
+
       return res.json({ stripeCustomerId: user.stripeCustomerId });
     } catch (error) {
-      console.error('Error ensuring Stripe customer:', error);
+      console.error("Error ensuring Stripe customer:", error);
       res.status(500).json({ error: "Failed to ensure Stripe customer" });
     }
   });
@@ -43,26 +45,26 @@ export async function registerRoutes(app: Express) {
   app.post("/api/users", async (req, res) => {
     try {
       const user = insertUserSchema.parse(req.body);
-      
+
       // Create Stripe customer
       const customer = await stripe.customers.create({
         email: user.email,
         name: `${user.firstName} ${user.lastName}`.trim(),
         metadata: {
-          firebaseId: user.firebaseId
-        }
+          firebaseId: user.firebaseId,
+        },
       });
-      
+
       // Create user with Stripe customer ID
       const created = await storage.createUser({
         ...user,
         stripeCustomerId: customer.id,
-        isPremium: false
+        isPremium: false,
       });
-      
+
       res.json(created);
     } catch (error) {
-      console.error('Error creating user:', error);
+      console.error("Error creating user:", error);
       if (error instanceof Stripe.errors.StripeError) {
         res.status(400).json({ error: "Payment service error" });
       } else {
@@ -74,7 +76,10 @@ export async function registerRoutes(app: Express) {
   app.patch("/api/users/:firebaseId", async (req, res) => {
     try {
       const { firstName, lastName } = req.body;
-      const user = await storage.updateUser(req.params.firebaseId, { firstName, lastName });
+      const user = await storage.updateUser(req.params.firebaseId, {
+        firstName,
+        lastName,
+      });
       res.json(user);
     } catch (error) {
       res.status(400).json({ error: "Failed to update user profile" });
@@ -108,11 +113,13 @@ export async function registerRoutes(app: Express) {
       console.log("x");
       const userForPremiumCheck = await storage.getUserByFirebaseId(userId);
       const contacts = await storage.getContactsByUserId(userId);
-      
+
       if (!userForPremiumCheck?.isPremium && contacts.length >= 5) {
-        return res.status(403).json({ error: "Contact limit reached. Please upgrade to Pro plan." });
+        return res.status(403).json({
+          error: "Contact limit reached. Please upgrade to Pro plan.",
+        });
       }
-      
+
       const created = await storage.createContact({ ...contact, userId });
 
       console.log("y", created);
@@ -132,14 +139,12 @@ export async function registerRoutes(app: Express) {
       console.log("b", created);
       res.json(created);
     } catch (error) {
-      res
-        .status(400)
-        .json({ 
-          error: "Invalid contact data", 
-          errorDetails: error.message, 
-          file: error.filename || 'unknown', 
-          stack: error.stack || 'No stack trace available'
-        });
+      res.status(400).json({
+        error: "Invalid contact data",
+        errorDetails: error.message,
+        file: error.filename || "unknown",
+        stack: error.stack || "No stack trace available",
+      });
     }
   });
 
