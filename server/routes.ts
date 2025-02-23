@@ -45,14 +45,32 @@ export async function registerRoutes(app: Express) {
   app.post("/api/users", async (req, res) => {
     try {
       const user = insertUserSchema.parse(req.body);
+      const fullName = `${user.firstName} ${user.lastName}`.trim();
 
-      // Create Stripe customer
+      // Create Stripe customer with shipping and billing address
       const customer = await stripe.customers.create({
         email: user.email,
-        name: `${user.firstName} ${user.lastName}`.trim(),
+        name: fullName,
         metadata: {
           firebaseId: user.firebaseId,
         },
+        shipping: {
+          name: fullName,
+          address: {
+            line1: user.address,
+            city: user.city,
+            state: user.state,
+            postal_code: user.postalCode,
+            country: 'US'
+          }
+        },
+        address: {
+          line1: user.address,
+          city: user.city,
+          state: user.state,
+          postal_code: user.postalCode,
+          country: 'US'
+        }
       });
 
       // Create user with Stripe customer ID
