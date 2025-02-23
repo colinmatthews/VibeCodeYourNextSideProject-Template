@@ -161,24 +161,27 @@ export default function Login() {
                     variant="link"
                     className="text-sm"
                     onClick={async () => {
-                      if (!email) {
-                        toast({
-                          title: "Error",
-                          description: "Please enter your email address",
-                          variant: "destructive"
-                        });
-                        return;
-                      }
                       try {
+                        if (!email) {
+                          toast({
+                            title: "Error",
+                            description: "Please enter your email address above",
+                            variant: "destructive"
+                          });
+                          return;
+                        }
+                        console.log("Sending password reset email to:", email);
                         await auth.sendPasswordResetEmail(email);
+                        setPassword("");
                         toast({
                           title: "Success",
                           description: "Password reset email sent. Please check your inbox."
                         });
                       } catch (error: any) {
+                        console.error("Password reset error:", error);
                         toast({
                           title: "Error",
-                          description: error.message,
+                          description: error.message || "Failed to send reset email",
                           variant: "destructive"
                         });
                       }
