@@ -146,14 +146,48 @@ export default function Login() {
               <Button type="submit" className="w-full">
                 {isSignUp ? "Sign Up" : "Sign In"}
               </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                className="w-full"
-                onClick={() => setIsSignUp(!isSignUp)}
-              >
-                {isSignUp ? "Already have an account? Sign In" : "Need an account? Sign Up"}
-              </Button>
+              <div className="flex flex-col gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full"
+                  onClick={() => setIsSignUp(!isSignUp)}
+                >
+                  {isSignUp ? "Already have an account? Sign In" : "Need an account? Sign Up"}
+                </Button>
+                {!isSignUp && (
+                  <Button
+                    type="button"
+                    variant="link"
+                    className="text-sm"
+                    onClick={async () => {
+                      if (!email) {
+                        toast({
+                          title: "Error",
+                          description: "Please enter your email address",
+                          variant: "destructive"
+                        });
+                        return;
+                      }
+                      try {
+                        await auth.sendPasswordResetEmail(email);
+                        toast({
+                          title: "Success",
+                          description: "Password reset email sent. Please check your inbox."
+                        });
+                      } catch (error: any) {
+                        toast({
+                          title: "Error",
+                          description: error.message,
+                          variant: "destructive"
+                        });
+                      }
+                    }}
+                  >
+                    Forgot Password?
+                  </Button>
+                )}
+              </div>
             </form>
             <div className="space-y-2">
               <Button
