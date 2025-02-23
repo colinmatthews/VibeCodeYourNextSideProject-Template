@@ -109,8 +109,8 @@ export default function Pricing() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Enterprise</CardTitle>
-            <p className="text-2xl font-bold">Custom</p>
+            <CardTitle>Patron</CardTitle>
+            <p className="text-2xl font-bold">$100/month</p>
           </CardHeader>
           <CardContent>
             <ul className="space-y-2">
@@ -118,26 +118,31 @@ export default function Pricing() {
                 <Check className="h-4 w-4" /> Everything in Pro
               </li>
               <li className="flex items-center gap-2">
-                <Check className="h-4 w-4" /> API access
+                <Check className="h-4 w-4" /> Priority Support
               </li>
               <li className="flex items-center gap-2">
-                <Check className="h-4 w-4" /> Dedicated support
+                <Check className="h-4 w-4" /> 1k Users: Early Access
               </li>
               <li className="flex items-center gap-2">
-                <Check className="h-4 w-4" /> Custom integration
+                <Check className="h-4 w-4" /> 10k Users: Custom Integration
+              </li>
+              <li className="flex items-center gap-2">
+                <Check className="h-4 w-4" /> 100k Users: Dedicated Support
+              </li>
+              <li className="flex items-center gap-2">
+                <Check className="h-4 w-4" /> 1M Users: Revenue Share
               </li>
             </ul>
           </CardContent>
           <CardFooter className="flex flex-col gap-2">
-            {userData?.subscriptionType === 'enterprise' && (
+            {userData?.subscriptionType === 'patron' && (
               <p className="text-sm text-muted-foreground">You're using this plan</p>
             )}
             <Button 
               className="w-full" 
-              variant="outline"
-              onClick={() => !user && setLocation("/login")}
+              onClick={() => user ? handleSuccess() : setLocation("/login")}
             >
-              Contact Sales
+              {user ? 'Upgrade' : 'Get Started'}
             </Button>
           </CardFooter>
         </Card>
