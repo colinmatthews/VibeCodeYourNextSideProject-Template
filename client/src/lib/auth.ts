@@ -41,13 +41,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = () => firebaseSignOut(auth);
 
+  const contextValue: AuthContextType = {
+    user,
+    loading,
+    signInWithGoogle,
+    signOut
+  };
+  
   return (
-    <AuthContext.Provider value={{
-      user,
-      loading,
-      signInWithGoogle,
-      signOut
-    }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );
