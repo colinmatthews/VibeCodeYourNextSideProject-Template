@@ -232,7 +232,7 @@ export async function registerRoutes(app: Express) {
 
       const subscription = await stripe.subscriptions.create({
         customer: user.stripeCustomerId,
-        items: [{ price: process.env.STRIPE_PRICE_ID }],
+        items: [{ price: process.env.STRIPE_PRICE_ID_PRO }],
         payment_behavior: 'default_incomplete',
         expand: ['latest_invoice.payment_intent'],
       });
