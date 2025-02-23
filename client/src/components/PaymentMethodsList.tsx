@@ -59,7 +59,11 @@ function AddPaymentMethodForm({ onSuccess, onError }) {
   );
 }
 
-export function PaymentMethodsList() {
+interface PaymentMethodsListProps {
+  onSelect?: (paymentMethodId: string) => void;
+}
+
+export function PaymentMethodsList({ onSelect }: PaymentMethodsListProps) {
   const { user } = useAuth();
   const [showAddPaymentMethod, setShowAddPaymentMethod] = useState(false);
   const queryClient = useQueryClient();
@@ -87,10 +91,19 @@ export function PaymentMethodsList() {
                   Expires {method.card.exp_month}/{method.card.exp_year}
                 </span>
               </div>
-              <Button 
-                variant="destructive" 
-                size="sm"
-                onClick={async () => {
+              <div className="flex gap-2">
+                {onSelect && (
+                  <Button
+                    size="sm"
+                    onClick={() => onSelect(method.id)}
+                  >
+                    Select
+                  </Button>
+                )}
+                <Button 
+                  variant="destructive" 
+                  size="sm"
+                  onClick={async () => {
                   try {
                     const response = await fetch(`/api/payment-methods/${method.id}`, {
                       method: 'DELETE',

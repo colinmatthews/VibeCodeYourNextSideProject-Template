@@ -165,11 +165,12 @@ export default function Pricing() {
               <Dialog open={showPaymentForm} onOpenChange={setShowPaymentForm}>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Enter Payment Details</DialogTitle>
+                    <DialogTitle>Payment Methods</DialogTitle>
+                    <DialogDescription>Select or add a payment method to upgrade to Pro</DialogDescription>
                   </DialogHeader>
                   <Elements stripe={stripePromise}>
-                    <CheckoutForm 
-                      onSuccess={async (paymentMethodId) => {
+                    <PaymentMethodsList 
+                      onSelect={async (paymentMethodId) => {
                         try {
                           console.log('[Pricing] Creating subscription for user:', user.uid);
                           const response = await fetch('/api/create-subscription', {
