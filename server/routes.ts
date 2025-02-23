@@ -278,11 +278,26 @@ export async function registerRoutes(app: Express) {
       }
 
       console.log('[Subscription] Creating Stripe subscription for customer:', user.stripeCustomerId);
+      const { paymentMethodId } = req.body;
+      
+      // Attach payment method to customer
+      await stripe.paymentMethods.attach(paymentMethodId, {
+        customer: user.stripeCustomerId,
+      });
+      
+      // Set as default payment method
+      await stripe.customers.update(user.stripeCustomerId, {
+        invoice_settings: {
+          default_payment_method: paymentMethodId,
+        },
+      });
+
       const subscription = await stripe.subscriptions.create({
         customer: user.stripeCustomerId,
         items: [{ price: process.env.STRIPE_PRICE_ID_PRO }],
         payment_behavior: 'default_incomplete',
         expand: ['latest_invoice.payment_intent'],
+        default_payment_method: paymentMethodId,
       });
       console.log('[Subscription] Subscription request sent:', { 
         subscriptionId: subscription.id, 

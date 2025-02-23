@@ -8,12 +8,43 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent, CardTitle, CardFooter } from "@/components/ui/card";
 import { Check } from "lucide-react";
 
+import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
+
+function CheckoutForm({ onSuccess, onError }) {
+  const stripe = useStripe();
+  const elements = useElements();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!stripe || !elements) return;
+
+    const { error, paymentMethod } = await stripe.createPaymentMethod({
+      type: 'card',
+      card: elements.getElement(CardElement),
+    });
+
+    if (error) {
+      onError(error.message);
+    } else {
+      onSuccess(paymentMethod);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <CardElement className="p-3 border rounded" />
+      <Button type="submit" disabled={!stripe} className="w-full">
+        Confirm Payment
+      </Button>
+    </form>
+  );
+}
 
 export default function Pricing() {
   const { toast } = useToast();
   const { user } = useAuth();
-  const [, setLocation] = useLocation();
+  const [showPaymentForm, setShowPaymentForm] = useState(false);
   const { data: userData } = useQuery({
     queryKey: ['user', user?.uid],
     queryFn: () => fetch(`/api/users/${user?.uid}`).then(res => res.json()),
@@ -111,26 +142,40 @@ export default function Pricing() {
                 
                 try {
                   console.log('[Pricing] Creating subscription for user:', user.uid);
-                  const response = await fetch('/api/create-subscription', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ firebaseId: user.uid })
-                  });
+                  setShowPaymentForm(true);
                   
-                  if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || 'Failed to create subscription');
-                  }
-                  
-                  const data = await response.json();
-                  console.log('[Pricing] Received response from server:', { subscriptionId: data.subscriptionId });
-                  const stripe = await stripePromise;
-                  
-                  if (!stripe) {
-                    console.error('[Pricing] Stripe failed to load');
-                    throw new Error('Stripe not loaded');
-                  }
-                  console.log('[Pricing] Confirming payment with Stripe');
+                  const handlePayment = async (paymentMethod) => {
+                    const response = await fetch('/api/create-subscription', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ 
+                        firebaseId: user.uid,
+                        paymentMethodId: paymentMethod.id
+                      })
+                    });
+
+                    if (!response.ok) {
+                      const errorData = await response.json();
+                      throw new Error(errorData.error || 'Failed to create subscription');
+                    }
+
+                    const data = await response.json();
+                    console.log('[Pricing] Subscription created:', data);
+                    handleSuccess();
+                    setShowPaymentForm(false);
+                  };
+
+                  return (
+                    <Elements stripe={stripePromise}>
+                      <CheckoutForm 
+                        onSuccess={handlePayment}
+                        onError={(msg) => {
+                          setShowPaymentForm(false);
+                          handleError(msg);
+                        }}
+                      />
+                    </Elements>
+                  );
 
                   const { error } = await stripe.confirmCardPayment(clientSecret);
                   
