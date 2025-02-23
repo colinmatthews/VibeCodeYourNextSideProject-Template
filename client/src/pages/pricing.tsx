@@ -9,7 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Check } from "lucide-react";
 import { useState } from "react";
 import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || '');
+console.log('[Stripe] Initializing with key:', import.meta.env.VITE_STRIPE_PUBLIC_KEY ? 'Key present' : 'Key missing');
 
 function CheckoutForm({ onSuccess, onError }) {
   const stripe = useStripe();
