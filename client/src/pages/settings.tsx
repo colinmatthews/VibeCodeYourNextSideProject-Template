@@ -16,6 +16,7 @@ export default function Settings() {
   const [newPassword, setNewPassword] = useState("");
   const [error, setError] = useState("");
   const { toast } = useToast();
+  const { user: firebaseUser } = useAuth();
   const { user } = useUser();
 
   return (
