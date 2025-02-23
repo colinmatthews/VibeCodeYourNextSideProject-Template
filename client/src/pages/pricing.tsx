@@ -67,7 +67,7 @@ export default function Pricing() {
             )}
             <Button 
               className="w-full" 
-              onClick={() => !user && setLocation("/signup")}
+              onClick={() => !user && setLocation("/login")}
             >
               {user ? 'Current Plan' : 'Get Started'}
             </Button>
@@ -101,7 +101,7 @@ export default function Pricing() {
             )}
             <Button 
               className="w-full" 
-              onClick={() => user ? handleSuccess() : setLocation("/signup")}
+              onClick={() => user ? handleSuccess() : setLocation("/login")}
             >
               {user ? 'Upgrade' : 'Get Started'}
             </Button>
