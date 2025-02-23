@@ -1,4 +1,7 @@
+
 import { type Contact, type InsertContact, type User, type InsertUser } from "@shared/schema";
+import neo4j from 'neo4j-driver';
+import { Pool } from 'pg';
 
 export interface IStorage {
   // User operations
@@ -8,153 +11,156 @@ export interface IStorage {
   updateUserSubscription(id: number, subscriptionType: string): Promise<User>;
 
   // Contact operations
-  getContact(id: number): Promise<Contact | undefined>;
-  getContactsByUserId(userId: number): Promise<Contact[]>;
-  createContact(contact: InsertContact & { userId: number }): Promise<Contact>;
-  updateContact(id: number, contact: Partial<InsertContact>): Promise<Contact>;
-  deleteContact(id: number): Promise<void>;
+  getContact(id: string): Promise<Contact | undefined>;
+  getContactsByUserId(userId: string): Promise<Contact[]>;
+  createContact(contact: InsertContact & { userId: string }): Promise<Contact>;
+  updateContact(id: string, contact: Partial<InsertContact>): Promise<Contact>;
+  deleteContact(id: string): Promise<void>;
 }
 
-import neo4j from 'neo4j-driver';
-import { v4 as uuidv4 } from 'uuid';
-
-export class Neo4jStorage implements IStorage {
-  private driver: neo4j.Driver;
-  private currentUserId: number;
-  private contacts: Map<string, Contact>;
-  private users: Map<number, User>;
+export class HybridStorage implements IStorage {
+  private neo4jDriver: neo4j.Driver;
+  private pgPool: Pool;
 
   constructor() {
-    this.driver = neo4j.driver(
+    // Neo4j setup
+    this.neo4jDriver = neo4j.driver(
       process.env.NEO4J_URI || 'neo4j://localhost:7687',
       neo4j.auth.basic(
         process.env.NEO4J_USER || 'neo4j',
         process.env.NEO4J_PASSWORD || 'password'
       )
     );
-    this.currentUserId = 1;
-    this.contacts = new Map();
-    this.users = new Map();
+
+    // PostgreSQL setup
+    this.pgPool = new Pool({
+      connectionString: process.env.DATABASE_URL
+    });
   }
 
+  // User operations with PostgreSQL
   async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
+    const result = await this.pgPool.query('SELECT * FROM users WHERE id = $1', [id]);
+    return result.rows[0];
   }
 
   async getUserByFirebaseId(firebaseId: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.firebaseId === firebaseId,
+    const result = await this.pgPool.query(
+      'SELECT * FROM users WHERE firebase_id = $1',
+      [firebaseId]
     );
+    return result.rows[0];
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.currentUserId++;
-    const user: User = {
-      ...insertUser,
-      id,
-      isPremium: insertUser.isPremium ?? false // Ensure isPremium is never undefined
-    };
-    this.users.set(id, user);
-    return user;
+  async createUser(user: InsertUser): Promise<User> {
+    const result = await this.pgPool.query(
+      `INSERT INTO users (
+        firebase_id, email, stripe_customer_id, is_premium, first_name, 
+        last_name, address, city, state, postal_code, subscription_type
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
+      [
+        user.firebaseId,
+        user.email,
+        user.stripeCustomerId || null,
+        user.isPremium || false,
+        user.firstName || '',
+        user.lastName || '',
+        user.address || '',
+        user.city || '',
+        user.state || '',
+        user.postalCode || '',
+        user.subscriptionType || 'free'
+      ]
+    );
+    return result.rows[0];
   }
 
   async updateUserSubscription(id: number, subscriptionType: string): Promise<User> {
-    const user = await this.getUser(id);
-    if (!user) throw new Error("User not found");
-
-    const updatedUser = { ...user, subscriptionType };
-    this.users.set(id, updatedUser);
-    return updatedUser;
+    const result = await this.pgPool.query(
+      'UPDATE users SET subscription_type = $1 WHERE id = $2 RETURNING *',
+      [subscriptionType, id]
+    );
+    return result.rows[0];
   }
 
-  async getContact(id: number): Promise<Contact | undefined> {
-    return this.contacts.get(id);
+  // Contact operations with Neo4j
+  async getContact(id: string): Promise<Contact | undefined> {
+    const session = this.neo4jDriver.session();
+    try {
+      const result = await session.run(
+        'MATCH (c:Contact {id: $id}) RETURN c',
+        { id }
+      );
+      return result.records[0]?.get('c').properties as Contact;
+    } finally {
+      await session.close();
+    }
   }
 
   async getContactsByUserId(userId: string): Promise<Contact[]> {
-    const session = this.driver.session();
+    const session = this.neo4jDriver.session();
     try {
-      const result = await session.executeRead(tx =>
-        tx.run(
-          `
-          MATCH (c:Contact)
-          WHERE c.userId = $userId
-          RETURN c
-          `,
-          { userId }
-        )
+      const result = await session.run(
+        'MATCH (c:Contact {userId: $userId}) RETURN c',
+        { userId }
       );
-      
-      const contacts = result.records.map(record => {
-        const contact = record.get('c').properties;
-        return {
-          id: contact.id,
-          firstName: contact.firstName,
-          lastName: contact.lastName,
-          email: contact.email,
-          phone: contact.phone,
-          userId: contact.userId
-        } as Contact;
-      });
-      console.log("Fetched contacts:", contacts);
-      return contacts;
+      return result.records.map(record => record.get('c').properties as Contact);
     } finally {
       await session.close();
     }
   }
 
-  async createContact(
-    contact: InsertContact & { userId: number },
-  ): Promise<Contact> {
-    console.log("Storage: Creating contact with userId:", contact.userId);
-    const session = this.driver.session();
+  async createContact(contact: InsertContact & { userId: string }): Promise<Contact> {
+    const session = this.neo4jDriver.session();
     try {
-      const id = uuidv4();
-      
-      const result = await session.executeWrite(tx =>
-        tx.run(
-          `
-          CREATE (c:Contact {
-            id: $id,
-            userId: $userId,
-            firstName: $firstName,
-            lastName: $lastName,
-            email: $email,
-            phone: $phone
-          })
-          WITH c
-          MATCH (existing:Contact {id: $id})
-          RETURN c, count(existing) as idExists
-          `,
-          { ...contact, id }
-        )
+      const result = await session.run(
+        `
+        CREATE (c:Contact {
+          id: $id,
+          userId: $userId,
+          firstName: $firstName,
+          lastName: $lastName,
+          email: $email,
+          phone: $phone
+        })
+        RETURN c
+        `,
+        { ...contact, id: crypto.randomUUID() }
       );
-      
-      // If ID collision occurred (extremely unlikely with UUID), retry
-      if (result.records[0].get('idExists') > 1) {
-        await session.close();
-        return this.createContact(contact);
-      }
-      
-      const newContact: Contact = { ...contact, id };
-      return newContact;
+      return result.records[0].get('c').properties as Contact;
     } finally {
       await session.close();
     }
   }
 
-  async updateUser(
-    id: number,
-    userDetails: Partial<InsertUser>,
-  ): Promise<User> {
-    const existingUser = await this.getUser(id);
-    if (!existingUser) throw new Error("User not found");
-
-    const updatedUser = { ...existingUser, ...userDetails };
-    this.users.set(id, updatedUser);
-    return updatedUser;
+  async updateContact(id: string, contact: Partial<InsertContact>): Promise<Contact> {
+    const session = this.neo4jDriver.session();
+    try {
+      const result = await session.run(
+        `
+        MATCH (c:Contact {id: $id})
+        SET c += $updates
+        RETURN c
+        `,
+        { id, updates: contact }
+      );
+      return result.records[0].get('c').properties as Contact;
+    } finally {
+      await session.close();
+    }
   }
 
+  async deleteContact(id: string): Promise<void> {
+    const session = this.neo4jDriver.session();
+    try {
+      await session.run(
+        'MATCH (c:Contact {id: $id}) DELETE c',
+        { id }
+      );
+    } finally {
+      await session.close();
+    }
+  }
 }
 
-export const storage = new Neo4jStorage();
+export const storage = new HybridStorage();
