@@ -19,26 +19,18 @@ export const SubscriptionType = {
   ENTERPRISE: 'enterprise'
 } as const;
 
-export const contacts = pgTable("contacts", {
-  id: serial("id").primaryKey(),
-  userId: text("user_id").notNull(),
-  firstName: varchar("first_name", { length: 100 }).notNull(),
-  lastName: varchar("last_name", { length: 100 }).notNull(),
-  email: varchar("email", { length: 255 }).notNull(),
-  phone: varchar("phone", { length: 20 }).notNull(),
-});
-
 export const insertUserSchema = createInsertSchema(users).pick({
   firebaseId: true,
   email: true,
   isPremium: true,
 });
 
-export const insertContactSchema = createInsertSchema(contacts).pick({
-  firstName: true,
-  lastName: true,
-  email: true,
-  phone: true,
+// Contact schema for Neo4j (not PostgreSQL)
+export const insertContactSchema = z.object({
+  firstName: z.string(),
+  lastName: z.string(),
+  email: z.string(),
+  phone: z.string()
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
