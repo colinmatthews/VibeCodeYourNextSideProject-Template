@@ -236,7 +236,19 @@ export async function registerRoutes(app: Express) {
         console.error('[Subscription] User not found:', firebaseId);
         return res.status(400).json({ error: "User not found" });
       }
-      console.log('[Subscription] Found user:', { id: user.id, email: user.email });
+      console.log('[Subscription] Found user:', { 
+        id: user.id,
+        email: user.email,
+        firebaseId: user.firebaseId,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        address: user.address,
+        city: user.city,
+        state: user.state,
+        postalCode: user.postalCode,
+        subscriptionType: user.subscriptionType,
+        stripeCustomerId: user.stripeCustomerId
+      });
       
       if (!user?.stripeCustomerId) {
         return res.status(400).json({ error: "No Stripe customer found" });
