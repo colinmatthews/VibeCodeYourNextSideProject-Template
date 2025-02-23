@@ -121,7 +121,28 @@ export default function Login() {
             </form>
             <div className="space-y-2">
               <Button
-                onClick={() => signInWithGoogle()}
+                onClick={async () => {
+                  try {
+                    const userCredential = await signInWithGoogle();
+                    // Ensure Stripe customer exists
+                    await fetch('/api/users/ensure-stripe', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({
+                        firebaseId: userCredential.user.uid,
+                        email: userCredential.user.email,
+                      }),
+                    });
+                  } catch (error: any) {
+                    toast({
+                      title: "Error",
+                      description: error.message,
+                      variant: "destructive"
+                    });
+                  }
+                }}
                 className="w-full flex items-center justify-center gap-2"
               >
                 <FcGoogle className="w-5 h-5" />
