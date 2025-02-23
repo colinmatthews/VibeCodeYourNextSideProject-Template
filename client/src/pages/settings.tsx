@@ -65,6 +65,9 @@ export default function Settings() {
   return (
     <div className="container mx-auto py-8">
       <h1 className="text-2xl font-bold mb-4">Settings</h1>
+      <div className="max-w-2xl">
+        <PaymentMethodsList />
+      </div>
       <div className="mb-4">
         <p className="text-sm text-muted-foreground">Email: {auth.currentUser?.email}</p>
       </div>

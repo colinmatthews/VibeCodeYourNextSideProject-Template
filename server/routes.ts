@@ -370,6 +370,27 @@ export async function registerRoutes(app: Express) {
     }
   });
 
+  app.get("/api/payment-methods", async (req, res) => {
+    try {
+      const { firebaseId } = req.query;
+      const user = await storage.getUserByFirebaseId(firebaseId as string);
+      
+      if (!user?.stripeCustomerId) {
+        return res.json({ paymentMethods: [] });
+      }
+
+      const paymentMethods = await stripe.paymentMethods.list({
+        customer: user.stripeCustomerId,
+        type: 'card'
+      });
+
+      res.json({ paymentMethods: paymentMethods.data });
+    } catch (error) {
+      console.error('[PaymentMethods] Error:', error);
+      res.status(500).json({ error: 'Failed to fetch payment methods' });
+    }
+  });
+
   app.post("/api/create-payment-intent", async (req, res) => {
     const { amount } = z.object({ amount: z.number() }).parse(req.body);
 
