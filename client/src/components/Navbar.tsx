@@ -41,9 +41,14 @@ export default function Navbar() {
               <Button onClick={handleSignOut} variant="outline">Sign Out</Button>
             </>
           ) : (
-            <Link href="/login">
-              <Button>Sign In</Button>
-            </Link>
+            <>
+              <Link href="/login">
+                <Button variant="ghost">Sign In</Button>
+              </Link>
+              <Link href="/signup">
+                <Button>Sign Up</Button>
+              </Link>
+            </>
           )}
         </div>
       </div>
