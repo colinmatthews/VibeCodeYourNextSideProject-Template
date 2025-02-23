@@ -42,7 +42,7 @@ export default function Pricing() {
         <p className="text-muted-foreground">Choose the plan that's right for you</p>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+      <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
         <Card>
           <CardHeader>
             <CardTitle>Free</CardTitle>
@@ -97,45 +97,6 @@ export default function Pricing() {
           </CardContent>
           <CardFooter className="flex flex-col gap-2">
             {userData?.subscriptionType === 'pro' && (
-              <p className="text-sm text-muted-foreground">You're using this plan</p>
-            )}
-            <Button 
-              className="w-full" 
-              onClick={() => user ? handleSuccess() : setLocation("/login")}
-            >
-              {user ? 'Upgrade' : 'Get Started'}
-            </Button>
-          </CardFooter>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Patron</CardTitle>
-            <p className="text-2xl font-bold">$100/month</p>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2">
-              <li className="flex items-center gap-2">
-                <Check className="h-4 w-4" /> Everything in Pro
-              </li>
-              <li className="flex items-center gap-2">
-                <Check className="h-4 w-4" /> Priority Support
-              </li>
-              <li className="flex items-center gap-2">
-                <Check className="h-4 w-4" /> 1k Users: Early Access
-              </li>
-              <li className="flex items-center gap-2">
-                <Check className="h-4 w-4" /> 10k Users: Custom Integration
-              </li>
-              <li className="flex items-center gap-2">
-                <Check className="h-4 w-4" /> 100k Users: Dedicated Support
-              </li>
-              <li className="flex items-center gap-2">
-                <Check className="h-4 w-4" /> 1M Users: Revenue Share
-              </li>
-            </ul>
-          </CardContent>
-          <CardFooter className="flex flex-col gap-2">
-            {userData?.subscriptionType === 'patron' && (
               <p className="text-sm text-muted-foreground">You're using this plan</p>
             )}
             <Button 
