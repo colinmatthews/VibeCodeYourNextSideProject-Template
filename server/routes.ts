@@ -296,6 +296,12 @@ export async function registerRoutes(app: Express) {
         },
       });
 
+      console.log('[Subscription] Creating subscription with params:', {
+        customer: user.stripeCustomerId,
+        priceId: process.env.STRIPE_PRICE_ID_PRO,
+        paymentMethodId: paymentMethodId
+      });
+
       const subscription = await stripe.subscriptions.create({
         customer: user.stripeCustomerId,
         items: [{ price: process.env.STRIPE_PRICE_ID_PRO }],
@@ -303,12 +309,22 @@ export async function registerRoutes(app: Express) {
         expand: ['latest_invoice.payment_intent'],
         default_payment_method: paymentMethodId,
       });
-      console.log('[Subscription] Subscription request sent:', { 
-        subscriptionId: subscription.id, 
-        status: subscription.status 
+
+      console.log('[Subscription] Full subscription response:', {
+        id: subscription.id,
+        status: subscription.status,
+        currentPeriodStart: subscription.current_period_start,
+        currentPeriodEnd: subscription.current_period_end,
+        defaultPaymentMethod: subscription.default_payment_method,
+        latestInvoiceId: subscription.latest_invoice,
+        customerId: subscription.customer
       });
 
       if (subscription.status === 'incomplete') {
+        console.log('[Subscription] Incomplete status details:', {
+          latestInvoice: subscription.latest_invoice,
+          paymentIntent: (subscription.latest_invoice as Stripe.Invoice).payment_intent
+        });
         return res.status(500).json({ 
           error: "Subscription creation incomplete. Please contact support." 
         });
