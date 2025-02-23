@@ -25,6 +25,16 @@ export async function registerRoutes(app: Express) {
     }
   });
 
+  app.patch("/api/users/:firebaseId", async (req, res) => {
+    try {
+      const { firstName, lastName } = req.body;
+      const user = await storage.updateUser(req.params.firebaseId, { firstName, lastName });
+      res.json(user);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to update user profile" });
+    }
+  });
+
   // Contact routes
   app.get("/api/contacts", async (req, res) => {
     const userId = req.query.userId?.toString();

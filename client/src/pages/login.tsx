@@ -14,16 +14,38 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
+  const [showProfileForm, setShowProfileForm] = useState(false);
+  const [newUser, setNewUser] = useState<User | null>(null);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
-      if (user) {
+      if (user && !showProfileForm) {
         setLocation("/dashboard");
       }
     });
 
     return () => unsubscribe();
-  }, [setLocation]);
+  }, [setLocation, showProfileForm]);
+
+  const handlePostSignup = (user: User) => {
+    setNewUser(user);
+    setShowProfileForm(true);
+  };
+
+  if (showProfileForm && newUser) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-gradient-to-b from-primary/10 to-background">
+        <Card className="w-full max-w-md mx-4">
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl font-bold">Complete Your Profile</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <UserProfileForm onComplete={() => setLocation("/dashboard")} />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
