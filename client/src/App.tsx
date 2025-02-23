@@ -11,7 +11,7 @@ import EditContact from "@/pages/contacts/edit";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import Profile from "@/pages/profile"; // Added
-import { ProfileIcon } from "@/components/ProfileIcon"; // Added
+ // Added
 import Pricing from "@/pages/pricing";
 import Footer from "@/components/Footer";
 import Link from 'next/link';
