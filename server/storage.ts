@@ -64,7 +64,7 @@ export class HybridStorage implements IStorage {
   async createUser(user: InsertUser): Promise<User> {
     const result = await this.pgPool.query(
       `INSERT INTO users (
-        firebase_id, email, stripe_customer_id, is_premium, first_name, 
+        firebase_id, email, "stripeCustomerId", is_premium, first_name, 
         last_name, address, city, state, postal_code, subscription_type
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
       [
