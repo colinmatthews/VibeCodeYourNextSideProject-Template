@@ -7,6 +7,7 @@ import { signInWithGoogle, signInWithGithub, signInWithEmail, signUpWithEmail, a
 import { FcGoogle } from "react-icons/fc";
 import { FaGithub } from "react-icons/fa";
 import { toast } from "@/hooks/use-toast";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 export default function Login() {
   const [, setLocation] = useLocation();
@@ -16,6 +17,8 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
   const [showProfileForm, setShowProfileForm] = useState(false);
   const [newUser, setNewUser] = useState<User | null>(null);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
@@ -121,6 +124,33 @@ export default function Login() {
     }
   };
 
+  const handlePasswordReset = async () => {
+    try {
+      if (!resetEmail) {
+        toast({
+          title: "Error",
+          description: "Please enter your email address",
+          variant: "destructive"
+        });
+        return;
+      }
+      await sendPasswordResetEmail(resetEmail);
+      setShowForgotPassword(false);
+      setResetEmail("");
+      toast({
+        title: "Success",
+        description: "Password reset email sent. Please check your inbox."
+      });
+    } catch (error: any) {
+      console.error("Password reset error:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to send reset email",
+        variant: "destructive"
+      });
+    }
+  };
+
   return (
     <div className="flex-1 flex flex-col">
       <div className="flex-1 flex items-center justify-center bg-gradient-to-b from-primary/10 to-background">
@@ -160,32 +190,7 @@ export default function Login() {
                     type="button"
                     variant="link"
                     className="text-sm"
-                    onClick={async () => {
-                      try {
-                        if (!email) {
-                          toast({
-                            title: "Error",
-                            description: "Please enter your email address above",
-                            variant: "destructive"
-                          });
-                          return;
-                        }
-                        console.log("Sending password reset email to:", email);
-                        await sendPasswordResetEmail(email);
-                        setPassword("");
-                        toast({
-                          title: "Success",
-                          description: "Password reset email sent. Please check your inbox."
-                        });
-                      } catch (error: any) {
-                        console.error("Password reset error:", error);
-                        toast({
-                          title: "Error",
-                          description: error.message || "Failed to send reset email",
-                          variant: "destructive"
-                        });
-                      }
-                    }}
+                    onClick={() => setShowForgotPassword(true)} // Open dialog on click
                   >
                     Forgot Password?
                   </Button>
@@ -250,6 +255,26 @@ export default function Login() {
             </div>
           </CardContent>
         </Card>
+
+        <Dialog open={showForgotPassword} onOpenChange={setShowForgotPassword}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Reset Password</DialogTitle>
+            </DialogHeader>
+            <div className="py-4">
+              <Input
+                type="email"
+                placeholder="Enter your email"
+                value={resetEmail}
+                onChange={(e) => setResetEmail(e.target.value)}
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowForgotPassword(false)}>Cancel</Button>
+              <Button onClick={handlePasswordReset}>Send Reset Link</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
