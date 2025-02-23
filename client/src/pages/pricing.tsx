@@ -102,12 +102,15 @@ export default function Pricing() {
             <Button 
               className="w-full" 
               onClick={async () => {
+                console.log('[Pricing] Upgrade button clicked');
                 if (!user) {
+                  console.log('[Pricing] No user found, redirecting to login');
                   setLocation("/login");
                   return;
                 }
                 
                 try {
+                  console.log('[Pricing] Creating subscription for user:', user.uid);
                   const response = await fetch('/api/create-subscription', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -118,12 +121,15 @@ export default function Pricing() {
                     throw new Error('Failed to create subscription');
                   }
                   
-                  const { clientSecret } = await response.json();
+                  const data = await response.json();
+                  console.log('[Pricing] Received response from server:', { subscriptionId: data.subscriptionId });
                   const stripe = await stripePromise;
                   
                   if (!stripe) {
+                    console.error('[Pricing] Stripe failed to load');
                     throw new Error('Stripe not loaded');
                   }
+                  console.log('[Pricing] Confirming payment with Stripe');
 
                   const { error } = await stripe.confirmCardPayment(clientSecret);
                   

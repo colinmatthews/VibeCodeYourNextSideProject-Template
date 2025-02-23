@@ -227,22 +227,31 @@ export async function registerRoutes(app: Express) {
   // Payment routes
   app.post("/api/create-subscription", async (req, res) => {
     try {
+      console.log('[Subscription] Received subscription request');
       const { firebaseId } = req.body;
+      console.log('[Subscription] Looking up user:', firebaseId);
       let user = await storage.getUserByFirebaseId(firebaseId);
       
       if (!user) {
+        console.error('[Subscription] User not found:', firebaseId);
         return res.status(400).json({ error: "User not found" });
       }
+      console.log('[Subscription] Found user:', { id: user.id, email: user.email });
       
       if (!user?.stripeCustomerId) {
         return res.status(400).json({ error: "No Stripe customer found" });
       }
 
+      console.log('[Subscription] Creating Stripe subscription for customer:', user.stripeCustomerId);
       const subscription = await stripe.subscriptions.create({
         customer: user.stripeCustomerId,
         items: [{ price: process.env.STRIPE_PRICE_ID_PRO }],
         payment_behavior: 'default_incomplete',
         expand: ['latest_invoice.payment_intent'],
+      });
+      console.log('[Subscription] Subscription created:', { 
+        subscriptionId: subscription.id, 
+        status: subscription.status 
       });
 
       const invoice = subscription.latest_invoice as Stripe.Invoice;
