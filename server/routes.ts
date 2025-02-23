@@ -307,8 +307,8 @@ export async function registerRoutes(app: Express) {
           customer: user.stripeCustomerId,
         });
         console.log('[Subscription] Payment method attached');
-      
-      // Set as default payment method
+      } finally {
+        // Set as default payment method
       await stripe.customers.update(user.stripeCustomerId, {
         invoice_settings: {
           default_payment_method: paymentMethodId,
