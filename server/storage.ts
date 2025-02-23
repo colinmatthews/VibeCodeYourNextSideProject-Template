@@ -91,6 +91,14 @@ export class HybridStorage implements IStorage {
     return result.rows[0];
   }
 
+  async updateUserStripeCustomerId(id: number, stripeCustomerId: string): Promise<User> {
+    const result = await this.pgPool.query(
+      'UPDATE users SET stripe_customer_id = $1 WHERE id = $2 RETURNING *',
+      [stripeCustomerId, id]
+    );
+    return result.rows[0];
+  }
+
   // Contact operations with Neo4j
   async getContact(id: string): Promise<Contact | undefined> {
     const session = this.neo4jDriver.session();

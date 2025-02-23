@@ -209,18 +209,7 @@ export default function Login() {
                     });
 
                     // Ensure Stripe customer exists
-                    console.log("[Stripe] Ensuring customer exists");
-                    await fetch('/api/users/ensure-stripe', {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json',
-                      },
-                      body: JSON.stringify({
-                        firebaseId: userCredential.user.uid,
-                        email: userCredential.user.email,
-                      }),
-                    });
-                  } catch (error: any) {
+                    } catch (error: any) {
                     setError(error.message);
                     toast({
                       title: "Error",
