@@ -2,16 +2,24 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { auth } from "@/lib/firebase";
 import { useLocation } from "wouter";
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from "firebase/auth";
-import { PaymentMethodsList } from "@/components/PaymentMethodsList";
 import { useUser } from "@/hooks/useUser";
+import { useAuth } from "@/hooks/use-auth";
 import { Card } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+
+const PaymentMethodsList = () => {
+  return (
+    <div>
+      <h3>Your Payment Methods</h3>
+      {/* Payment methods list implementation */}
+    </div>
+  );
+};
 
 export default function Settings() {
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [error, setError] = useState("");
