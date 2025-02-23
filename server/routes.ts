@@ -21,27 +21,50 @@ export async function registerRoutes(app: Express) {
       const { firebaseId, email } = req.body;
       console.log("[Stripe] Received ensure-stripe request", { firebaseId, email });
       
+      // Create Stripe customer if needed
+      let stripeCustomerId;
+      let customer;
       const user = await storage.getUserByFirebaseId(firebaseId);
-      console.log("[Stripe] Found user in database:", user);
+      
       if (!user?.stripeCustomerId) {
-        console.log("[Stripe] No existing customer ID, creating new customer");
-        const customer = await stripe.customers.create({
+        console.log("[Stripe] Creating new Stripe customer");
+        customer = await stripe.customers.create({
           email,
           metadata: {
             firebaseId,
           },
         });
-
+        stripeCustomerId = customer.id;
         console.log("[Stripe] Created new customer:", { 
-          customerId: customer.id,
+          customerId: stripeCustomerId,
           email: customer.email,
           metadata: customer.metadata 
         });
-        await storage.updateUser(firebaseId, { stripeCustomerId: customer.id });
-        return res.json({ stripeCustomerId: customer.id });
+      } else {
+        stripeCustomerId = user.stripeCustomerId;
       }
 
-      return res.json({ stripeCustomerId: user.stripeCustomerId });
+      // If user doesn't exist in our database, create them
+      if (!user) {
+        console.log("[Database] Creating new user");
+        const newUser = await storage.createUser({
+          firebaseId,
+          email,
+          stripeCustomerId,
+          isPremium: false,
+          firstName: "",
+          lastName: "",
+          address: "",
+          city: "",
+          state: "",
+          postalCode: "",
+          subscriptionType: "free"
+        });
+        console.log("[Database] Created new user:", newUser);
+        return res.json({ stripeCustomerId });
+      }
+
+      return res.json({ stripeCustomerId });
     } catch (error) {
       console.error("Error ensuring Stripe customer:", error);
       res.status(500).json({ error: "Failed to ensure Stripe customer" });
