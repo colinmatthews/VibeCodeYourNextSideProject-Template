@@ -19,7 +19,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | null>(null);
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -42,14 +42,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = () => firebaseSignOut(auth);
 
   return (
-    <AuthContext.Provider 
-      value={{
-        user,
-        loading,
-        signInWithGoogle,
-        signOut
-      }}
-    >
+    <AuthContext.Provider value={{
+      user,
+      loading,
+      signInWithGoogle,
+      signOut
+    }}>
       {children}
     </AuthContext.Provider>
   );
