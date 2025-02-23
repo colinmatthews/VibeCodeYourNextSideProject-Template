@@ -1,19 +1,38 @@
-
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Check } from "lucide-react";
-import { handlePayment } from "@/lib/stripe";
+import { Elements } from "@stripe/react-stripe-js";
+import { loadStripe } from "@stripe/stripe-js";
+import { PaymentForm } from "@/components/PaymentForm";
 import { useToast } from "@/hooks/use-toast";
+
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
 export default function Pricing() {
   const { toast } = useToast();
+
+  const handleSuccess = () => {
+    toast({
+      title: "Success!",
+      description: "Your subscription has been activated.",
+    });
+  };
+
+  const handleError = (error: string) => {
+    toast({
+      title: "Error",
+      description: error || "Payment failed. Please try again.",
+      variant: "destructive",
+    });
+  };
+
   return (
     <div className="container mx-auto py-16 px-4">
       <div className="text-center mb-12">
         <h1 className="text-4xl font-bold mb-4">Simple, Transparent Pricing</h1>
         <p className="text-muted-foreground">Choose the plan that's right for you</p>
       </div>
-      
+
       <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
         <Card>
           <CardHeader>
@@ -23,7 +42,7 @@ export default function Pricing() {
           <CardContent>
             <ul className="space-y-2">
               <li className="flex items-center gap-2">
-                <Check className="h-4 w-4" /> Up to 50 contacts
+                <Check className="h-4 w-4" /> Up to 5 contacts
               </li>
               <li className="flex items-center gap-2">
                 <Check className="h-4 w-4" /> Basic search
@@ -60,32 +79,15 @@ export default function Pricing() {
             </ul>
           </CardContent>
           <CardFooter>
-            <Button 
-              className="w-full" 
-              variant="default"
-              onClick={async () => {
-                try {
-                  const result = await handlePayment(1000); // $10 in cents
-                  if (result.paymentIntent?.status === 'succeeded') {
-                    toast({
-                      title: "Success!",
-                      description: "Your subscription has been activated.",
-                    });
-                  }
-                } catch (error) {
-                  toast({
-                    title: "Error",
-                    description: "Payment failed. Please try again.",
-                    variant: "destructive",
-                  });
-                }
-              }}
-            >
-              Subscribe
-            </Button>
+            <Elements stripe={stripePromise}>
+              <PaymentForm 
+                amount={1000}
+                onSuccess={handleSuccess}
+                onError={handleError}
+              />
+            </Elements>
           </CardFooter>
         </Card>
-
         <Card>
           <CardHeader>
             <CardTitle>Enterprise</CardTitle>
