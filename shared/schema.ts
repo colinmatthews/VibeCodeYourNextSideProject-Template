@@ -12,13 +12,13 @@ export const users = pgTable("users", {
   city: text("city").notNull(),
   state: text("state").notNull(),
   postalCode: text("postal_code").notNull(),
-  subscriptionType: text("subscription_type").notNull().default('free'),
-  stripeCustomerId: text("stripeCustomerId"),
+  subscriptionType: text("subscription_type").notNull().default("free"),
+  stripeCustomerId: text("stripe_customer_id"),
 });
 
 export const SubscriptionType = {
-  FREE: 'free',
-  PRO: 'pro'
+  FREE: "free",
+  PRO: "pro",
 } as const;
 
 export const insertUserSchema = createInsertSchema(users).pick({
@@ -32,7 +32,7 @@ export const insertContactSchema = z.object({
   firstName: z.string(),
   lastName: z.string(),
   email: z.string(),
-  phone: z.string()
+  phone: z.string(),
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
