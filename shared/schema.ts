@@ -13,7 +13,7 @@ export const users = pgTable("users", {
   state: text("state").notNull(),
   postalCode: text("postal_code").notNull(),
   subscriptionType: text("subscription_type").notNull().default('free'),
-  stripeCustomerId: text("stripe_customer_id"),
+  stripeCustomerId: text("stripeCustomerId"),
 });
 
 export const SubscriptionType = {
