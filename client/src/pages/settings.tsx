@@ -9,14 +9,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
-const PaymentMethodsList = () => {
-  return (
-    <div>
-      <h3>Your Payment Methods</h3>
-      {/* Payment methods list implementation */}
-    </div>
-  );
-};
+import { PaymentMethodsList } from "@/components/PaymentMethodsList";
 
 export default function Settings() {
   const [location, setLocation] = useLocation();
