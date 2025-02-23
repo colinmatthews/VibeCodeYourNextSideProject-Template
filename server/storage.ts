@@ -110,7 +110,7 @@ export class Neo4jStorage implements IStorage {
     const session = this.driver.session();
     try {
       const id = uuidv4();
-
+      
       const result = await session.executeWrite(tx =>
         tx.run(
           `
@@ -122,11 +122,20 @@ export class Neo4jStorage implements IStorage {
             email: $email,
             phone: $phone
           })
-          RETURN c
+          WITH c
+          MATCH (existing:Contact {id: $id})
+          RETURN c, count(existing) as idExists
           `,
           { ...contact, id }
         )
       );
+      
+      // If ID collision occurred (extremely unlikely with UUID), retry
+      if (result.records[0].get('idExists') > 1) {
+        await session.close();
+        return this.createContact(contact);
+      }
+      
       const newContact: Contact = { ...contact, id };
       return newContact;
     } finally {
