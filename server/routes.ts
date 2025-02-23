@@ -243,7 +243,7 @@ export async function registerRoutes(app: Express) {
   app.post("/api/create-subscription", async (req, res) => {
     try {
       console.log('[Subscription] Received subscription request');
-      const { firebaseId } = req.body;
+      const { firebaseId, paymentMethodId } = req.body;
       console.log('[Subscription] Looking up user:', firebaseId);
       let user = await storage.getUserByFirebaseId(firebaseId);
       
@@ -255,15 +255,37 @@ export async function registerRoutes(app: Express) {
         id: user.id,
         email: user.email,
         firebaseId: user.firebaseId,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        address: user.address,
-        city: user.city,
-        state: user.state,
-        postalCode: user.postalCode,
         subscriptionType: user.subscriptionType,
         stripeCustomerId: user.stripeCustomerId
       });
+
+      // If no Stripe customer exists, create one
+      if (!user.stripeCustomerId) {
+        console.log('[Subscription] Creating new Stripe customer');
+        const customer = await stripe.customers.create({
+          email: user.email,
+          payment_method: paymentMethodId,
+          invoice_settings: {
+            default_payment_method: paymentMethodId,
+          },
+          metadata: {
+            firebaseId: user.firebaseId,
+          }
+        });
+        user = await storage.updateUserStripeCustomerId(user.id, customer.id);
+        console.log('[Subscription] Created new Stripe customer:', customer.id);
+      } else {
+        // Attach new payment method to existing customer
+        await stripe.paymentMethods.attach(paymentMethodId, {
+          customer: user.stripeCustomerId,
+        });
+        
+        await stripe.customers.update(user.stripeCustomerId, {
+          invoice_settings: {
+            default_payment_method: paymentMethodId,
+          },
+        });
+      }
       
       if (!user.stripeCustomerId) {
         console.log('[Subscription] Creating new Stripe customer');

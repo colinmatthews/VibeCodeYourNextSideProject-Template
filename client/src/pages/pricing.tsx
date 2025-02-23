@@ -15,28 +15,41 @@ console.log('[Stripe] Initializing with key:', import.meta.env.VITE_STRIPE_PUBLI
 function CheckoutForm({ onSuccess, onError }) {
   const stripe = useStripe();
   const elements = useElements();
+  const [processing, setProcessing] = useState(false);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!stripe || !elements) return;
+  const handleSubmit = async (event) => {
+    event.preventDefault();
 
-    const { error, paymentMethod } = await stripe.createPaymentMethod({
-      type: 'card',
-      card: elements.getElement(CardElement),
-    });
+    if (!stripe || !elements) {
+      return;
+    }
 
-    if (error) {
-      onError(error.message);
-    } else {
-      onSuccess(paymentMethod);
+    setProcessing(true);
+
+    try {
+      const { error, paymentMethod } = await stripe.createPaymentMethod({
+        type: 'card',
+        card: elements.getElement(CardElement),
+      });
+
+      if (error) {
+        onError(error.message);
+        return;
+      }
+
+      onSuccess(paymentMethod.id);
+    } catch (err) {
+      onError(err.message);
+    } finally {
+      setProcessing(false);
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <CardElement className="p-3 border rounded" />
-      <Button type="submit" disabled={!stripe} className="w-full">
-        Confirm Payment
+      <Button type="submit" disabled={!stripe || processing} className="w-full">
+        {processing ? 'Processing...' : 'Confirm Payment'}
       </Button>
     </form>
   );
@@ -154,7 +167,7 @@ export default function Pricing() {
                   </DialogHeader>
                   <Elements stripe={stripePromise}>
                     <CheckoutForm 
-                      onSuccess={async (paymentMethod) => {
+                      onSuccess={async (paymentMethodId) => {
                         try {
                           console.log('[Pricing] Creating subscription for user:', user.uid);
                           const response = await fetch('/api/create-subscription', {
@@ -162,7 +175,7 @@ export default function Pricing() {
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ 
                               firebaseId: user.uid,
-                              paymentMethodId: paymentMethod.id
+                              paymentMethodId: paymentMethodId
                             })
                           });
 
