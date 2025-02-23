@@ -7,7 +7,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent, CardTitle, CardFooter } from "@/components/ui/card";
 import { Check } from "lucide-react";
-
+import { useState } from "react";
+import { useLocation } from "wouter";
 import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
