@@ -8,6 +8,7 @@ import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from 
 export default function Settings() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [error, setError] = useState("");
   const { toast } = useToast();
 
   const handlePasswordChange = async (e: React.FormEvent) => {
@@ -52,6 +53,7 @@ export default function Settings() {
       setNewPassword("");
     } catch (error: any) {
       console.error("Password change error:", error);
+      setError(error.message || "Failed to update password");
       toast({
         title: "Error",
         description: error.message || "Failed to update password",
@@ -89,7 +91,10 @@ export default function Settings() {
                 required
               />
             </div>
-            <Button type="submit">Update Password</Button>
+            <div className="flex items-center justify-between">
+              <Button type="submit">Update Password</Button>
+              {error && <span className="text-red-500 text-sm">{error}</span>}
+            </div>
           </form>
         </div>
 
