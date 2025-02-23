@@ -50,6 +50,13 @@ export async function registerRoutes(app: Express) {
         return res.status(400).json({ error: "Invalid user ID" });
       }
       console.log("x");
+      const user = await storage.getUserByFirebaseId(userId);
+      const contacts = await storage.getContactsByUserId(userId);
+      
+      if (!user?.isPremium && contacts.length >= 5) {
+        return res.status(403).json({ error: "Contact limit reached. Please upgrade to Pro plan." });
+      }
+      
       const created = await storage.createContact({ ...contact, userId });
 
       console.log("y", created);

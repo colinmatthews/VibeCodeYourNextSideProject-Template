@@ -19,6 +19,7 @@ export default function Dashboard() {
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [isNewContactOpen, setIsNewContactOpen] = useState(false);
+  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const { data: contacts = [], refetch } = useQuery<Contact[]>({
     queryKey: ['contacts', user?.uid],
     queryFn: async () => {
@@ -57,12 +58,20 @@ export default function Dashboard() {
       contact.email.toLowerCase().includes(search.toLowerCase()),
   );
 
+  const handleNewContact = () => {
+    if (user?.plan === 'free' && contacts.length >= 5) {
+      setShowUpgradeDialog(true);
+    } else {
+      setIsNewContactOpen(true);
+    }
+  };
+
   return (
     <div className="container mx-auto py-8 space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Contacts</h1>
-        <Button onClick={() => setIsNewContactOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" /> New Contact
+        <Button onClick={handleNewContact}>
+          <Plus className="h-4 w-4 mr-2" /> New Contact
         </Button>
       </div>
 
@@ -83,6 +92,21 @@ export default function Dashboard() {
               });
             }}
           />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Contact Limit Reached</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p>You've reached the maximum of 5 contacts on the free plan. Upgrade to Pro for unlimited contacts!</p>
+          </div>
+          <div className="flex justify-end gap-4">
+            <Button variant="outline" onClick={() => setShowUpgradeDialog(false)}>Cancel</Button>
+            <Button onClick={() => setLocation("/pricing")}>View Pricing</Button>
+          </div>
         </DialogContent>
       </Dialog>
 
