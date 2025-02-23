@@ -2,8 +2,11 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Check } from "lucide-react";
+import { handlePayment } from "@/lib/stripe";
+import { useToast } from "@/components/ui/use-toast";
 
 export default function Pricing() {
+  const { toast } = useToast();
   return (
     <div className="container mx-auto py-16 px-4">
       <div className="text-center mb-12">
@@ -57,7 +60,29 @@ export default function Pricing() {
             </ul>
           </CardContent>
           <CardFooter>
-            <Button className="w-full" variant="default">Subscribe</Button>
+            <Button 
+              className="w-full" 
+              variant="default"
+              onClick={async () => {
+                try {
+                  const result = await handlePayment(1000); // $10 in cents
+                  if (result.paymentIntent?.status === 'succeeded') {
+                    toast({
+                      title: "Success!",
+                      description: "Your subscription has been activated.",
+                    });
+                  }
+                } catch (error) {
+                  toast({
+                    title: "Error",
+                    description: "Payment failed. Please try again.",
+                    variant: "destructive",
+                  });
+                }
+              }}
+            >
+              Subscribe
+            </Button>
           </CardFooter>
         </Card>
 
