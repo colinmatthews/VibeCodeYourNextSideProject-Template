@@ -43,7 +43,7 @@ export default function Navbar() {
           ) : (
             <>
               <Link href="/login">
-                <Button variant="ghost">Sign In</Button>
+                <Button>Sign In</Button>
               </Link>
               <Link href="/signup">
                 <Button>Sign Up</Button>
