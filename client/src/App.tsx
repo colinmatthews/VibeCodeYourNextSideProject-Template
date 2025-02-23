@@ -11,13 +11,15 @@ import EditContact from "@/pages/contacts/edit";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import Profile from "@/pages/profile"; // Added
- // Added
+// Added
 import Pricing from "@/pages/pricing";
 import Footer from "@/components/Footer";
-import Link from 'next/link';
+import Link from "next/link";
 
-
-class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+class ErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean }
+> {
   constructor(props: { children: ReactNode }) {
     super(props);
     this.state = { hasError: false };
@@ -28,7 +30,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('Error caught by boundary:', error, errorInfo);
+    console.error("Error caught by boundary:", error, errorInfo);
   }
 
   render() {
@@ -52,15 +54,10 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
   }
 }
 
-
 function Router() {
   return (
     <div className="min-h-screen flex flex-col">
-      <Navbar>
-        <div className="ml-auto"> {/* Added ProfileIcon to Navbar */}
-          <ProfileIcon />
-        </div>
-      </Navbar>
+      <Navbar />
       <div className="flex-1">
         <Switch>
           <Route path="/" component={Landing} />
@@ -69,7 +66,8 @@ function Router() {
           <Route path="/pricing" component={Pricing} />
           <Route path="/contacts/new" component={NewContact} />
           <Route path="/contacts/edit/:id" component={EditContact} />
-          <Route path="/profile" component={Profile} /> {/* Added Profile Route */}
+          <Route path="/profile" component={Profile} />{" "}
+          {/* Added Profile Route */}
           <Route component={NotFound} />
         </Switch>
       </div>
