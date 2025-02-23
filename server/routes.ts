@@ -22,6 +22,7 @@ export async function registerRoutes(app: Express) {
       // Create Stripe customer
       const customer = await stripe.customers.create({
         email: user.email,
+        name: `${user.firstName} ${user.lastName}`.trim(),
         metadata: {
           firebaseId: user.firebaseId
         }
@@ -30,13 +31,18 @@ export async function registerRoutes(app: Express) {
       // Create user with Stripe customer ID
       const created = await storage.createUser({
         ...user,
-        stripeCustomerId: customer.id
+        stripeCustomerId: customer.id,
+        isPremium: false
       });
       
       res.json(created);
     } catch (error) {
       console.error('Error creating user:', error);
-      res.status(400).json({ error: "Failed to create user" });
+      if (error instanceof Stripe.errors.StripeError) {
+        res.status(400).json({ error: "Payment service error" });
+      } else {
+        res.status(400).json({ error: "Failed to create user" });
+      }
     }
   });
 
