@@ -7,6 +7,7 @@ export const users = pgTable("users", {
   firebaseId: text("firebase_id").notNull().unique(),
   email: text("email").notNull(),
   subscriptionType: text("subscription_type").notNull().default('free'),
+  stripeCustomerId: text("stripe_customer_id"),
 });
 
 export const SubscriptionType = {
