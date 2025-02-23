@@ -99,22 +99,12 @@ export default function Pricing() {
             {userData?.subscriptionType === 'pro' && (
               <p className="text-sm text-muted-foreground">You're using this plan</p>
             )}
-            {user ? (
-              <Elements stripe={stripePromise}>
-                <PaymentForm 
-                  amount={1000}
-                  onSuccess={handleSuccess}
-                  onError={handleError}
-                />
-              </Elements>
-            ) : (
-              <Button 
-                className="w-full" 
-                onClick={() => setLocation("/login")}
-              >
-                Get Started
-              </Button>
-            )}
+            <Button 
+              className="w-full" 
+              onClick={() => user ? handleSuccess() : setLocation("/login")}
+            >
+              {user ? 'Upgrade' : 'Get Started'}
+            </Button>
           </CardFooter>
         </Card>
         <Card>
