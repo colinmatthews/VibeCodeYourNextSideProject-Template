@@ -5,7 +5,7 @@ export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByFirebaseId(firebaseId: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
-  updateUserPremiumStatus(id: number, isPremium: boolean): Promise<User>;
+  updateUserSubscription(id: number, subscriptionType: string): Promise<User>;
 
   // Contact operations
   getContact(id: number): Promise<Contact | undefined>;
@@ -58,11 +58,11 @@ export class Neo4jStorage implements IStorage {
     return user;
   }
 
-  async updateUserPremiumStatus(id: number, isPremium: boolean): Promise<User> {
+  async updateUserSubscription(id: number, subscriptionType: string): Promise<User> {
     const user = await this.getUser(id);
     if (!user) throw new Error("User not found");
 
-    const updatedUser = { ...user, isPremium };
+    const updatedUser = { ...user, subscriptionType };
     this.users.set(id, updatedUser);
     return updatedUser;
   }
