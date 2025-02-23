@@ -230,22 +230,8 @@ export async function registerRoutes(app: Express) {
       const { firebaseId } = req.body;
       let user = await storage.getUserByFirebaseId(firebaseId);
       
-      // If user doesn't exist, create them
       if (!user) {
-        const { email } = await stripe.customers.retrieve(user?.stripeCustomerId || '');
-        user = await storage.createUser({
-          firebaseId,
-          email: email || '',
-          stripeCustomerId: user?.stripeCustomerId,
-          isPremium: false,
-          firstName: '',
-          lastName: '',
-          address: '',
-          city: '',
-          state: '',
-          postalCode: '',
-          subscriptionType: 'free'
-        });
+        return res.status(400).json({ error: "User not found" });
       }
       
       if (!user?.stripeCustomerId) {
