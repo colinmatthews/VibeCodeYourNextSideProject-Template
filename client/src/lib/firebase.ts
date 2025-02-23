@@ -7,7 +7,8 @@ import {
   GithubAuthProvider,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  onAuthStateChanged 
+  onAuthStateChanged,
+  sendPasswordResetEmail as firebaseSendPasswordResetEmail
 } from "firebase/auth";
 
 const firebaseConfig = {
@@ -46,7 +47,7 @@ export function signInWithGithub() {
 
 export async function sendPasswordResetEmail(email: string) {
   try {
-    await auth.sendPasswordResetEmail(email);
+    await firebaseSendPasswordResetEmail(auth, email);
     return true;
   } catch (error: any) {
     console.error("Password reset error:", error);
