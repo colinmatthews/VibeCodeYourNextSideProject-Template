@@ -15,6 +15,31 @@ export async function registerRoutes(app: Express) {
   const server = createServer(app);
 
   // User routes
+  // Check and create Stripe customer if needed
+  app.post("/api/users/ensure-stripe", async (req, res) => {
+    try {
+      const { firebaseId, email } = req.body;
+      const user = await storage.getUserByFirebaseId(firebaseId);
+      
+      if (!user?.stripeCustomerId) {
+        const customer = await stripe.customers.create({
+          email,
+          metadata: {
+            firebaseId
+          }
+        });
+        
+        await storage.updateUser(firebaseId, { stripeCustomerId: customer.id });
+        return res.json({ stripeCustomerId: customer.id });
+      }
+      
+      return res.json({ stripeCustomerId: user.stripeCustomerId });
+    } catch (error) {
+      console.error('Error ensuring Stripe customer:', error);
+      res.status(500).json({ error: "Failed to ensure Stripe customer" });
+    }
+  });
+
   app.post("/api/users", async (req, res) => {
     try {
       const user = insertUserSchema.parse(req.body);

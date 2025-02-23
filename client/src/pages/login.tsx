@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -54,7 +53,18 @@ export default function Login() {
         await signUpWithEmail(email, password);
       } else {
         try {
-          await signInWithEmail(email, password);
+          const userCredential = await signInWithEmail(email, password);
+          // Ensure Stripe customer exists
+          await fetch('/api/users/ensure-stripe', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              firebaseId: userCredential.user.uid,
+              email: userCredential.user.email,
+            }),
+          });
         } catch (error: any) {
           if (error.code === "auth/user-not-found") {
             toast({
