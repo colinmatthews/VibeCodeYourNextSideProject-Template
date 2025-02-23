@@ -30,7 +30,9 @@ const githubProvider = new GithubAuthProvider();
 
 export async function signInWithGoogle() {
   try {
+    console.log('signInWithGoogle');
     const result = await signInWithPopup(auth, googleProvider);
+    console.log("Google sign in successful in firebase", result)
     return result.user;
   } catch (error) {
     console.error("Google sign-in error:", error);
