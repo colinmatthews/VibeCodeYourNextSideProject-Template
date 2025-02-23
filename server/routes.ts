@@ -224,7 +224,25 @@ export async function registerRoutes(app: Express) {
   app.post("/api/create-subscription", async (req, res) => {
     try {
       const { firebaseId } = req.body;
-      const user = await storage.getUserByFirebaseId(firebaseId);
+      let user = await storage.getUserByFirebaseId(firebaseId);
+      
+      // If user doesn't exist, create them
+      if (!user) {
+        const { email } = await stripe.customers.retrieve(user?.stripeCustomerId || '');
+        user = await storage.createUser({
+          firebaseId,
+          email: email || '',
+          stripeCustomerId: user?.stripeCustomerId,
+          isPremium: false,
+          firstName: '',
+          lastName: '',
+          address: '',
+          city: '',
+          state: '',
+          postalCode: '',
+          subscriptionType: 'free'
+        });
+      }
       
       if (!user?.stripeCustomerId) {
         return res.status(400).json({ error: "No Stripe customer found" });
