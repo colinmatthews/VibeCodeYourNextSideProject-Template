@@ -19,10 +19,12 @@ export async function registerRoutes(app: Express) {
   app.post("/api/users/ensure-stripe", async (req, res) => {
     try {
       const { firebaseId, email } = req.body;
+      console.log("[Stripe] Received ensure-stripe request", { firebaseId, email });
+      
       const user = await storage.getUserByFirebaseId(firebaseId);
-
-      console.log("User:", user);
+      console.log("[Stripe] Found user in database:", user);
       if (!user?.stripeCustomerId) {
+        console.log("[Stripe] No existing customer ID, creating new customer");
         const customer = await stripe.customers.create({
           email,
           metadata: {
@@ -30,7 +32,11 @@ export async function registerRoutes(app: Express) {
           },
         });
 
-        console.log("Customer:", customer);
+        console.log("[Stripe] Created new customer:", { 
+          customerId: customer.id,
+          email: customer.email,
+          metadata: customer.metadata 
+        });
         await storage.updateUser(firebaseId, { stripeCustomerId: customer.id });
         return res.json({ stripeCustomerId: customer.id });
       }

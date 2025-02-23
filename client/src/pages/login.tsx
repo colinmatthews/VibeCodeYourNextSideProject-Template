@@ -123,8 +123,15 @@ export default function Login() {
               <Button
                 onClick={async () => {
                   try {
+                    console.log("[Auth] Starting Google sign-in flow");
                     const userCredential = await signInWithGoogle();
+                    console.log("[Auth] Google sign-in successful", { 
+                      uid: userCredential.user.uid,
+                      email: userCredential.user.email 
+                    });
+                    
                     // Ensure Stripe customer exists
+                    console.log("[Stripe] Ensuring customer exists");
                     await fetch('/api/users/ensure-stripe', {
                       method: 'POST',
                       headers: {
