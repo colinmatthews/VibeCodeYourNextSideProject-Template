@@ -50,10 +50,10 @@ export async function registerRoutes(app: Express) {
         return res.status(400).json({ error: "Invalid user ID" });
       }
       console.log("x");
-      const user = await storage.getUserByFirebaseId(userId);
+      const userForPremiumCheck = await storage.getUserByFirebaseId(userId);
       const contacts = await storage.getContactsByUserId(userId);
       
-      if (!user?.isPremium && contacts.length >= 5) {
+      if (!userForPremiumCheck?.isPremium && contacts.length >= 5) {
         return res.status(403).json({ error: "Contact limit reached. Please upgrade to Pro plan." });
       }
       
@@ -61,9 +61,9 @@ export async function registerRoutes(app: Express) {
 
       console.log("y", created);
       // Send email notification
-      const user = await storage.getUser(userId);
+      const userForEmail = await storage.getUser(userId);
       console.log("z", created);
-      if (user) {
+      if (userForEmail) {
         await sendEmail({
           to: user.email,
           from: "noreply@contactmanager.com",
