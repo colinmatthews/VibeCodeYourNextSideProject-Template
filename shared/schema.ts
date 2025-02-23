@@ -2,6 +2,14 @@ import { pgTable, text, serial, varchar, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+export const SubscriptionType = {
+  FREE: "free",
+  PRO: "pro",
+  ENTERPRISE: "enterprise"
+} as const;
+
+export type SubscriptionType = typeof SubscriptionType[keyof typeof SubscriptionType];
+
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   firebaseId: text("firebase_id").notNull().unique(),
@@ -12,14 +20,9 @@ export const users = pgTable("users", {
   city: text("city").notNull(),
   state: text("state").notNull(),
   postalCode: text("postal_code").notNull(),
-  subscriptionType: text("subscription_type").notNull().default("free"),
+  subscriptionType: text("subscription_type").notNull().default(SubscriptionType.FREE),
   stripeCustomerId: text("stripe_customer_id"),
 });
-
-export const SubscriptionType = {
-  FREE: "free",
-  PRO: "pro",
-} as const;
 
 export const insertUserSchema = createInsertSchema(users).pick({
   firebaseId: true,

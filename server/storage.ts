@@ -64,14 +64,13 @@ export class HybridStorage implements IStorage {
   async createUser(user: InsertUser): Promise<User> {
     const result = await this.pgPool.query(
       `INSERT INTO users (
-        firebase_id, email, stripe_customer_id, is_premium, first_name, 
+        firebase_id, email, stripe_customer_id, first_name, 
         last_name, address, city, state, postal_code, subscription_type
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
       [
         user.firebaseId,
         user.email,
         user.stripeCustomerId || null,
-        user.isPremium || false,
         user.firstName || '',
         user.lastName || '',
         user.address || '',
