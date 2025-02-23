@@ -1,4 +1,3 @@
-
 import { loadStripe } from "@stripe/stripe-js";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
@@ -168,41 +167,34 @@ export default function Pricing() {
 
                           if (!response.ok) {
                             const errorData = await response.json();
-                      throw new Error(errorData.error || 'Failed to create subscription');
-                    }
+                            throw new Error(errorData.error || 'Failed to create subscription');
+                          }
 
-                    const data = await response.json();
-                    console.log('[Pricing] Subscription created:', data);
-                    handleSuccess();
-                    setShowPaymentForm(false);
-                  };
-
-                  return (
-                    <Elements stripe={stripePromise}>
-                      <CheckoutForm 
-                        onSuccess={handlePayment}
-                        onError={(msg) => {
+                          const data = await response.json();
+                          console.log('[Pricing] Received response from server:', data);
                           setShowPaymentForm(false);
-                          handleError(msg);
-                        }}
-                      />
-                    </Elements>
-                  );
-
-                  const { error } = await stripe.confirmCardPayment(clientSecret);
-                  
-                  if (error) {
-                    throw error;
-                  }
-                  
-                  handleSuccess();
-                } catch (error: any) {
-                  handleError(error.message);
-                }
-              }}
-            >
-              {user ? 'Upgrade' : 'Get Started'}
-            </Button>
+                          toast({
+                            title: "Success!",
+                            description: "Your subscription has been activated.",
+                          });
+                        } catch (error: any) {
+                          console.error('[Pricing] Error:', error);
+                          toast({
+                            title: "Error",
+                            description: error.message || "Failed to process payment",
+                            variant: "destructive",
+                          });
+                        }
+                      }}
+                      onError={(msg) => {
+                        setShowPaymentForm(false);
+                        handleError(msg);
+                      }}
+                    />
+                  </Elements>
+                </DialogContent>
+              </Dialog>
+            )}
           </CardFooter>
         </Card>
       </div>
