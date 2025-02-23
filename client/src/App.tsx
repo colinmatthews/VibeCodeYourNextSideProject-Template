@@ -10,11 +10,12 @@ import NewContact from "@/pages/contacts/new";
 import EditContact from "@/pages/contacts/edit";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
-import Profile from "@/pages/profile"; // Added
-// Added
+import Profile from "@/pages/profile";
 import Pricing from "@/pages/pricing";
 import Footer from "@/components/Footer";
 import Link from "next/link";
+import Settings from "@/pages/settings"; // Added Settings component import
+
 
 class ErrorBoundary extends Component<
   { children: ReactNode },
@@ -66,8 +67,8 @@ function Router() {
           <Route path="/pricing" component={Pricing} />
           <Route path="/contacts/new" component={NewContact} />
           <Route path="/contacts/edit/:id" component={EditContact} />
-          <Route path="/profile" component={Profile} />{" "}
-          {/* Added Profile Route */}
+          <Route path="/profile" component={Profile} />
+          <Route path="/settings" component={Settings} />
           <Route component={NotFound} />
         </Switch>
       </div>
