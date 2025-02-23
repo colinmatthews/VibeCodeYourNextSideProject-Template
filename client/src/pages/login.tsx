@@ -13,6 +13,7 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [showProfileForm, setShowProfileForm] = useState(false);
   const [newUser, setNewUser] = useState<User | null>(null);
 
@@ -111,7 +112,7 @@ export default function Login() {
         setLocation("/dashboard");
       }
     } catch (error: any) {
-      console.error("[Auth] Authentication error:", error);
+      setError(error.message);
       toast({
         title: "Error",
         description: error.message,
@@ -128,6 +129,7 @@ export default function Login() {
             <CardTitle className="text-2xl font-bold">Welcome Back</CardTitle>
           </CardHeader>
           <CardContent>
+            {error && <p className="text-red-500 text-xs italic mb-2">{error}</p>} {/* Added error display */}
             <form onSubmit={handleEmailAuth} className="space-y-4 mb-4">
               <Input
                 type="email"
@@ -159,9 +161,9 @@ export default function Login() {
                   try {
                     console.log("[Auth] Starting Google sign-in flow");
                     const userCredential = await signInWithGoogle();
-                    console.log("[Auth] Google sign-in successful", { 
+                    console.log("[Auth] Google sign-in successful", {
                       uid: userCredential.user.uid,
-                      email: userCredential.user.email 
+                      email: userCredential.user.email
                     });
 
                     // Ensure Stripe customer exists
@@ -177,6 +179,7 @@ export default function Login() {
                       }),
                     });
                   } catch (error: any) {
+                    setError(error.message);
                     toast({
                       title: "Error",
                       description: error.message,
@@ -194,6 +197,7 @@ export default function Login() {
                   try {
                     await signInWithGithub();
                   } catch (error: any) {
+                    setError(error.message);
                     toast({
                       title: "Error",
                       description: error.message,
