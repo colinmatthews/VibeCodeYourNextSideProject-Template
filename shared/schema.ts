@@ -15,8 +15,7 @@ export const users = pgTable("users", {
 
 export const SubscriptionType = {
   FREE: 'free',
-  PRO: 'pro',
-  ENTERPRISE: 'enterprise'
+  PRO: 'pro'
 } as const;
 
 export const insertUserSchema = createInsertSchema(users).pick({
