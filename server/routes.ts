@@ -75,8 +75,6 @@ export async function registerRoutes(app: Express) {
           email: customer.email,
           metadata: customer.metadata 
         });
-      } else {
-        stripeCustomerId = existingUser.stripeCustomerId;
       }
 
       // If user doesn't exist in our database, create them
