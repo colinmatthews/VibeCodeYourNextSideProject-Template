@@ -300,7 +300,6 @@ export async function registerRoutes(app: Express) {
       }
 
       console.log('[Subscription] Creating Stripe subscription for customer:', user.stripeCustomerId);
-      const { paymentMethodId } = req.body;
       
       // Attach payment method to customer
       await stripe.paymentMethods.attach(paymentMethodId, {
