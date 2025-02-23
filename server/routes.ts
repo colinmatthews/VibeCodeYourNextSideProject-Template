@@ -24,8 +24,12 @@ export async function registerRoutes(app: Express) {
       let stripeCustomerId;
       let customer;
       const existingUser = await storage.getUserByFirebaseId(firebaseId);
+      const existingUserByEmail = await storage.getUserByEmail(email);
       
-      if (!existingUser?.stripeCustomerId) {
+      if (existingUserByEmail?.stripeCustomerId) {
+        console.log("[Stripe] Found existing customer by email");
+        stripeCustomerId = existingUserByEmail.stripeCustomerId;
+      } else if (!existingUser?.stripeCustomerId) {
         console.log("[Stripe] Creating new Stripe customer");
         customer = await stripe.customers.create({
           email,
