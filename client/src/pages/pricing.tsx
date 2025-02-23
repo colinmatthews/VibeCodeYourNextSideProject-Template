@@ -101,7 +101,41 @@ export default function Pricing() {
             )}
             <Button 
               className="w-full" 
-              onClick={() => user ? handleSuccess() : setLocation("/login")}
+              onClick={async () => {
+                if (!user) {
+                  setLocation("/login");
+                  return;
+                }
+                
+                try {
+                  const response = await fetch('/api/create-subscription', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ firebaseId: user.uid })
+                  });
+                  
+                  if (!response.ok) {
+                    throw new Error('Failed to create subscription');
+                  }
+                  
+                  const { clientSecret } = await response.json();
+                  const stripe = await stripePromise;
+                  
+                  if (!stripe) {
+                    throw new Error('Stripe not loaded');
+                  }
+
+                  const { error } = await stripe.confirmCardPayment(clientSecret);
+                  
+                  if (error) {
+                    throw error;
+                  }
+                  
+                  handleSuccess();
+                } catch (error: any) {
+                  handleError(error.message);
+                }
+              }}
             >
               {user ? 'Upgrade' : 'Get Started'}
             </Button>

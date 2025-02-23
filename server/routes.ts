@@ -221,6 +221,37 @@ export async function registerRoutes(app: Express) {
   });
 
   // Payment routes
+  app.post("/api/create-subscription", async (req, res) => {
+    try {
+      const { firebaseId } = req.body;
+      const user = await storage.getUserByFirebaseId(firebaseId);
+      
+      if (!user?.stripeCustomerId) {
+        return res.status(400).json({ error: "No Stripe customer found" });
+      }
+
+      const subscription = await stripe.subscriptions.create({
+        customer: user.stripeCustomerId,
+        items: [{ price: 'price_1QvTM1DRlioE9B9qu2vwE8PE' }],
+        payment_behavior: 'default_incomplete',
+        expand: ['latest_invoice.payment_intent'],
+      });
+
+      const invoice = subscription.latest_invoice as Stripe.Invoice;
+      const payment_intent = invoice.payment_intent as Stripe.PaymentIntent;
+
+      await storage.updateUserSubscription(user.id, 'pro');
+
+      res.json({
+        subscriptionId: subscription.id,
+        clientSecret: payment_intent.client_secret
+      });
+    } catch (error) {
+      console.error('Error creating subscription:', error);
+      res.status(400).json({ error: 'Could not create subscription' });
+    }
+  });
+
   app.post("/api/create-payment-intent", async (req, res) => {
     const { amount } = z.object({ amount: z.number() }).parse(req.body);
 
