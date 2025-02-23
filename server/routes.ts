@@ -281,6 +281,12 @@ export async function registerRoutes(app: Express) {
         status: subscription.status 
       });
 
+      if (subscription.status === 'incomplete') {
+        return res.status(500).json({ 
+          error: "Subscription creation incomplete. Please contact support." 
+        });
+      }
+
       const invoice = subscription.latest_invoice as Stripe.Invoice;
       const payment_intent = invoice.payment_intent as Stripe.PaymentIntent;
 

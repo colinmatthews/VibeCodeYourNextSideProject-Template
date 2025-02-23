@@ -118,7 +118,8 @@ export default function Pricing() {
                   });
                   
                   if (!response.ok) {
-                    throw new Error('Failed to create subscription');
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to create subscription');
                   }
                   
                   const data = await response.json();
