@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +12,7 @@ export default function Settings() {
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!auth.currentUser?.email) {
       toast({
         title: "Error",
@@ -30,15 +29,15 @@ export default function Settings() {
         currentPassword
       );
       await reauthenticateWithCredential(auth.currentUser, credential);
-      
+
       // Update password
       await updatePassword(auth.currentUser, newPassword);
-      
+
       toast({
         title: "Success",
         description: "Password updated successfully"
       });
-      
+
       // Clear form
       setCurrentPassword("");
       setNewPassword("");
@@ -52,9 +51,12 @@ export default function Settings() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-6">Settings</h1>
-      
+    <div className="container mx-auto py-8">
+      <h1 className="text-2xl font-bold mb-4">Settings</h1>
+      <div className="mb-4">
+        <p className="text-sm text-muted-foreground">Email: {auth.currentUser?.email}</p>
+      </div>
+
       <div className="space-y-6">
         <div className="bg-white p-6 rounded-lg shadow-sm">
           <h2 className="text-lg font-semibold mb-4">Change Password</h2>
