@@ -13,7 +13,7 @@ import Landing from "@/pages/landing";
 import Profile from "@/pages/profile";
 import Pricing from "@/pages/pricing";
 import Footer from "@/components/Footer";
-import Link from "next/link";
+import { Link } from "wouter";
 import Settings from "@/pages/settings"; // Added Settings component import
 
 
