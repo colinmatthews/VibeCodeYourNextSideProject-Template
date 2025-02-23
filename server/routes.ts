@@ -272,8 +272,9 @@ export async function registerRoutes(app: Express) {
             firebaseId: user.firebaseId,
           }
         });
-        user = await storage.updateUserStripeCustomerId(user.id, customer.id);
         console.log('[Subscription] Created new Stripe customer:', customer.id);
+        user = await storage.updateUserStripeCustomerId(user.id, customer.id);
+        console.log('[Subscription] Updated user with Stripe customer ID:', user.stripeCustomerId);
       }
 
       try {
@@ -287,14 +288,6 @@ export async function registerRoutes(app: Express) {
         }
         console.log('[Subscription] Payment method already attached, continuing');
       }
-
-      // Set as default payment method
-      await stripe.customers.update(user.stripeCustomerId, {
-        invoice_settings: {
-          default_payment_method: paymentMethodId,
-        },
-      });
-      console.log('[Subscription] Payment method set as default');
 
       // Set as default payment method
       await stripe.customers.update(user.stripeCustomerId, {
