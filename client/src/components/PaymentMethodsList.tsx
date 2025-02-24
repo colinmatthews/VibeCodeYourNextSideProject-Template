@@ -24,6 +24,68 @@ interface PaymentMethodsListProps {
   onError?: (message: string) => void;
 }
 
+function AddPaymentMethodForm({ onSuccess, onError }: { onSuccess: () => void; onError: (message: string) => void }) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [isProcessing, setIsProcessing] = useState(false);
+  const queryClient = useQueryClient();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!stripe || !elements) {
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      const { error } = await stripe.confirmSetup({
+        elements,
+        confirmParams: {
+          return_url: window.location.href,
+        }
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      toast({
+        title: "Success",
+        description: "Payment method added successfully"
+      });
+
+      queryClient.invalidateQueries({ queryKey: ['paymentMethods', user?.uid] });
+      onSuccess();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to add payment method";
+      toast({
+        title: "Error",
+        description: message,
+        variant: "destructive"
+      });
+      onError(message);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <PaymentElement />
+      <Button 
+        type="submit" 
+        disabled={!stripe || isProcessing}
+        className="w-full mt-4"
+      >
+        {isProcessing && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+        {isProcessing ? "Processing..." : "Add Payment Method"}
+      </Button>
+    </form>
+  );
+}
+
 export function PaymentMethodsList({ onSelect, onError }: PaymentMethodsListProps) {
   const { user } = useAuth();
   const [showAddPaymentMethod, setShowAddPaymentMethod] = useState(false);
@@ -83,20 +145,16 @@ export function PaymentMethodsList({ onSelect, onError }: PaymentMethodsListProp
   };
 
   const handleDeletePaymentMethod = async (methodId: string) => {
-    console.log("[DeletePaymentMethod] Deleting payment method:", methodId);
     try {
       const response = await fetch(`/api/payment-methods/${methodId}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ userId: user?.uid })
+        body: JSON.stringify({ firebaseId: user?.uid })
       });
-      console.log("[DeletePaymentMethod] Response status:", response.status);
 
       if (!response.ok) {
-        const text = await response.text();
-        console.error('[DeletePaymentMethod] Error response:', text);
         throw new Error('Failed to delete payment method');
       }
 
@@ -106,10 +164,10 @@ export function PaymentMethodsList({ onSelect, onError }: PaymentMethodsListProp
         description: "Payment method removed successfully"
       });
     } catch (error) {
-      console.error("[DeletePaymentMethod] Delete error:", error);
+      const message = error instanceof Error ? error.message : "Failed to remove payment method";
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to remove payment method",
+        description: message,
         variant: "destructive"
       });
     }
@@ -181,60 +239,13 @@ export function PaymentMethodsList({ onSelect, onError }: PaymentMethodsListProp
                   },
                 }}
               >
-                <PaymentElement />
-                <Button
-                  onClick={async () => {
-                    const stripe = useStripe();
-                    const elements = useElements();
-                    const { user } = useAuth();
-                    const { toast } = useToast();
-                    const [isProcessing, setIsProcessing] = useState(false);
-
-                    if (!stripe || !elements) {
-                      return;
-                    }
-
-                    setIsProcessing(true);
-                    try {
-                      const { error } = await stripe.confirmSetup({
-                        elements,
-                        confirmParams: {
-                          return_url: window.location.href,
-                        }
-                      });
-
-                      if (error) {
-                        throw new Error(error.message);
-                      }
-
-                      toast({
-                        title: "Success",
-                        description: "Payment method added successfully"
-                      });
-
-                      queryClient.invalidateQueries({ queryKey: ['paymentMethods', user?.uid] });
-                      setShowAddPaymentMethod(false);
-                      setSetupIntent(null);
-                    } catch (error) {
-                      const message = error instanceof Error ? error.message : "Failed to add payment method";
-                      toast({
-                        title: "Error",
-                        description: message,
-                        variant: "destructive"
-                      });
-                      onError?.(message);
-                    } finally {
-                      setIsProcessing(false);
-                    }
+                <AddPaymentMethodForm
+                  onSuccess={() => {
+                    setShowAddPaymentMethod(false);
+                    setSetupIntent(null);
                   }}
-                  disabled={!stripe || isProcessing}
-                  className="w-full mt-4"
-                >
-                  {isProcessing ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  ) : null}
-                  {isProcessing ? "Processing..." : "Add Payment Method"}
-                </Button>
+                  onError={onError || (() => {})}
+                />
               </Elements>
             )}
           </DialogContent>
