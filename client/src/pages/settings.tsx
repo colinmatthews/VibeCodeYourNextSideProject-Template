@@ -1,18 +1,44 @@
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { useAuth } from "@/lib/auth";
 import { Card } from '@/components/ui/card';
+import { Loader2 } from "lucide-react";
 
 export default function Settings() {
-  const [location, setLocation] = useLocation();
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, loading, signOut } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-border" />
+      </div>
+    );
+  }
 
   if (!user) {
-    return <div>Loading...</div>;
+    setLocation('/login');
+    return null;
   }
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      setLocation('/');
+      toast({
+        title: "Success",
+        description: "You have been logged out successfully"
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to log out",
+        variant: "destructive"
+      });
+    }
+  };
 
   return (
     <div className="container mx-auto py-10">
@@ -31,10 +57,7 @@ export default function Settings() {
           </div>
           <Button 
             variant="destructive"
-            onClick={() => {
-              setLocation('/');
-              user.signOut();
-            }}
+            onClick={handleSignOut}
           >
             Logout
           </Button>
