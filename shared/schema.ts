@@ -22,12 +22,21 @@ export const users = pgTable("users", {
   postalCode: text("postal_code").notNull(),
   subscriptionType: text("subscription_type").notNull().default(SubscriptionType.FREE),
   stripeCustomerId: text("stripe_customer_id"),
+  emailNotifications: boolean("email_notifications").notNull().default(false),
 });
 
-export const insertUserSchema = createInsertSchema(users).pick({
-  firebaseId: true,
-  email: true,
-  isPremium: true,
+export const insertUserSchema = createInsertSchema(users, {
+  firebaseId: z.string(),
+  email: z.string().email(),
+  firstName: z.string(),
+  lastName: z.string(),
+  address: z.string(),
+  city: z.string(),
+  state: z.string(),
+  postalCode: z.string(),
+  subscriptionType: z.string(),
+  stripeCustomerId: z.string().optional(),
+  emailNotifications: z.boolean().default(false),
 });
 
 // Contact schema for Neo4j (not PostgreSQL)
@@ -41,4 +50,15 @@ export const insertContactSchema = z.object({
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertContact = z.infer<typeof insertContactSchema>;
-export type Contact = typeof contacts.$inferSelect;
+
+// Define the Contact type using zod
+export const contactSchema = z.object({
+  id: z.string(),
+  userId: z.string(),
+  firstName: z.string(),
+  lastName: z.string(),
+  email: z.string(),
+  phone: z.string(),
+});
+
+export type Contact = z.infer<typeof contactSchema>;

@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
-import { useAuth } from "@/lib/auth";
+import { useAuth } from "@/hooks/use-auth";
 import { Card } from '@/components/ui/card';
 import { Loader2 } from "lucide-react";
 import { PaymentMethodsList } from "@/components/PaymentMethodsList";
@@ -10,19 +10,49 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { updateUserPassword } from "@/lib/firebase";
+import { useUser } from "@/hooks/useUser";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 
 export default function Settings() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const { user, loading, signOut } = useAuth();
+  const { user: firebaseUser, loading, signOut } = useAuth();
+  const { user } = useUser();
+  const queryClient = useQueryClient();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
-  const [emailNotifications, setEmailNotifications] = useState(false);
+
+  // Initialize emailNotifications from user data
+  const [emailNotifications, setEmailNotifications] = useState(user?.emailNotifications ?? false);
 
   // Check if user logged in with email/password
-  const isEmailUser = user?.providerData?.[0]?.providerId === 'password';
+  const isEmailUser = firebaseUser?.providerData?.[0]?.providerId === 'password';
+
+  const updateEmailPreferences = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      if (!firebaseUser?.uid) throw new Error("User not authenticated");
+      return apiRequest("PATCH", `/api/users/${firebaseUser.uid}`, {
+        emailNotifications: enabled
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user', firebaseUser?.uid] });
+      toast({
+        title: "Success",
+        description: "Email preferences updated successfully",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update email preferences",
+        variant: "destructive"
+      });
+    }
+  });
 
   if (loading) {
     return (
@@ -32,7 +62,7 @@ export default function Settings() {
     );
   }
 
-  if (!user) {
+  if (!firebaseUser) {
     setLocation('/login');
     return null;
   }
@@ -50,7 +80,7 @@ export default function Settings() {
 
     setIsUpdatingPassword(true);
     try {
-      await updateUserPassword(user, currentPassword, newPassword);
+      await updateUserPassword(firebaseUser, currentPassword, newPassword);
       toast({
         title: "Success",
         description: "Password updated successfully"
@@ -101,7 +131,7 @@ export default function Settings() {
           <div className="space-y-4">
             <div className="flex items-center space-x-2">
               <strong>Email:</strong> 
-              <span>{user.email}</span>
+              <span>{firebaseUser.email}</span>
             </div>
             {isEmailUser && (
               <form onSubmit={handlePasswordChange} className="space-y-4">
@@ -159,7 +189,10 @@ export default function Settings() {
             <Switch
               id="email-notifications"
               checked={emailNotifications}
-              onCheckedChange={setEmailNotifications}
+              onCheckedChange={(checked) => {
+                setEmailNotifications(checked);
+                updateEmailPreferences.mutate(checked);
+              }}
             />
             <Label htmlFor="email-notifications">
               Receive email notifications when new contacts are added
