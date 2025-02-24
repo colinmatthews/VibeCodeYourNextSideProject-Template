@@ -26,6 +26,7 @@ interface PaymentMethodsListProps {
 export function PaymentMethodsList({ onSelect }: PaymentMethodsListProps) {
   const { user } = useAuth();
   const [showAddPaymentMethod, setShowAddPaymentMethod] = useState(false);
+  const [setupIntent, setSetupIntent] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -38,6 +39,32 @@ export function PaymentMethodsList({ onSelect }: PaymentMethodsListProps) {
     },
     enabled: !!user?.uid
   });
+
+  const handleAddPaymentMethod = async () => {
+    try {
+      const response = await fetch('/api/setup-intent', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ userId: user?.uid })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create setup intent');
+      }
+
+      const { clientSecret } = await response.json();
+      setSetupIntent(clientSecret);
+      setShowAddPaymentMethod(true);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to initialize payment setup",
+        variant: "destructive"
+      });
+    }
+  };
 
   if (isLoading) {
     return (
@@ -110,7 +137,7 @@ export function PaymentMethodsList({ onSelect }: PaymentMethodsListProps) {
         </ul>
 
         <Button 
-          onClick={() => setShowAddPaymentMethod(true)}
+          onClick={handleAddPaymentMethod}
           className="w-full"
         >
           Add Payment Method
@@ -121,14 +148,17 @@ export function PaymentMethodsList({ onSelect }: PaymentMethodsListProps) {
             <DialogHeader>
               <DialogTitle>Add Payment Method</DialogTitle>
             </DialogHeader>
-            <Elements stripe={stripePromise}>
-              <AddPaymentMethodForm
-                onSuccess={() => {
-                  setShowAddPaymentMethod(false);
-                  queryClient.invalidateQueries({ queryKey: ['paymentMethods', user?.uid] });
-                }}
-              />
-            </Elements>
+            {setupIntent && (
+              <Elements stripe={stripePromise} options={{ clientSecret: setupIntent }}>
+                <AddPaymentMethodForm
+                  onSuccess={() => {
+                    setShowAddPaymentMethod(false);
+                    setSetupIntent(null);
+                    queryClient.invalidateQueries({ queryKey: ['paymentMethods', user?.uid] });
+                  }}
+                />
+              </Elements>
+            )}
           </DialogContent>
         </Dialog>
       </CardContent>
@@ -149,18 +179,11 @@ function AddPaymentMethodForm({ onSuccess }: { onSuccess: () => void }) {
 
     setIsProcessing(true);
     try {
-      const response = await fetch('/api/setup-intent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.uid })
-      });
-
-      const { clientSecret } = await response.json();
-
       const { error: submitError } = await stripe.confirmSetup({
         elements,
-        clientSecret,
-        redirect: 'if_required'
+        confirmParams: {
+          return_url: window.location.href,
+        }
       });
 
       if (submitError) {
