@@ -26,11 +26,11 @@ export default function Settings() {
   const handleSignOut = async () => {
     try {
       await signOut();
-      setLocation('/');
       toast({
         title: "Success",
         description: "You have been logged out successfully"
       });
+      setLocation('/');
     } catch (error) {
       toast({
         title: "Error",
@@ -52,14 +52,15 @@ export default function Settings() {
       <Card className="p-6 mt-6">
         <h2 className="text-2xl font-semibold mb-4">Account</h2>
         <div className="space-y-4">
-          <div>
-            <strong>Email:</strong> {user.email}
+          <div className="flex items-center space-x-2">
+            <strong>Email:</strong> 
+            <span>{user.email}</span>
           </div>
           <Button 
             variant="destructive"
             onClick={handleSignOut}
           >
-            Logout
+            Sign Out
           </Button>
         </div>
       </Card>

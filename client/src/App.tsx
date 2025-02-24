@@ -3,6 +3,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Component, ErrorInfo, ReactNode } from "react";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
+import { AuthProvider } from "@/lib/auth";
 import Navbar from "@/components/Navbar";
 import Login from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
@@ -13,9 +14,7 @@ import Landing from "@/pages/landing";
 import Profile from "@/pages/profile";
 import Pricing from "@/pages/pricing";
 import Footer from "@/components/Footer";
-import { Link } from "wouter";
-import Settings from "@/pages/settings"; // Added Settings component import
-
+import Settings from "@/pages/settings";
 
 class ErrorBoundary extends Component<
   { children: ReactNode },
@@ -81,8 +80,10 @@ function App() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <Router />
-        <Toaster />
+        <AuthProvider>
+          <Router />
+          <Toaster />
+        </AuthProvider>
       </QueryClientProvider>
     </ErrorBoundary>
   );
