@@ -192,11 +192,11 @@ export async function registerRoutes(app: Express) {
       if (!userId) {
         return res.status(400).json({ error: "Invalid user ID" });
       }
-      console.log("x");
+
       const userForPremiumCheck = await storage.getUserByFirebaseId(userId);
       const contacts = await storage.getContactsByUserId(userId);
 
-      if (!userForPremiumCheck?.isPremium && contacts.length >= 5) {
+      if (!userForPremiumCheck?.subscriptionType?.includes('pro') && contacts.length >= 5) {
         return res.status(403).json({
           error: "Contact limit reached. Please upgrade to Pro plan.",
         });
@@ -204,28 +204,24 @@ export async function registerRoutes(app: Express) {
 
       const created = await storage.createContact({ ...contact, userId });
 
-      console.log("y", created);
       // Send email notification
       const userForEmail = await storage.getUserByFirebaseId(userId);
-      console.log("z", created);
       if (userForEmail) {
         await sendEmail({
-          to: user.email,
+          to: userForEmail.email,
           from: "noreply@contactmanager.com",
           subject: "New Contact Added",
           text: `A new contact ${contact.firstName} ${contact.lastName} has been added to your contacts.`,
         });
-        console.log("a", created);
       }
 
-      console.log("b", created);
       res.json(created);
     } catch (error) {
       res.status(400).json({
         error: "Invalid contact data",
-        errorDetails: error.message,
-        file: error.filename || "unknown",
-        stack: error.stack || "No stack trace available",
+        errorDetails: error instanceof Error ? error.message : "Unknown error",
+        file: error instanceof Error ? error.fileName || "unknown" : "unknown",
+        stack: error instanceof Error ? error.stack : "No stack trace available",
       });
     }
   });
