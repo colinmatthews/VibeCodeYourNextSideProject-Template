@@ -227,9 +227,9 @@ export default function Pricing() {
               }}
               variant={userData?.subscriptionType === 'free' ? 'secondary' : 'outline'}
             >
-              {!user ? 'Get Started' : 
-                userData?.subscriptionType === 'free' ? 'Current Plan' : 
-                'Downgrade to Free'}
+              {!user ? 'Get Started' :
+                userData?.subscriptionType === 'free' ? 'Current Plan' :
+                  'Downgrade to Free'}
             </Button>
           </CardFooter>
         </Card>
@@ -275,7 +275,8 @@ export default function Pricing() {
               variant={userData?.subscriptionType === 'pro' ? 'secondary' : 'default'}
               disabled={userData?.subscriptionType === 'pro'}
             >
-              {userData?.subscriptionType === 'pro' ? 'Current Plan' : 'Upgrade to Pro'}
+              {!user ? 'Get Started' :
+                userData?.subscriptionType === 'pro' ? 'Current Plan' : 'Upgrade to Pro'}
             </Button>
 
             {showPaymentForm && (
