@@ -6,6 +6,8 @@ import { Card } from '@/components/ui/card';
 import { Loader2 } from "lucide-react";
 import { PaymentMethodsList } from "@/components/PaymentMethodsList";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { updateUserPassword } from "@/lib/firebase";
 
@@ -17,6 +19,7 @@ export default function Settings() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  const [emailNotifications, setEmailNotifications] = useState(false);
 
   // Check if user logged in with email/password
   const isEmailUser = user?.providerData?.[0]?.providerId === 'password';
@@ -88,66 +91,82 @@ export default function Settings() {
     <div className="container mx-auto py-10">
       <h1 className="text-4xl font-bold mb-8">Settings</h1>
 
-      <Card className="p-6">
-        <PaymentMethodsList />
-      </Card>
+      <div className="space-y-6">
+        <Card className="p-6">
+          <PaymentMethodsList />
+        </Card>
 
-      <Card className="p-6 mt-6">
-        <h2 className="text-2xl font-semibold mb-4">Account</h2>
-        <div className="space-y-4">
-          <div className="flex items-center space-x-2">
-            <strong>Email:</strong> 
-            <span>{user.email}</span>
+        <Card className="p-6">
+          <h2 className="text-2xl font-semibold mb-4">Account</h2>
+          <div className="space-y-4">
+            <div className="flex items-center space-x-2">
+              <strong>Email:</strong> 
+              <span>{user.email}</span>
+            </div>
+            {isEmailUser && (
+              <form onSubmit={handlePasswordChange} className="space-y-4">
+                <h3 className="text-xl font-semibold">Change Password</h3>
+                <Input
+                  type="password"
+                  placeholder="Current Password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  required
+                />
+                <Input
+                  type="password"
+                  placeholder="New Password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                />
+                <Input
+                  type="password"
+                  placeholder="Confirm New Password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                />
+                <Button 
+                  type="submit"
+                  disabled={isUpdatingPassword}
+                  className="w-full"
+                >
+                  {isUpdatingPassword ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Updating Password...
+                    </>
+                  ) : (
+                    'Update Password'
+                  )}
+                </Button>
+              </form>
+            )}
+            <Button 
+              variant="destructive"
+              onClick={handleSignOut}
+              className="mt-4"
+            >
+              Sign Out
+            </Button>
           </div>
-          {isEmailUser && (
-            <form onSubmit={handlePasswordChange} className="space-y-4">
-              <h3 className="text-xl font-semibold">Change Password</h3>
-              <Input
-                type="password"
-                placeholder="Current Password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                required
-              />
-              <Input
-                type="password"
-                placeholder="New Password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                required
-              />
-              <Input
-                type="password"
-                placeholder="Confirm New Password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-              />
-              <Button 
-                type="submit"
-                disabled={isUpdatingPassword}
-                className="w-full"
-              >
-                {isUpdatingPassword ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Updating Password...
-                  </>
-                ) : (
-                  'Update Password'
-                )}
-              </Button>
-            </form>
-          )}
-          <Button 
-            variant="destructive"
-            onClick={handleSignOut}
-            className="mt-4"
-          >
-            Sign Out
-          </Button>
-        </div>
-      </Card>
+        </Card>
+
+        <Card className="p-6">
+          <h2 className="text-2xl font-semibold mb-4">Email Preferences</h2>
+          <div className="flex items-center space-x-4">
+            <Switch
+              id="email-notifications"
+              checked={emailNotifications}
+              onCheckedChange={setEmailNotifications}
+            />
+            <Label htmlFor="email-notifications">
+              Receive email notifications when new contacts are added
+            </Label>
+          </div>
+        </Card>
+      </div>
     </div>
   );
 }
