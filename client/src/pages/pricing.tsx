@@ -10,6 +10,7 @@ import { Check } from "lucide-react";
 import { useState } from "react";
 import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { PaymentMethodsList } from "@/components/PaymentMethodsList";
+import { QueryClient } from "@tanstack/react-query";
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || '');
 console.log('[Stripe] Initializing with key:', import.meta.env.VITE_STRIPE_PUBLIC_KEY ? 'Key present' : 'Key missing');
@@ -74,6 +75,8 @@ export default function Pricing() {
   const { user } = useAuth();
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [, setLocation] = useLocation();
+  const queryClient = new QueryClient();
+
 
   const { data: userData } = useQuery({
     queryKey: ['user', user?.uid],
@@ -94,6 +97,63 @@ export default function Pricing() {
       description: error || "Payment failed. Please try again.",
       variant: "destructive",
     });
+  };
+
+  const handleSubscriptionCreation = async (paymentMethodId: string) => {
+    try {
+      if (!user?.uid) {
+        throw new Error('User not authenticated');
+      }
+
+      console.log('[Pricing] Creating subscription for user:', user.uid);
+      const response = await fetch('/api/create-subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firebaseId: user.uid,
+          paymentMethodId: paymentMethodId
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create subscription');
+      }
+
+      const data = await response.json();
+      console.log('[Pricing] Received response from server:', data);
+
+      if (data.status === 'active') {
+        setShowPaymentForm(false);
+        toast({
+          title: "Success!",
+          description: "Your subscription has been activated.",
+        });
+        queryClient.invalidateQueries({ queryKey: ['user', user.uid] });
+      } else if (data.clientSecret) {
+        const stripe = await stripePromise;
+        if (!stripe) throw new Error('Stripe not initialized');
+
+        const { error } = await stripe.confirmCardPayment(data.clientSecret);
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        setShowPaymentForm(false);
+        toast({
+          title: "Success!",
+          description: "Your subscription has been activated.",
+        });
+        queryClient.invalidateQueries({ queryKey: ['user', user.uid] });
+      }
+    } catch (error) {
+      console.error('[Pricing] Error:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to process payment",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -126,8 +186,8 @@ export default function Pricing() {
             {userData?.subscriptionType === 'free' && (
               <p className="text-sm text-muted-foreground">You're using this plan</p>
             )}
-            <Button 
-              className="w-full" 
+            <Button
+              className="w-full"
               onClick={() => !user && setLocation("/login")}
               variant={userData?.subscriptionType === 'free' ? 'secondary' : 'outline'}
             >
@@ -161,8 +221,8 @@ export default function Pricing() {
             {userData?.subscriptionType === 'pro' && (
               <p className="text-sm text-muted-foreground">You're using this plan</p>
             )}
-            <Button 
-              className="w-full" 
+            <Button
+              className="w-full"
               onClick={() => {
                 console.log('[Pricing] Upgrade button clicked');
                 if (!user) {
@@ -187,44 +247,8 @@ export default function Pricing() {
                     </DialogDescription>
                   </DialogHeader>
                   <Elements stripe={stripePromise}>
-                    <PaymentMethodsList 
-                      onSelect={async (paymentMethodId: string) => {
-                        try {
-                          if (!user?.uid) {
-                            throw new Error('User not authenticated');
-                          }
-
-                          console.log('[Pricing] Creating subscription for user:', user.uid);
-                          const response = await fetch('/api/create-subscription', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ 
-                              firebaseId: user.uid,
-                              paymentMethodId: paymentMethodId
-                            })
-                          });
-
-                          if (!response.ok) {
-                            const errorData = await response.json();
-                            throw new Error(errorData.error || 'Failed to create subscription');
-                          }
-
-                          const data = await response.json();
-                          console.log('[Pricing] Received response from server:', data);
-                          setShowPaymentForm(false);
-                          toast({
-                            title: "Success!",
-                            description: "Your subscription has been activated.",
-                          });
-                        } catch (error) {
-                          console.error('[Pricing] Error:', error);
-                          toast({
-                            title: "Error",
-                            description: error instanceof Error ? error.message : "Failed to process payment",
-                            variant: "destructive",
-                          });
-                        }
-                      }}
+                    <PaymentMethodsList
+                      onSelect={handleSubscriptionCreation}
                       onError={handleError}
                     />
                   </Elements>

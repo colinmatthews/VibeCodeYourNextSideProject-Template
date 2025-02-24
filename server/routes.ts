@@ -291,8 +291,8 @@ export async function registerRoutes(app: Express) {
         throw new Error('Failed to create or retrieve Stripe customer ID');
       }
 
+      // Attach the payment method if not already attached
       try {
-        // Try to attach the payment method, ignore if already attached
         await stripe.paymentMethods.attach(paymentMethodId, {
           customer: user.stripeCustomerId,
         });
@@ -317,44 +317,26 @@ export async function registerRoutes(app: Express) {
         paymentMethodId: paymentMethodId
       });
 
+      // Create the subscription
       const subscription = await stripe.subscriptions.create({
         customer: user.stripeCustomerId,
         items: [{ price: process.env.STRIPE_PRICE_ID_PRO }],
-        payment_behavior: 'default_incomplete',
         expand: ['latest_invoice.payment_intent'],
         default_payment_method: paymentMethodId,
       });
 
-      console.log('[Subscription] Full subscription response:', {
-        id: subscription.id,
-        status: subscription.status,
-        currentPeriodStart: subscription.current_period_start,
-        currentPeriodEnd: subscription.current_period_end,
-        defaultPaymentMethod: subscription.default_payment_method,
-        latestInvoiceId: subscription.latest_invoice,
-        customerId: subscription.customer
-      });
-
-      if (subscription.status === 'incomplete') {
-        console.log('[Subscription] Incomplete status details:', {
-          latestInvoice: subscription.latest_invoice,
-          paymentIntent: (subscription.latest_invoice as Stripe.Invoice).payment_intent
-        });
-        return res.status(500).json({
-          error: "Subscription creation incomplete. Please contact support."
-        });
-      }
-
       const invoice = subscription.latest_invoice as Stripe.Invoice;
       const payment_intent = invoice.payment_intent as Stripe.PaymentIntent;
 
+      // Update user's subscription type if the subscription is active
       if (subscription.status === 'active') {
         await storage.updateUserSubscription(user.id, 'pro');
       }
 
       res.json({
         subscriptionId: subscription.id,
-        clientSecret: payment_intent.client_secret
+        clientSecret: payment_intent.client_secret,
+        status: subscription.status
       });
     } catch (error) {
       console.error('[Subscription] Error:', error);
