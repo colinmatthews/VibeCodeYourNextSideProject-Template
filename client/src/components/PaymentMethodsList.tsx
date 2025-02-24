@@ -33,13 +33,26 @@ export function PaymentMethodsList({ onSelect }: PaymentMethodsListProps) {
   const { data, isLoading } = useQuery({
     queryKey: ['paymentMethods', user?.uid],
     queryFn: async () => {
+      console.log("[PaymentMethods] Fetching payment methods for user:", user?.uid);
       const response = await fetch(`/api/payment-methods?userId=${user?.uid}`);
-      if (!response.ok) throw new Error('Failed to fetch payment methods');
+      console.log("[PaymentMethods] Response status:", response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("[PaymentMethods] Error response:", errorText);
+        throw new Error('Failed to fetch payment methods');
+      }
+
       const text = await response.text();
+      console.log("[PaymentMethods] Raw response:", text);
+
       try {
-        return JSON.parse(text) as { paymentMethods: PaymentMethod[] };
+        const data = JSON.parse(text);
+        console.log("[PaymentMethods] Parsed response:", data);
+        return data as { paymentMethods: PaymentMethod[] };
       } catch (e) {
-        console.error('Failed to parse response:', text);
+        console.error('[PaymentMethods] JSON parse error:', e);
+        console.error('[PaymentMethods] Failed to parse response:', text);
         throw new Error('Invalid response format from server');
       }
     },
@@ -47,6 +60,7 @@ export function PaymentMethodsList({ onSelect }: PaymentMethodsListProps) {
   });
 
   const handleAddPaymentMethod = async () => {
+    console.log("[SetupIntent] Starting setup intent creation for user:", user?.uid);
     try {
       const response = await fetch('/api/setup-intent', {
         method: 'POST',
@@ -55,28 +69,68 @@ export function PaymentMethodsList({ onSelect }: PaymentMethodsListProps) {
         },
         body: JSON.stringify({ userId: user?.uid })
       });
+      console.log("[SetupIntent] Response status:", response.status);
 
       if (!response.ok) {
         const text = await response.text();
-        console.error('Setup intent error response:', text);
+        console.error('[SetupIntent] Error response:', text);
         throw new Error('Failed to create setup intent');
       }
 
       const text = await response.text();
+      console.log("[SetupIntent] Raw response:", text);
+
       let data;
       try {
         data = JSON.parse(text);
+        console.log("[SetupIntent] Parsed response:", data);
       } catch (e) {
-        console.error('Invalid JSON response:', text);
+        console.error('[SetupIntent] JSON parse error:', e);
+        console.error('[SetupIntent] Invalid JSON response:', text);
         throw new Error('Invalid response format from server');
       }
 
+      console.log("[SetupIntent] Setting up with client secret:", data.clientSecret ? 'Present' : 'Missing');
       setSetupIntent(data.clientSecret);
       setShowAddPaymentMethod(true);
     } catch (error) {
+      console.error("[SetupIntent] Setup error:", error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to initialize payment setup",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDeletePaymentMethod = async (methodId: string) => {
+    console.log("[DeletePaymentMethod] Deleting payment method:", methodId);
+    try {
+      const response = await fetch(`/api/payment-methods/${methodId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ userId: user?.uid })
+      });
+      console.log("[DeletePaymentMethod] Response status:", response.status);
+
+      if (!response.ok) {
+        const text = await response.text();
+        console.error('[DeletePaymentMethod] Error response:', text);
+        throw new Error('Failed to delete payment method');
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ['paymentMethods', user?.uid] });
+      toast({
+        title: "Success",
+        description: "Payment method removed successfully"
+      });
+    } catch (error) {
+      console.error("[DeletePaymentMethod] Delete error:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to remove payment method",
         variant: "destructive"
       });
     }
@@ -89,36 +143,6 @@ export function PaymentMethodsList({ onSelect }: PaymentMethodsListProps) {
       </div>
     );
   }
-
-  const handleDeletePaymentMethod = async (methodId: string) => {
-    try {
-      const response = await fetch(`/api/payment-methods/${methodId}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ userId: user?.uid })
-      });
-
-      if (!response.ok) {
-        const text = await response.text();
-        console.error('Delete payment method error:', text);
-        throw new Error('Failed to delete payment method');
-      }
-
-      await queryClient.invalidateQueries({ queryKey: ['paymentMethods', user?.uid] });
-      toast({
-        title: "Success",
-        description: "Payment method removed successfully"
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to remove payment method",
-        variant: "destructive"
-      });
-    }
-  };
 
   return (
     <Card>
@@ -195,11 +219,21 @@ function AddPaymentMethodForm({ onSuccess }: { onSuccess: () => void }) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!stripe || !elements || !user) return;
+    console.log("[AddPaymentMethod] Starting payment method submission");
+
+    if (!stripe || !elements || !user) {
+      console.error("[AddPaymentMethod] Missing required objects:", {
+        stripe: !!stripe,
+        elements: !!elements,
+        user: !!user
+      });
+      return;
+    }
 
     setIsProcessing(true);
     try {
-      const { error: submitError } = await stripe.confirmSetup({
+      console.log("[AddPaymentMethod] Confirming setup with Stripe");
+      const { error: submitError, setupIntent } = await stripe.confirmSetup({
         elements,
         confirmParams: {
           return_url: window.location.href,
@@ -207,15 +241,18 @@ function AddPaymentMethodForm({ onSuccess }: { onSuccess: () => void }) {
       });
 
       if (submitError) {
+        console.error("[AddPaymentMethod] Setup error:", submitError);
         throw new Error(submitError.message);
       }
 
+      console.log("[AddPaymentMethod] Setup successful:", setupIntent);
       toast({
         title: "Success",
         description: "Payment method added successfully"
       });
       onSuccess();
     } catch (error) {
+      console.error("[AddPaymentMethod] Submission error:", error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to add payment method",
