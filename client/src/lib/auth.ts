@@ -25,7 +25,7 @@ interface AuthProviderProps {
   children: React.ReactNode;
 }
 
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -45,18 +45,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const signOut = () => firebaseSignOut(auth);
 
-  return (
-    <AuthContext.Provider 
-      value={{
-        user,
-        loading,
-        signInWithGoogle,
-        signOut
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
-  );
+  return React.createElement(AuthContext.Provider, {
+    value: {
+      user,
+      loading,
+      signInWithGoogle,
+      signOut
+    },
+    children
+  });
 };
 
 export function useAuth(): AuthContextType {
