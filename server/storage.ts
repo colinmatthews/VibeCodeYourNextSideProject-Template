@@ -1,8 +1,13 @@
-
 import { type Contact, type InsertContact, type User, type InsertUser } from "@shared/schema";
 import neo4j from 'neo4j-driver';
 import pg from 'pg';
 const { Pool } = pg;
+
+interface UpdateUserData {
+    firstName?: string;
+    lastName?: string;
+    emailNotifications?: boolean;
+  }
 
 export interface IStorage {
   // User operations
@@ -10,6 +15,7 @@ export interface IStorage {
   getUserByFirebaseId(firebaseId: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUserSubscription(id: number, subscriptionType: string): Promise<User>;
+  updateUser(id: number, data: UpdateUserData): Promise<User>;
 
   // Contact operations
   getContact(id: string): Promise<Contact | undefined>;
@@ -98,6 +104,25 @@ export class HybridStorage implements IStorage {
     );
     return result.rows[0];
   }
+
+  async updateUser(id: number, data: UpdateUserData): Promise<User> {
+    const setClause = Object.entries(data)
+      .map(([key, _], index) => `${this.toSnakeCase(key)} = $${index + 2}`)
+      .join(', ');
+
+    const values = Object.values(data);
+
+    const result = await this.pgPool.query(
+      `UPDATE users SET ${setClause} WHERE id = $1 RETURNING *`,
+      [id, ...values]
+    );
+    return result.rows[0];
+  }
+
+  private toSnakeCase(str: string): string {
+    return str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+  }
+
 
   // Contact operations with Neo4j
   async getContact(id: string): Promise<Contact | undefined> {

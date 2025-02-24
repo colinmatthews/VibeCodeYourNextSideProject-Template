@@ -157,13 +157,22 @@ export async function registerRoutes(app: Express) {
 
   app.patch("/api/users/:firebaseId", async (req, res) => {
     try {
-      const { firstName, lastName } = req.body;
-      const user = await storage.updateUser(req.params.firebaseId, {
-        firstName,
-        lastName,
+      const { firstName, lastName, emailNotifications } = req.body;
+      const user = await storage.getUserByFirebaseId(req.params.firebaseId);
+
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const updatedUser = await storage.updateUser(user.id, {
+        ...(firstName !== undefined && { firstName }),
+        ...(lastName !== undefined && { lastName }),
+        ...(emailNotifications !== undefined && { emailNotifications }),
       });
-      res.json(user);
+
+      res.json(updatedUser);
     } catch (error) {
+      console.error("Error updating user:", error);
       res.status(400).json({ error: "Failed to update user profile" });
     }
   });
