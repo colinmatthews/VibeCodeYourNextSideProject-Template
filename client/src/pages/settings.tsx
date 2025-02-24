@@ -8,11 +8,12 @@ import { PaymentMethodsList } from "@/components/PaymentMethodsList";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { updateUserPassword } from "@/lib/firebase";
 import { useUser } from "@/hooks/useUser";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
 
 export default function Settings() {
@@ -26,6 +27,9 @@ export default function Settings() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
   const [emailNotifications, setEmailNotifications] = useState(user?.emailNotifications ?? false);
+
+  // Check if user logged in with email/password
+  const isEmailUser = firebaseUser?.providerData?.[0]?.providerId === 'password';
 
   const updateEmailPreferences = useMutation({
     mutationFn: async (enabled: boolean) => {
@@ -100,7 +104,7 @@ export default function Settings() {
 
   const handleSignOut = async () => {
     try {
-      await signOut(firebaseUser);
+      await signOut(auth);
       toast({
         title: "Success",
         description: "You have been logged out successfully"
