@@ -53,7 +53,7 @@ export class HybridStorage implements IStorage {
 
   async getUserByFirebaseId(firebaseId: string): Promise<User | undefined> {
     const result = await this.pgPool.query(
-      'SELECT id, firebase_id as "firebaseId", email, first_name as "firstName", last_name as "lastName", address, city, state, postal_code as "postalCode", subscription_type as "subscriptionType", stripe_customer_id as "stripeCustomerId" FROM users WHERE firebase_id = $1',
+      'SELECT id, firebase_id as "firebaseId", email, first_name as "firstName", last_name as "lastName", address, city, state, postal_code as "postalCode", subscription_type as "subscriptionType", stripe_customer_id as "stripeCustomerId", email_notifications as "emailNotifications" FROM users WHERE firebase_id = $1',
       [firebaseId]
     );
     return result.rows[0];
