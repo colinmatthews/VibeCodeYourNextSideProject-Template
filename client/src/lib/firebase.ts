@@ -8,7 +8,11 @@ import {
   signInWithEmailAndPassword,
   onAuthStateChanged,
   sendPasswordResetEmail as firebaseSendPasswordResetEmail,
-  sendEmailVerification
+  sendEmailVerification,
+  updatePassword as firebaseUpdatePassword,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  User
 } from "firebase/auth";
 
 const firebaseConfig = {
@@ -87,6 +91,27 @@ export async function signInWithEmail(email: string, password: string) {
     }
     if (error.code === "auth/wrong-password") {
       throw new Error("Invalid password.");
+    }
+    throw new Error(error.message);
+  }
+}
+
+export async function updateUserPassword(user: User, currentPassword: string, newPassword: string) {
+  try {
+    const credential = EmailAuthProvider.credential(
+      user.email!,
+      currentPassword
+    );
+    await reauthenticateWithCredential(user, credential);
+    await firebaseUpdatePassword(user, newPassword);
+    return true;
+  } catch (error: any) {
+    console.error("Password update error:", error);
+    if (error.code === "auth/wrong-password") {
+      throw new Error("Current password is incorrect");
+    }
+    if (error.code === "auth/weak-password") {
+      throw new Error("New password should be at least 6 characters long");
     }
     throw new Error(error.message);
   }

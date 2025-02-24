@@ -5,11 +5,21 @@ import { useAuth } from "@/lib/auth";
 import { Card } from '@/components/ui/card';
 import { Loader2 } from "lucide-react";
 import { PaymentMethodsList } from "@/components/PaymentMethodsList";
+import { Input } from "@/components/ui/input";
+import { useState } from "react";
+import { updateUserPassword } from "@/lib/firebase";
 
 export default function Settings() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { user, loading, signOut } = useAuth();
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+
+  // Check if user logged in with email/password
+  const isEmailUser = user?.providerData?.[0]?.providerId === 'password';
 
   if (loading) {
     return (
@@ -23,6 +33,39 @@ export default function Settings() {
     setLocation('/login');
     return null;
   }
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      toast({
+        title: "Error",
+        description: "New passwords do not match",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsUpdatingPassword(true);
+    try {
+      await updateUserPassword(user, currentPassword, newPassword);
+      toast({
+        title: "Success",
+        description: "Password updated successfully"
+      });
+      // Clear the form
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setIsUpdatingPassword(false);
+    }
+  };
 
   const handleSignOut = async () => {
     try {
@@ -56,9 +99,50 @@ export default function Settings() {
             <strong>Email:</strong> 
             <span>{user.email}</span>
           </div>
+          {isEmailUser && (
+            <form onSubmit={handlePasswordChange} className="space-y-4">
+              <h3 className="text-xl font-semibold">Change Password</h3>
+              <Input
+                type="password"
+                placeholder="Current Password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                required
+              />
+              <Input
+                type="password"
+                placeholder="New Password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                required
+              />
+              <Input
+                type="password"
+                placeholder="Confirm New Password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+              />
+              <Button 
+                type="submit"
+                disabled={isUpdatingPassword}
+                className="w-full"
+              >
+                {isUpdatingPassword ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Updating Password...
+                  </>
+                ) : (
+                  'Update Password'
+                )}
+              </Button>
+            </form>
+          )}
           <Button 
             variant="destructive"
             onClick={handleSignOut}
+            className="mt-4"
           >
             Sign Out
           </Button>
