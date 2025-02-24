@@ -28,9 +28,10 @@ export default function Settings() {
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
   const [emailNotifications, setEmailNotifications] = useState(false);
 
-  // Sync email notifications state with user data
+  // Initialize and update emailNotifications when user data changes
   useEffect(() => {
-    if (user) {
+    if (user?.emailNotifications !== undefined) {
+      console.log("Setting email notifications to:", user.emailNotifications);
       setEmailNotifications(user.emailNotifications);
     }
   }, [user]);
