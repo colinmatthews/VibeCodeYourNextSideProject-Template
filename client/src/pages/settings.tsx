@@ -8,7 +8,7 @@ import { PaymentMethodsList } from "@/components/PaymentMethodsList";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { updateUserPassword } from "@/lib/firebase";
 import { useUser } from "@/hooks/useUser";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -17,16 +17,21 @@ import { apiRequest } from "@/lib/queryClient";
 export default function Settings() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const { user: firebaseUser, loading, signOut } = useAuth();
+  const { user: firebaseUser, loading } = useAuth();
   const { user } = useUser();
   const queryClient = useQueryClient();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  const [emailNotifications, setEmailNotifications] = useState(false);
 
-  // Initialize emailNotifications from user data
-  const [emailNotifications, setEmailNotifications] = useState(user?.emailNotifications ?? false);
+  // Update emailNotifications state whenever user data changes
+  useEffect(() => {
+    if (user?.emailNotifications !== undefined) {
+      setEmailNotifications(user.emailNotifications);
+    }
+  }, [user?.emailNotifications]);
 
   // Check if user logged in with email/password
   const isEmailUser = firebaseUser?.providerData?.[0]?.providerId === 'password';
@@ -51,6 +56,8 @@ export default function Settings() {
         description: error instanceof Error ? error.message : "Failed to update email preferences",
         variant: "destructive"
       });
+      // Revert the toggle state on error
+      setEmailNotifications(!emailNotifications);
     }
   });
 
