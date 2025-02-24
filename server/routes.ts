@@ -168,6 +168,27 @@ export async function registerRoutes(app: Express) {
     }
   });
 
+  // Add this route near the other user routes
+  app.get("/api/users/:firebaseId", async (req, res) => {
+    try {
+      const user = await storage.getUserByFirebaseId(req.params.firebaseId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      res.json({
+        id: user.id,
+        email: user.email,
+        subscriptionType: user.subscriptionType,
+        firstName: user.firstName,
+        lastName: user.lastName
+      });
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ error: "Failed to fetch user data" });
+    }
+  });
+
+
   // Contact routes
   app.get("/api/contacts", async (req, res) => {
     const userId = req.query.userId?.toString();
