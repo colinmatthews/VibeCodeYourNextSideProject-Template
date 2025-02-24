@@ -12,23 +12,28 @@ import { apiRequest } from "@/lib/queryClient";
 import type { Contact, InsertContact } from "@shared/schema";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ContactForm } from "@/components/ContactForm";
+import { useUser } from "@/hooks/useUser";
+import { sendContactNotification } from "@/lib/mail";
 
 export default function Dashboard() {
   const [, setLocation] = useLocation();
-  const { user, loading } = useAuth();
+  const { user: firebaseUser, loading } = useAuth();
+  const { user } = useUser();
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [isNewContactOpen, setIsNewContactOpen] = useState(false);
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
+
   const { data: contacts = [], refetch } = useQuery<Contact[]>({
-    queryKey: ['contacts', user?.uid],
+    queryKey: ['contacts', firebaseUser?.uid],
     queryFn: async () => {
-      const response = await apiRequest('GET', `/api/contacts?userId=${user?.uid}`);
+      const response = await apiRequest('GET', `/api/contacts?userId=${firebaseUser?.uid}`);
       const data = await response.json();
       return Array.isArray(data) ? data : [];
     },
-    enabled: !!user,
+    enabled: !!firebaseUser,
   });
+
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
       await apiRequest("DELETE", `/api/contacts/${id}`);
@@ -46,7 +51,7 @@ export default function Dashboard() {
     return <div className="container mx-auto py-8">Loading...</div>;
   }
 
-  if (!user) {
+  if (!firebaseUser) {
     setLocation("/login");
     return null;
   }
@@ -66,6 +71,27 @@ export default function Dashboard() {
     }
   };
 
+  const handleContactSubmit = async (data: InsertContact) => {
+    console.log("Client: Submitting contact with user ID:", firebaseUser?.uid);
+    await apiRequest("POST", "/api/contacts", { ...data, userId: firebaseUser?.uid });
+
+    // Send email notification if enabled
+    if (user?.emailNotifications && firebaseUser.email) {
+      await sendContactNotification(
+        firebaseUser.email,
+        "New contact added",
+        `A new contact has been added to your contacts:\n\nName: ${data.firstName} ${data.lastName}\nEmail: ${data.email}\nPhone: ${data.phone}`
+      );
+    }
+
+    setIsNewContactOpen(false);
+    refetch();
+    toast({
+      title: "Contact created",
+      description: "The contact has been successfully created.",
+    });
+  };
+
   return (
     <div className="container mx-auto py-8 space-y-6">
       <div className="flex justify-between items-center">
@@ -80,18 +106,7 @@ export default function Dashboard() {
           <DialogHeader>
             <DialogTitle>New Contact</DialogTitle>
           </DialogHeader>
-          <ContactForm
-            onSubmit={async (data: InsertContact) => {
-              console.log("Client: Submitting contact with user ID:", user?.uid);
-              await apiRequest("POST", "/api/contacts", { ...data, userId: user?.uid });
-              setIsNewContactOpen(false);
-              refetch();
-              toast({
-                title: "Contact created",
-                description: "The contact has been successfully created.",
-              });
-            }}
-          />
+          <ContactForm onSubmit={handleContactSubmit} />
         </DialogContent>
       </Dialog>
 
