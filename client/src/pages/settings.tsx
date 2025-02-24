@@ -1,24 +1,18 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
-import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from "firebase/auth";
-import { useUser } from "@/hooks/useUser";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth } from "@/lib/auth";
 import { Card } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-
-import { PaymentMethodsList } from "@/components/PaymentMethodsList";
 
 export default function Settings() {
   const [location, setLocation] = useLocation();
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [error, setError] = useState("");
   const { toast } = useToast();
-  const { user: firebaseUser } = useAuth();
-  const { user } = useUser();
+  const { user } = useAuth();
+
+  if (!user) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <div className="container mx-auto py-10">
@@ -26,18 +20,21 @@ export default function Settings() {
 
       <Card className="p-6">
         <h2 className="text-2xl font-semibold mb-4">Payment Methods</h2>
-        <PaymentMethodsList />
+        {/* PaymentMethodsList component will be implemented later */}
       </Card>
 
       <Card className="p-6 mt-6">
         <h2 className="text-2xl font-semibold mb-4">Account</h2>
         <div className="space-y-4">
           <div>
-            <strong>Email:</strong> {user?.email}
+            <strong>Email:</strong> {user.email}
           </div>
           <Button 
             variant="destructive"
-            onClick={() => setLocation('/logout')}
+            onClick={() => {
+              setLocation('/');
+              user.signOut();
+            }}
           >
             Logout
           </Button>
