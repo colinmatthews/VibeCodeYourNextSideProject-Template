@@ -35,7 +35,13 @@ export function PaymentMethodsList({ onSelect }: PaymentMethodsListProps) {
     queryFn: async () => {
       const response = await fetch(`/api/payment-methods?userId=${user?.uid}`);
       if (!response.ok) throw new Error('Failed to fetch payment methods');
-      return response.json() as Promise<{ paymentMethods: PaymentMethod[] }>;
+      const text = await response.text();
+      try {
+        return JSON.parse(text) as { paymentMethods: PaymentMethod[] };
+      } catch (e) {
+        console.error('Failed to parse response:', text);
+        throw new Error('Invalid response format from server');
+      }
     },
     enabled: !!user?.uid
   });
@@ -51,11 +57,21 @@ export function PaymentMethodsList({ onSelect }: PaymentMethodsListProps) {
       });
 
       if (!response.ok) {
+        const text = await response.text();
+        console.error('Setup intent error response:', text);
         throw new Error('Failed to create setup intent');
       }
 
-      const { clientSecret } = await response.json();
-      setSetupIntent(clientSecret);
+      const text = await response.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        console.error('Invalid JSON response:', text);
+        throw new Error('Invalid response format from server');
+      }
+
+      setSetupIntent(data.clientSecret);
       setShowAddPaymentMethod(true);
     } catch (error) {
       toast({
@@ -84,7 +100,11 @@ export function PaymentMethodsList({ onSelect }: PaymentMethodsListProps) {
         body: JSON.stringify({ userId: user?.uid })
       });
 
-      if (!response.ok) throw new Error('Failed to delete payment method');
+      if (!response.ok) {
+        const text = await response.text();
+        console.error('Delete payment method error:', text);
+        throw new Error('Failed to delete payment method');
+      }
 
       await queryClient.invalidateQueries({ queryKey: ['paymentMethods', user?.uid] });
       toast({
