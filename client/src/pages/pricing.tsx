@@ -77,7 +77,6 @@ export default function Pricing() {
   const [, setLocation] = useLocation();
   const queryClient = new QueryClient();
 
-
   const { data: userData } = useQuery({
     queryKey: ['user', user?.uid],
     queryFn: () => fetch(`/api/users/${user?.uid}`).then(res => res.json()),
@@ -156,6 +155,35 @@ export default function Pricing() {
     }
   };
 
+  const handleDowngrade = async () => {
+    if (!user?.uid) return;
+
+    try {
+      const response = await fetch('/api/downgrade-subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ firebaseId: user.uid })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to downgrade subscription');
+      }
+
+      toast({
+        title: "Success!",
+        description: "Your subscription has been downgraded to free plan.",
+      });
+      queryClient.invalidateQueries({ queryKey: ['user', user.uid] });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to downgrade subscription",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="container mx-auto py-16 px-4">
       <div className="text-center mb-12">
@@ -188,10 +216,20 @@ export default function Pricing() {
             )}
             <Button
               className="w-full"
-              onClick={() => !user && setLocation("/login")}
+              onClick={() => {
+                if (!user) {
+                  setLocation("/login");
+                  return;
+                }
+                if (userData?.subscriptionType === 'pro') {
+                  handleDowngrade();
+                }
+              }}
               variant={userData?.subscriptionType === 'free' ? 'secondary' : 'outline'}
             >
-              {user ? 'Current Plan' : 'Get Started'}
+              {!user ? 'Get Started' : 
+                userData?.subscriptionType === 'free' ? 'Current Plan' : 
+                'Downgrade to Free'}
             </Button>
           </CardFooter>
         </Card>
@@ -230,9 +268,12 @@ export default function Pricing() {
                   setLocation("/login");
                   return;
                 }
-                setShowPaymentForm(true);
+                if (userData?.subscriptionType !== 'pro') {
+                  setShowPaymentForm(true);
+                }
               }}
               variant={userData?.subscriptionType === 'pro' ? 'secondary' : 'default'}
+              disabled={userData?.subscriptionType === 'pro'}
             >
               {userData?.subscriptionType === 'pro' ? 'Current Plan' : 'Upgrade to Pro'}
             </Button>

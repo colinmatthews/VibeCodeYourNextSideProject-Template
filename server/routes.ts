@@ -347,6 +347,42 @@ export async function registerRoutes(app: Express) {
     }
   });
 
+  // Add the following route after the create-subscription endpoint
+  app.post("/api/downgrade-subscription", async (req, res) => {
+    try {
+      const { firebaseId } = req.body;
+
+      const user = await storage.getUserByFirebaseId(firebaseId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      if (user.stripeCustomerId) {
+        // Cancel all active subscriptions
+        const subscriptions = await stripe.subscriptions.list({
+          customer: user.stripeCustomerId,
+          status: 'active',
+        });
+
+        for (const subscription of subscriptions.data) {
+          await stripe.subscriptions.del(subscription.id);
+        }
+      }
+
+      // Update user's subscription type to free
+      await storage.updateUserSubscription(user.id, 'free');
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('[Subscription] Downgrade Error:', error);
+      res.status(500).json({
+        error: error instanceof Stripe.errors.StripeError
+          ? error.message
+          : 'Failed to downgrade subscription'
+      });
+    }
+  });
+
   app.get("/api/payment-methods", async (req, res) => {
     try {
       const { firebaseId } = req.query;
