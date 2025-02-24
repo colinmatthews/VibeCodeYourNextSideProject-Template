@@ -268,15 +268,7 @@ export async function registerRoutes(app: Express) {
         console.error('[Subscription] User not found:', firebaseId);
         return res.status(400).json({ error: "User not found" });
       }
-      console.log('[Subscription] Found user:', {
-        id: user.id,
-        email: user.email,
-        firebaseId: user.firebaseId,
-        subscriptionType: user.subscriptionType,
-        stripeCustomerId: user.stripeCustomerId
-      });
 
-      // If no Stripe customer exists, create one
       if (!user.stripeCustomerId) {
         console.log('[Subscription] Creating new Stripe customer');
         const customer = await stripe.customers.create({
@@ -294,14 +286,20 @@ export async function registerRoutes(app: Express) {
         console.log('[Subscription] Updated user with Stripe customer ID:', user.stripeCustomerId);
       }
 
+      // Ensure we have a valid Stripe customer ID
+      if (!user.stripeCustomerId) {
+        throw new Error('Failed to create or retrieve Stripe customer ID');
+      }
+
       try {
         // Try to attach the payment method, ignore if already attached
         await stripe.paymentMethods.attach(paymentMethodId, {
           customer: user.stripeCustomerId,
         });
-      } catch (error) {
-        if (!error.message.includes('already been attached')) {
-          throw error;
+      } catch (err) {
+        const error = err as Error;
+        if (!error.message?.includes('already been attached')) {
+          throw err;
         }
         console.log('[Subscription] Payment method already attached, continuing');
       }
@@ -364,8 +362,9 @@ export async function registerRoutes(app: Express) {
         console.error('[Subscription] Stripe error:', error.message);
         res.status(400).json({ error: error.message });
       } else {
-        console.error('[Subscription] Server error:', error);
-        res.status(500).json({ error: 'Internal server error' });
+        const err = error as Error;
+        console.error('[Subscription] Server error:', err);
+        res.status(500).json({ error: err.message || 'Internal server error' });
       }
     }
   });
