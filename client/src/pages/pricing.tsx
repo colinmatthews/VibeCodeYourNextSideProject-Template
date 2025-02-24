@@ -79,9 +79,19 @@ export default function Pricing() {
 
   const { data: userData } = useQuery({
     queryKey: ['user', user?.uid],
-    queryFn: () => fetch(`/api/users/${user?.uid}`).then(res => res.json()),
+    queryFn: async () => {
+      const response = await fetch(`/api/users/${user?.uid}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch user data');
+      }
+      const data = await response.json();
+      console.log('[Pricing] User data:', data);
+      return data;
+    },
     enabled: !!user
   });
+
+  const isPro = userData?.subscriptionType === 'pro';
 
   const handleSuccess = () => {
     toast({
@@ -211,34 +221,24 @@ export default function Pricing() {
             </ul>
           </CardContent>
           <CardFooter className="flex flex-col gap-2">
-            {userData?.subscriptionType === 'free' && (
+            {!isPro && (
               <p className="text-sm text-muted-foreground">You're using this plan</p>
             )}
-            {userData?.subscriptionType === 'pro' ? (
+            {isPro ? (
+              <Button
+                className="w-full"
+                onClick={handleDowngrade}
+                variant="outline"
+              >
+                Downgrade to Free
+              </Button>
+            ) : (
               <Button
                 className="w-full"
                 variant="secondary"
                 disabled
               >
                 Current Plan
-              </Button>
-            ) : (
-              <Button
-                className="w-full"
-                onClick={() => {
-                  if (!user) {
-                    setLocation("/login");
-                    return;
-                  }
-                  if (userData?.subscriptionType === 'pro') {
-                    handleDowngrade();
-                  }
-                }}
-                variant={userData?.subscriptionType === 'free' ? 'secondary' : 'outline'}
-              >
-                {!user ? 'Get Started' :
-                  userData?.subscriptionType === 'free' ? 'Current Plan' :
-                    'Downgrade to Free'}
               </Button>
             )}
           </CardFooter>
@@ -266,10 +266,10 @@ export default function Pricing() {
             </ul>
           </CardContent>
           <CardFooter className="flex flex-col gap-2">
-            {userData?.subscriptionType === 'pro' && (
+            {isPro && (
               <p className="text-sm text-muted-foreground">You're using this plan</p>
             )}
-            {userData?.subscriptionType === 'pro' ? (
+            {isPro ? (
               <Button
                 className="w-full"
                 variant="secondary"
@@ -281,16 +281,14 @@ export default function Pricing() {
               <Button
                 className="w-full"
                 onClick={() => {
-                  console.log('[Pricing] Upgrade button clicked');
                   if (!user) {
-                    console.log('[Pricing] No user found, redirecting to login');
                     setLocation("/login");
                     return;
                   }
                   setShowPaymentForm(true);
                 }}
               >
-                {!user ? 'Get Started' : 'Upgrade to Pro'}
+                Upgrade to Pro
               </Button>
             )}
 
