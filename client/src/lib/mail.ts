@@ -3,9 +3,8 @@ import { apiRequest } from "./queryClient";
 
 interface EmailParams {
   to: string;
-  from: string;
   subject: string;
-  text?: string;
+  text: string;
   html?: string;
 }
 
@@ -15,7 +14,15 @@ interface EmailParams {
  */
 export async function sendEmail(params: EmailParams): Promise<boolean> {
   try {
-    await apiRequest("POST", "/api/send-email", params);
+    const response = await apiRequest("POST", "/api/send-email", {
+      ...params,
+      from: "noreply@replit.com" // Use verified sender
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to send email: ${response.statusText}`);
+    }
+
     return true;
   } catch (error) {
     console.error("Failed to send email:", error);
@@ -34,8 +41,8 @@ export async function sendContactNotification(
 ): Promise<boolean> {
   return sendEmail({
     to,
-    from: "noreply@contactmanager.com",
     subject,
     text: message,
+    html: message.replace(/\n/g, '<br>')
   });
 }
