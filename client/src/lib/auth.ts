@@ -1,16 +1,11 @@
-
-import { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { 
-  getAuth, 
+  User,
   signInWithPopup, 
   GoogleAuthProvider,
-  onAuthStateChanged,
-  signOut as firebaseSignOut,
-  User
+  signOut as firebaseSignOut
 } from 'firebase/auth';
-import { app } from './firebase';
-
-const auth = getAuth(app);
+import { auth } from './firebase';
 
 interface AuthContextType {
   user: User | null;
@@ -19,14 +14,23 @@ interface AuthContextType {
   signOut: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  loading: true,
+  signInWithGoogle: async () => {},
+  signOut: async () => {}
+});
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+interface AuthProviderProps {
+  children: React.ReactNode;
+}
+
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
       setUser(user);
       setLoading(false);
     });
@@ -41,21 +45,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = () => firebaseSignOut(auth);
 
-  const contextValue: AuthContextType = {
-    user,
-    loading,
-    signInWithGoogle,
-    signOut
-  };
-  
   return (
-    <AuthContext.Provider value={contextValue}>
+    <AuthContext.Provider 
+      value={{
+        user,
+        loading,
+        signInWithGoogle,
+        signOut
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
-}
+};
 
-export function useAuth() {
+export function useAuth(): AuthContextType {
   const context = useContext(AuthContext);
   if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
