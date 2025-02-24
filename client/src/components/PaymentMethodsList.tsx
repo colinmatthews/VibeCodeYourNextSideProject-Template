@@ -21,9 +21,10 @@ interface PaymentMethod {
 
 interface PaymentMethodsListProps {
   onSelect?: (paymentMethodId: string) => void;
+  onError?: (message: string) => void;
 }
 
-export function PaymentMethodsList({ onSelect }: PaymentMethodsListProps) {
+export function PaymentMethodsList({ onSelect, onError }: PaymentMethodsListProps) {
   const { user } = useAuth();
   const [showAddPaymentMethod, setShowAddPaymentMethod] = useState(false);
   const [setupIntent, setSetupIntent] = useState<string | null>(null);
@@ -34,72 +35,50 @@ export function PaymentMethodsList({ onSelect }: PaymentMethodsListProps) {
     queryKey: ['paymentMethods', user?.uid],
     queryFn: async () => {
       console.log("[PaymentMethods] Fetching payment methods for user:", user?.uid);
-      const response = await fetch(`/api/payment-methods?userId=${user?.uid}`);
-      console.log("[PaymentMethods] Response status:", response.status);
-
+      const response = await fetch(`/api/payment-methods?firebaseId=${user?.uid}`);
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("[PaymentMethods] Error response:", errorText);
         throw new Error('Failed to fetch payment methods');
       }
-
-      const text = await response.text();
-      console.log("[PaymentMethods] Raw response:", text);
-
-      try {
-        const data = JSON.parse(text);
-        console.log("[PaymentMethods] Parsed response:", data);
-        return data as { paymentMethods: PaymentMethod[] };
-      } catch (e) {
-        console.error('[PaymentMethods] JSON parse error:', e);
-        console.error('[PaymentMethods] Failed to parse response:', text);
-        throw new Error('Invalid response format from server');
-      }
+      const data = await response.json();
+      return data as { paymentMethods: PaymentMethod[] };
     },
     enabled: !!user?.uid
   });
 
   const handleAddPaymentMethod = async () => {
-    console.log("[SetupIntent] Starting setup intent creation for user:", user?.uid);
+    if (!user?.uid) {
+      toast({
+        title: "Error",
+        description: "Please sign in to add a payment method",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
       const response = await fetch('/api/setup-intent', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ userId: user?.uid })
+        body: JSON.stringify({ firebaseId: user.uid })
       });
-      console.log("[SetupIntent] Response status:", response.status);
 
       if (!response.ok) {
-        const text = await response.text();
-        console.error('[SetupIntent] Error response:', text);
         throw new Error('Failed to create setup intent');
       }
 
-      const text = await response.text();
-      console.log("[SetupIntent] Raw response:", text);
-
-      let data;
-      try {
-        data = JSON.parse(text);
-        console.log("[SetupIntent] Parsed response:", data);
-      } catch (e) {
-        console.error('[SetupIntent] JSON parse error:', e);
-        console.error('[SetupIntent] Invalid JSON response:', text);
-        throw new Error('Invalid response format from server');
-      }
-
-      console.log("[SetupIntent] Setting up with client secret:", data.clientSecret ? 'Present' : 'Missing');
-      setSetupIntent(data.clientSecret);
+      const { clientSecret } = await response.json();
+      setSetupIntent(clientSecret);
       setShowAddPaymentMethod(true);
     } catch (error) {
-      console.error("[SetupIntent] Setup error:", error);
+      const message = error instanceof Error ? error.message : "Failed to initialize payment setup";
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to initialize payment setup",
+        description: message,
         variant: "destructive"
       });
+      onError?.(message);
     }
   };
 
@@ -168,8 +147,8 @@ export function PaymentMethodsList({ onSelect }: PaymentMethodsListProps) {
                     Select
                   </Button>
                 )}
-                <Button 
-                  variant="destructive" 
+                <Button
+                  variant="destructive"
                   size="sm"
                   onClick={() => handleDeletePaymentMethod(method.id)}
                 >
@@ -180,7 +159,7 @@ export function PaymentMethodsList({ onSelect }: PaymentMethodsListProps) {
           ))}
         </ul>
 
-        <Button 
+        <Button
           onClick={handleAddPaymentMethod}
           className="w-full"
         >
@@ -193,89 +172,74 @@ export function PaymentMethodsList({ onSelect }: PaymentMethodsListProps) {
               <DialogTitle>Add Payment Method</DialogTitle>
             </DialogHeader>
             {setupIntent && (
-              <Elements stripe={stripePromise} options={{ clientSecret: setupIntent }}>
-                <AddPaymentMethodForm
-                  onSuccess={() => {
-                    setShowAddPaymentMethod(false);
-                    setSetupIntent(null);
-                    queryClient.invalidateQueries({ queryKey: ['paymentMethods', user?.uid] });
+              <Elements
+                stripe={stripePromise}
+                options={{
+                  clientSecret: setupIntent,
+                  appearance: {
+                    theme: 'stripe',
+                  },
+                }}
+              >
+                <PaymentElement />
+                <Button
+                  onClick={async () => {
+                    const stripe = useStripe();
+                    const elements = useElements();
+                    const { user } = useAuth();
+                    const { toast } = useToast();
+                    const [isProcessing, setIsProcessing] = useState(false);
+
+                    if (!stripe || !elements) {
+                      return;
+                    }
+
+                    setIsProcessing(true);
+                    try {
+                      const { error } = await stripe.confirmSetup({
+                        elements,
+                        confirmParams: {
+                          return_url: window.location.href,
+                        }
+                      });
+
+                      if (error) {
+                        throw new Error(error.message);
+                      }
+
+                      toast({
+                        title: "Success",
+                        description: "Payment method added successfully"
+                      });
+
+                      queryClient.invalidateQueries({ queryKey: ['paymentMethods', user?.uid] });
+                      setShowAddPaymentMethod(false);
+                      setSetupIntent(null);
+                    } catch (error) {
+                      const message = error instanceof Error ? error.message : "Failed to add payment method";
+                      toast({
+                        title: "Error",
+                        description: message,
+                        variant: "destructive"
+                      });
+                      onError?.(message);
+                    } finally {
+                      setIsProcessing(false);
+                    }
                   }}
-                />
+                  disabled={!stripe || isProcessing}
+                  className="w-full mt-4"
+                >
+                  {isProcessing ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : null}
+                  {isProcessing ? "Processing..." : "Add Payment Method"}
+                </Button>
               </Elements>
             )}
           </DialogContent>
         </Dialog>
       </CardContent>
     </Card>
-  );
-}
-
-function AddPaymentMethodForm({ onSuccess }: { onSuccess: () => void }) {
-  const stripe = useStripe();
-  const elements = useElements();
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const [isProcessing, setIsProcessing] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log("[AddPaymentMethod] Starting payment method submission");
-
-    if (!stripe || !elements || !user) {
-      console.error("[AddPaymentMethod] Missing required objects:", {
-        stripe: !!stripe,
-        elements: !!elements,
-        user: !!user
-      });
-      return;
-    }
-
-    setIsProcessing(true);
-    try {
-      console.log("[AddPaymentMethod] Confirming setup with Stripe");
-      const { error: submitError, setupIntent } = await stripe.confirmSetup({
-        elements,
-        confirmParams: {
-          return_url: window.location.href,
-        }
-      });
-
-      if (submitError) {
-        console.error("[AddPaymentMethod] Setup error:", submitError);
-        throw new Error(submitError.message);
-      }
-
-      console.log("[AddPaymentMethod] Setup successful:", setupIntent);
-      toast({
-        title: "Success",
-        description: "Payment method added successfully"
-      });
-      onSuccess();
-    } catch (error) {
-      console.error("[AddPaymentMethod] Submission error:", error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to add payment method",
-        variant: "destructive"
-      });
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <PaymentElement />
-      <Button 
-        type="submit" 
-        disabled={!stripe || isProcessing} 
-        className="w-full"
-      >
-        {isProcessing ? (
-          <Loader2 className="h-4 w-4 animate-spin mr-2" />
-        ) : null}
-        {isProcessing ? "Processing..." : "Add Payment Method"}
-      </Button>
-    </form>
   );
 }

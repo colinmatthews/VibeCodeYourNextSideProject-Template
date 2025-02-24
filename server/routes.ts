@@ -20,7 +20,7 @@ export async function registerRoutes(app: Express) {
     try {
       const { firebaseId, email } = req.body;
       console.log("[Stripe] Received ensure-stripe request", { firebaseId, email });
-      
+
       let stripeCustomerId;
       let customer;
       const existingUser = await storage.getUserByFirebaseId(firebaseId);
@@ -37,7 +37,7 @@ export async function registerRoutes(app: Express) {
           metadata: { firebaseId }
         });
         stripeCustomerId = customer.id;
-        
+
         console.log("[User] Creating new user in database");
         const newUser = await storage.createUser({
           firebaseId,
@@ -55,7 +55,7 @@ export async function registerRoutes(app: Express) {
           userId: newUser.id,
           stripeCustomerId
         });
-        
+
         return res.json({ stripeCustomerId });
       }
 
@@ -72,10 +72,10 @@ export async function registerRoutes(app: Express) {
           },
         });
         stripeCustomerId = customer.id;
-        console.log("[Stripe] Created new customer:", { 
+        console.log("[Stripe] Created new customer:", {
           customerId: stripeCustomerId,
           email: customer.email,
-          metadata: customer.metadata 
+          metadata: customer.metadata
         });
       }
 
@@ -263,12 +263,12 @@ export async function registerRoutes(app: Express) {
       const { firebaseId, paymentMethodId } = req.body;
       console.log('[Subscription] Processing payment for:', { firebaseId, paymentMethodId });
       let user = await storage.getUserByFirebaseId(firebaseId);
-      
+
       if (!user) {
         console.error('[Subscription] User not found:', firebaseId);
         return res.status(400).json({ error: "User not found" });
       }
-      console.log('[Subscription] Found user:', { 
+      console.log('[Subscription] Found user:', {
         id: user.id,
         email: user.email,
         firebaseId: user.firebaseId,
@@ -342,8 +342,8 @@ export async function registerRoutes(app: Express) {
           latestInvoice: subscription.latest_invoice,
           paymentIntent: (subscription.latest_invoice as Stripe.Invoice).payment_intent
         });
-        return res.status(500).json({ 
-          error: "Subscription creation incomplete. Please contact support." 
+        return res.status(500).json({
+          error: "Subscription creation incomplete. Please contact support."
         });
       }
 
@@ -374,7 +374,7 @@ export async function registerRoutes(app: Express) {
     try {
       const { firebaseId } = req.query;
       const user = await storage.getUserByFirebaseId(firebaseId as string);
-      
+
       if (!user?.stripeCustomerId) {
         return res.json({ paymentMethods: [] });
       }
@@ -395,14 +395,14 @@ export async function registerRoutes(app: Express) {
     try {
       const { id } = req.params;
       const { firebaseId } = req.body;
-      
+
       const user = await storage.getUserByFirebaseId(firebaseId);
       if (!user?.stripeCustomerId) {
         return res.status(404).json({ error: 'User not found' });
       }
 
       await stripe.paymentMethods.detach(id);
-      
+
       res.status(200).json({ success: true });
     } catch (error) {
       console.error('[PaymentMethods] Delete Error:', error);
@@ -419,6 +419,48 @@ export async function registerRoutes(app: Express) {
     });
 
     res.json({ clientSecret: paymentIntent.client_secret });
+  });
+
+  app.post("/api/setup-intent", async (req, res) => {
+    try {
+      console.log('[SetupIntent] Creating setup intent');
+      const { firebaseId } = req.body;
+
+      // Get user from database
+      const user = await storage.getUserByFirebaseId(firebaseId);
+      if (!user) {
+        console.error('[SetupIntent] User not found:', firebaseId);
+        return res.status(404).json({ error: 'User not found' });
+      }
+      console.log('[SetupIntent] Found user:', { id: user.id, email: user.email });
+
+      // Create or get customer
+      let customerId = user.stripeCustomerId;
+      if (!customerId) {
+        console.log('[SetupIntent] Creating new Stripe customer');
+        const customer = await stripe.customers.create({
+          email: user.email,
+          metadata: { firebaseId }
+        });
+        customerId = customer.id;
+        await storage.updateUserStripeCustomerId(user.id, customerId);
+        console.log('[SetupIntent] Created customer:', customerId);
+      }
+
+      // Create setup intent
+      console.log('[SetupIntent] Creating setup intent for customer:', customerId);
+      const setupIntent = await stripe.setupIntents.create({
+        customer: customerId,
+        payment_method_types: ['card'],
+        usage: 'off_session',
+      });
+      console.log('[SetupIntent] Created setup intent:', setupIntent.id);
+
+      res.json({ clientSecret: setupIntent.client_secret });
+    } catch (error) {
+      console.error('[SetupIntent] Error:', error);
+      res.status(500).json({ error: 'Failed to create setup intent' });
+    }
   });
 
   return server;
