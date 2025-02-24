@@ -214,23 +214,33 @@ export default function Pricing() {
             {userData?.subscriptionType === 'free' && (
               <p className="text-sm text-muted-foreground">You're using this plan</p>
             )}
-            <Button
-              className="w-full"
-              onClick={() => {
-                if (!user) {
-                  setLocation("/login");
-                  return;
-                }
-                if (userData?.subscriptionType === 'pro') {
-                  handleDowngrade();
-                }
-              }}
-              variant={userData?.subscriptionType === 'free' ? 'secondary' : 'outline'}
-            >
-              {!user ? 'Get Started' :
-                userData?.subscriptionType === 'free' ? 'Current Plan' :
-                  'Downgrade to Free'}
-            </Button>
+            {userData?.subscriptionType === 'pro' ? (
+              <Button
+                className="w-full"
+                variant="secondary"
+                disabled
+              >
+                Current Plan
+              </Button>
+            ) : (
+              <Button
+                className="w-full"
+                onClick={() => {
+                  if (!user) {
+                    setLocation("/login");
+                    return;
+                  }
+                  if (userData?.subscriptionType === 'pro') {
+                    handleDowngrade();
+                  }
+                }}
+                variant={userData?.subscriptionType === 'free' ? 'secondary' : 'outline'}
+              >
+                {!user ? 'Get Started' :
+                  userData?.subscriptionType === 'free' ? 'Current Plan' :
+                    'Downgrade to Free'}
+              </Button>
+            )}
           </CardFooter>
         </Card>
 
@@ -259,25 +269,30 @@ export default function Pricing() {
             {userData?.subscriptionType === 'pro' && (
               <p className="text-sm text-muted-foreground">You're using this plan</p>
             )}
-            <Button
-              className="w-full"
-              onClick={() => {
-                console.log('[Pricing] Upgrade button clicked');
-                if (!user) {
-                  console.log('[Pricing] No user found, redirecting to login');
-                  setLocation("/login");
-                  return;
-                }
-                if (userData?.subscriptionType !== 'pro') {
+            {userData?.subscriptionType === 'pro' ? (
+              <Button
+                className="w-full"
+                variant="secondary"
+                disabled
+              >
+                Current Plan
+              </Button>
+            ) : (
+              <Button
+                className="w-full"
+                onClick={() => {
+                  console.log('[Pricing] Upgrade button clicked');
+                  if (!user) {
+                    console.log('[Pricing] No user found, redirecting to login');
+                    setLocation("/login");
+                    return;
+                  }
                   setShowPaymentForm(true);
-                }
-              }}
-              variant={userData?.subscriptionType === 'pro' ? 'secondary' : 'default'}
-              disabled={userData?.subscriptionType === 'pro'}
-            >
-              {!user ? 'Get Started' :
-                userData?.subscriptionType === 'pro' ? 'Current Plan' : 'Upgrade to Pro'}
-            </Button>
+                }}
+              >
+                {!user ? 'Get Started' : 'Upgrade to Pro'}
+              </Button>
+            )}
 
             {showPaymentForm && (
               <Dialog open={showPaymentForm} onOpenChange={setShowPaymentForm}>
