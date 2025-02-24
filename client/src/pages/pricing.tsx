@@ -5,19 +5,26 @@ import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent, CardTitle, CardFooter } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Check } from "lucide-react";
 import { useState } from "react";
 import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
+import { PaymentMethodsList } from "@/components/PaymentMethodsList";
+
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || '');
 console.log('[Stripe] Initializing with key:', import.meta.env.VITE_STRIPE_PUBLIC_KEY ? 'Key present' : 'Key missing');
 
-function CheckoutForm({ onSuccess, onError }) {
+interface CheckoutFormProps {
+  onSuccess: (paymentMethodId: string) => void;
+  onError: (error: string) => void;
+}
+
+function CheckoutForm({ onSuccess, onError }: CheckoutFormProps) {
   const stripe = useStripe();
   const elements = useElements();
   const [processing, setProcessing] = useState(false);
 
-  const handleSubmit = async (event) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
     if (!stripe || !elements) {
@@ -27,21 +34,26 @@ function CheckoutForm({ onSuccess, onError }) {
     setProcessing(true);
 
     try {
-      const { error, paymentMethod } = await stripe.createPaymentMethod({
+      const result = await stripe.createPaymentMethod({
         type: 'card',
-        card: elements.getElement(CardElement),
+        card: elements.getElement(CardElement)!,
       });
 
-      if (error) {
-        onError(error.message);
+      if (result.error) {
+        onError(result.error.message || "Failed to process payment");
         return;
       }
 
-      console.log('[Payment] Created payment method:', paymentMethod.id);
-      onSuccess(paymentMethod.id);
+      if (!result.paymentMethod) {
+        onError("No payment method created");
+        return;
+      }
+
+      console.log('[Payment] Created payment method:', result.paymentMethod.id);
+      onSuccess(result.paymentMethod.id);
     } catch (err) {
       console.error('[Payment] Error creating payment method:', err);
-      onError(err.message);
+      onError(err instanceof Error ? err.message : "An unexpected error occurred");
     } finally {
       setProcessing(false);
     }
@@ -61,6 +73,8 @@ export default function Pricing() {
   const { toast } = useToast();
   const { user } = useAuth();
   const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [, setLocation] = useLocation();
+
   const { data: userData } = useQuery({
     queryKey: ['user', user?.uid],
     queryFn: () => fetch(`/api/users/${user?.uid}`).then(res => res.json()),
@@ -115,6 +129,7 @@ export default function Pricing() {
             <Button 
               className="w-full" 
               onClick={() => !user && setLocation("/login")}
+              variant={userData?.subscriptionType === 'free' ? 'secondary' : 'outline'}
             >
               {user ? 'Current Plan' : 'Get Started'}
             </Button>
@@ -157,8 +172,9 @@ export default function Pricing() {
                 }
                 setShowPaymentForm(true);
               }}
+              variant={userData?.subscriptionType === 'pro' ? 'secondary' : 'default'}
             >
-              Upgrade to Pro
+              {userData?.subscriptionType === 'pro' ? 'Current Plan' : 'Upgrade to Pro'}
             </Button>
 
             {showPaymentForm && (
@@ -166,12 +182,18 @@ export default function Pricing() {
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>Payment Methods</DialogTitle>
-                    <DialogDescription>Select or add a payment method to upgrade to Pro</DialogDescription>
+                    <DialogDescription>
+                      Select or add a payment method to upgrade to Pro
+                    </DialogDescription>
                   </DialogHeader>
                   <Elements stripe={stripePromise}>
                     <PaymentMethodsList 
-                      onSelect={async (paymentMethodId) => {
+                      onSelect={async (paymentMethodId: string) => {
                         try {
+                          if (!user?.uid) {
+                            throw new Error('User not authenticated');
+                          }
+
                           console.log('[Pricing] Creating subscription for user:', user.uid);
                           const response = await fetch('/api/create-subscription', {
                             method: 'POST',
@@ -194,19 +216,16 @@ export default function Pricing() {
                             title: "Success!",
                             description: "Your subscription has been activated.",
                           });
-                        } catch (error: any) {
+                        } catch (error) {
                           console.error('[Pricing] Error:', error);
                           toast({
                             title: "Error",
-                            description: error.message || "Failed to process payment",
+                            description: error instanceof Error ? error.message : "Failed to process payment",
                             variant: "destructive",
                           });
                         }
                       }}
-                      onError={(msg) => {
-                        setShowPaymentForm(false);
-                        handleError(msg);
-                      }}
+                      onError={handleError}
                     />
                   </Elements>
                 </DialogContent>
