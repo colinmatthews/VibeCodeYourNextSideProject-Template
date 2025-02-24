@@ -1,11 +1,23 @@
-import { auth, useAuth } from "../lib/auth";
+import { useAuth } from "@/lib/auth";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Elements, CardElement } from "@stripe/react-stripe-js";
+import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { stripePromise } from "@/lib/stripe";
+import { Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+
+interface PaymentMethod {
+  id: string;
+  card: {
+    brand: string;
+    last4: string;
+    exp_month: number;
+    exp_year: number;
+  };
+}
 
 interface PaymentMethodsListProps {
   onSelect?: (paymentMethodId: string) => void;
@@ -15,14 +27,51 @@ export function PaymentMethodsList({ onSelect }: PaymentMethodsListProps) {
   const { user } = useAuth();
   const [showAddPaymentMethod, setShowAddPaymentMethod] = useState(false);
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const { data, isLoading } = useQuery({
     queryKey: ['paymentMethods', user?.uid],
-    queryFn: () => fetch(`/api/payment-methods?firebaseId=${user?.uid}`).then(res => res.json()),
-    enabled: !!user
+    queryFn: async () => {
+      const response = await fetch(`/api/payment-methods?userId=${user?.uid}`);
+      if (!response.ok) throw new Error('Failed to fetch payment methods');
+      return response.json() as Promise<{ paymentMethods: PaymentMethod[] }>;
+    },
+    enabled: !!user?.uid
   });
 
-  if (isLoading) return <div>Loading payment methods...</div>;
+  if (isLoading) {
+    return (
+      <div className="flex justify-center p-4">
+        <Loader2 className="h-6 w-6 animate-spin" />
+      </div>
+    );
+  }
+
+  const handleDeletePaymentMethod = async (methodId: string) => {
+    try {
+      const response = await fetch(`/api/payment-methods/${methodId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ userId: user?.uid })
+      });
+
+      if (!response.ok) throw new Error('Failed to delete payment method');
+
+      await queryClient.invalidateQueries({ queryKey: ['paymentMethods', user?.uid] });
+      toast({
+        title: "Success",
+        description: "Payment method removed successfully"
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to remove payment method",
+        variant: "destructive"
+      });
+    }
+  };
 
   return (
     <Card>
@@ -32,7 +81,7 @@ export function PaymentMethodsList({ onSelect }: PaymentMethodsListProps) {
       <CardContent className="space-y-4">
         <ul className="space-y-2">
           {data?.paymentMethods?.map((method) => (
-            <li key={method.id} className="flex items-center justify-between gap-2">
+            <li key={method.id} className="flex items-center justify-between p-2 border rounded">
               <div className="flex items-center gap-2">
                 <span>•••• {method.card.last4}</span>
                 <span className="text-muted-foreground">
@@ -51,21 +100,7 @@ export function PaymentMethodsList({ onSelect }: PaymentMethodsListProps) {
                 <Button 
                   variant="destructive" 
                   size="sm"
-                  onClick={async () => {
-                    try {
-                      const response = await fetch(`/api/payment-methods/${method.id}`, {
-                        method: 'DELETE',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ firebaseId: user?.uid })
-                      });
-
-                      if (!response.ok) throw new Error('Failed to delete payment method');
-
-                      queryClient.invalidateQueries(['paymentMethods', user?.uid]);
-                    } catch (error) {
-                      console.error('Error deleting payment method:', error);
-                    }
-                  }}
+                  onClick={() => handleDeletePaymentMethod(method.id)}
                 >
                   Remove
                 </Button>
@@ -74,7 +109,10 @@ export function PaymentMethodsList({ onSelect }: PaymentMethodsListProps) {
           ))}
         </ul>
 
-        <Button onClick={() => setShowAddPaymentMethod(true)}>
+        <Button 
+          onClick={() => setShowAddPaymentMethod(true)}
+          className="w-full"
+        >
           Add Payment Method
         </Button>
 
@@ -87,10 +125,7 @@ export function PaymentMethodsList({ onSelect }: PaymentMethodsListProps) {
               <AddPaymentMethodForm
                 onSuccess={() => {
                   setShowAddPaymentMethod(false);
-                  queryClient.invalidateQueries(['paymentMethods', user?.uid]);
-                }}
-                onError={(error) => {
-                  console.error('Error adding payment method:', error);
+                  queryClient.invalidateQueries({ queryKey: ['paymentMethods', user?.uid] });
                 }}
               />
             </Elements>
@@ -101,50 +136,65 @@ export function PaymentMethodsList({ onSelect }: PaymentMethodsListProps) {
   );
 }
 
-function AddPaymentMethodForm({ onSuccess, onError }) {
+function AddPaymentMethodForm({ onSuccess }: { onSuccess: () => void }) {
   const stripe = useStripe();
   const elements = useElements();
   const { user } = useAuth();
-  const [processing, setProcessing] = useState(false);
+  const { toast } = useToast();
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!stripe || !elements || !user) return;
 
-    setProcessing(true);
+    setIsProcessing(true);
     try {
-      const { error, paymentMethod } = await stripe.createPaymentMethod({
-        type: 'card',
-        card: elements.getElement(CardElement),
-      });
-
-      if (error) {
-        onError(error.message);
-        return;
-      }
-
-      await fetch('/api/create-subscription', {
+      const response = await fetch('/api/setup-intent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          firebaseId: user.uid,
-          paymentMethodId: paymentMethod.id
-        })
+        body: JSON.stringify({ userId: user.uid })
       });
 
+      const { clientSecret } = await response.json();
+
+      const { error: submitError } = await stripe.confirmSetup({
+        elements,
+        clientSecret,
+        redirect: 'if_required'
+      });
+
+      if (submitError) {
+        throw new Error(submitError.message);
+      }
+
+      toast({
+        title: "Success",
+        description: "Payment method added successfully"
+      });
       onSuccess();
-    } catch (err) {
-      onError(err.message);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to add payment method",
+        variant: "destructive"
+      });
     } finally {
-      setProcessing(false);
+      setIsProcessing(false);
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <CardElement className="p-3 border rounded" />
-      <Button type="submit" disabled={!stripe || processing} className="w-full">
-        {processing ? 'Processing...' : 'Add Payment Method'}
+      <PaymentElement />
+      <Button 
+        type="submit" 
+        disabled={!stripe || isProcessing} 
+        className="w-full"
+      >
+        {isProcessing ? (
+          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+        ) : null}
+        {isProcessing ? "Processing..." : "Add Payment Method"}
       </Button>
     </form>
   );

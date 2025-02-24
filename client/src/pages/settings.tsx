@@ -4,6 +4,7 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/lib/auth";
 import { Card } from '@/components/ui/card';
 import { Loader2 } from "lucide-react";
+import { PaymentMethodsList } from "@/components/PaymentMethodsList";
 
 export default function Settings() {
   const [, setLocation] = useLocation();
@@ -45,8 +46,7 @@ export default function Settings() {
       <h1 className="text-4xl font-bold mb-8">Settings</h1>
 
       <Card className="p-6">
-        <h2 className="text-2xl font-semibold mb-4">Payment Methods</h2>
-        {/* PaymentMethodsList component will be implemented later */}
+        <PaymentMethodsList />
       </Card>
 
       <Card className="p-6 mt-6">
