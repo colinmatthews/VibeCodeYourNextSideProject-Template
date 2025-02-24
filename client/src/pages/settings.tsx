@@ -13,6 +13,7 @@ import { updateUserPassword } from "@/lib/firebase";
 import { useUser } from "@/hooks/useUser";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { signOut } from "firebase/auth";
 
 export default function Settings() {
   const [, setLocation] = useLocation();
@@ -24,17 +25,7 @@ export default function Settings() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
-  const [emailNotifications, setEmailNotifications] = useState(false);
-
-  // Update emailNotifications state whenever user data changes
-  useEffect(() => {
-    if (user?.emailNotifications !== undefined) {
-      setEmailNotifications(user.emailNotifications);
-    }
-  }, [user?.emailNotifications]);
-
-  // Check if user logged in with email/password
-  const isEmailUser = firebaseUser?.providerData?.[0]?.providerId === 'password';
+  const [emailNotifications, setEmailNotifications] = useState(user?.emailNotifications ?? false);
 
   const updateEmailPreferences = useMutation({
     mutationFn: async (enabled: boolean) => {
@@ -109,7 +100,7 @@ export default function Settings() {
 
   const handleSignOut = async () => {
     try {
-      await signOut();
+      await signOut(firebaseUser);
       toast({
         title: "Success",
         description: "You have been logged out successfully"
