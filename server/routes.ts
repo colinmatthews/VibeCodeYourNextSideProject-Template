@@ -210,8 +210,7 @@ export async function registerRoutes(app: Express) {
   app.post("/api/items", async (req, res) => {
     try {
       console.log("Server: Received item data:", req.body);
-      const { userId, item: itemText } = req.body;
-      const validatedItem = { userId, item: itemText };
+      const { userId, item } = req.body;
       console.log("Server: Parsed userId:", userId);
       if (!userId) {
         return res.status(400).json({ error: "Invalid user ID" });
@@ -226,7 +225,7 @@ export async function registerRoutes(app: Express) {
         });
       }
 
-      const created = await storage.createItem({ ...item, userId });
+      const created = await storage.createItem({ userId, item });
       res.json(created);
     } catch (error) {
       res.status(400).json({
