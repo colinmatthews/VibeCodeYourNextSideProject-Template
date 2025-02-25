@@ -1,4 +1,5 @@
 
+-- Create users table
 CREATE TABLE IF NOT EXISTS users (
   id SERIAL PRIMARY KEY,
   firebase_id TEXT NOT NULL UNIQUE,
@@ -14,6 +15,7 @@ CREATE TABLE IF NOT EXISTS users (
   email_notifications BOOLEAN NOT NULL DEFAULT false
 );
 
+-- Create items table
 CREATE TABLE IF NOT EXISTS items (
   id SERIAL PRIMARY KEY,
   user_id TEXT NOT NULL REFERENCES users(firebase_id),
