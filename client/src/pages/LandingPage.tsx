@@ -4,10 +4,11 @@ import { SiFirebase, SiSendgrid, SiStripe } from "react-icons/si";
 export default function LandingPage() {
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-4xl font-bold mb-8 text-center">Contact Management System Template</h1>
+      <h1 className="text-4xl font-bold mb-8 text-center">Web App Template</h1>
       <p className="text-lg mb-8 text-center text-muted-foreground">
-        A robust contact management system built with modern web technologies, featuring secure authentication, 
-        comprehensive communication preferences, and advanced contact tracking.
+        A production-ready web application template with authentication, payments, and email notifications built in. 
+        Currently configured for tracking a list of elements, but easily customizable to build your own product! 
+        Built with modern web technologies and best practices.
       </p>
 
       <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3 mb-12">
@@ -86,14 +87,16 @@ export default function LandingPage() {
       </div>
 
       <div className="text-center">
-        <h3 className="text-2xl font-semibold mb-4">Features</h3>
+        <h3 className="text-2xl font-semibold mb-4">Features & Customization</h3>
         <ul className="text-lg text-muted-foreground inline-block text-left">
           <li>✓ User Authentication via Firebase</li>
           <li>✓ Email Notifications with SendGrid</li>
           <li>✓ Payment Processing through Stripe</li>
-          <li>✓ Contact Management</li>
-          <li>✓ Communication Preferences</li>
-          <li>✓ Subscription Management</li>
+          <li>✓ Database with PostgreSQL</li>
+          <li>✓ Responsive UI with Tailwind CSS</li>
+          <li>✓ Type-safe with TypeScript</li>
+          <li>✓ Easily customizable data model</li>
+          <li>✓ Modern React patterns</li>
         </ul>
       </div>
     </div>
