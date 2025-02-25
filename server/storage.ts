@@ -4,6 +4,11 @@ import { eq } from "drizzle-orm";
 import pg from 'pg';
 import { z } from "zod";
 
+export const getUserByEmail = async (email: string): Promise<User | undefined> => {
+  const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  return result[0];
+};
+
 export const insertItemSchema = z.object({
   userId: z.string(),
   item: z.string()

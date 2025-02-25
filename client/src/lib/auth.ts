@@ -44,8 +44,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       const result = await signInWithPopup(auth, provider);
       const credential = GoogleAuthProvider.credentialFromResult(result);
       const user = result.user;
-      // Create user in database
-      await fetch('/api/users', {
+      
+      // Check if user exists and create if not
+      const response = await fetch('/api/users', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -55,6 +56,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           email: user.email,
         }),
       });
+
+      if (!response.ok) {
+        throw new Error('Failed to create/verify user');
+      }
+      
       setUser(user);
       setLoading(false);
     } catch (error) {
