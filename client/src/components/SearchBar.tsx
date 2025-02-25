@@ -14,7 +14,7 @@ export function SearchBar({ value, onChange }: SearchBarProps) {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="pl-9"
-        placeholder="Search contacts..."
+        placeholder="Search items..."
       />
     </div>
   );
