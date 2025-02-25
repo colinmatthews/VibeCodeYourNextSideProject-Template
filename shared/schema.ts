@@ -1,3 +1,4 @@
+
 import { pgTable, text, serial, varchar, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -26,22 +27,19 @@ export const users = pgTable("users", {
   emailNotifications: boolean("email_notifications").notNull().default(false),
 });
 
-export const contacts = pgTable("contacts", {
+export const items = pgTable("items", {
   id: serial("id").primaryKey(),
   userId: text("user_id").notNull().references(() => users.firebaseId),
-  firstName: text("first_name").notNull(),
-  lastName: text("last_name").notNull(),
-  email: text("email").notNull(),
-  phone: text("phone").notNull(),
+  item: text("item").notNull(),
 });
 
 export const usersRelations = relations(users, ({ many }) => ({
-  contacts: many(contacts),
+  items: many(items),
 }));
 
-export const contactsRelations = relations(contacts, ({ one }) => ({
+export const itemsRelations = relations(items, ({ one }) => ({
   user: one(users, {
-    fields: [contacts.userId],
+    fields: [items.userId],
     references: [users.firebaseId],
   }),
 }));
@@ -60,15 +58,12 @@ export const insertUserSchema = createInsertSchema(users, {
   emailNotifications: z.boolean().default(false),
 });
 
-export const insertContactSchema = createInsertSchema(contacts, {
+export const insertItemSchema = createInsertSchema(items, {
   userId: z.string(),
-  firstName: z.string(),
-  lastName: z.string(),
-  email: z.string().email(),
-  phone: z.string(),
+  item: z.string(),
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
-export type InsertContact = z.infer<typeof insertContactSchema>;
-export type Contact = typeof contacts.$inferSelect;
+export type InsertItem = z.infer<typeof insertItemSchema>;
+export type Item = typeof items.$inferSelect;

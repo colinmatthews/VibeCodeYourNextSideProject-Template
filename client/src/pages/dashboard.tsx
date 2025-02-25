@@ -4,15 +4,13 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { ContactList } from "@/components/ContactList";
 import { SearchBar } from "@/components/SearchBar";
 import { Plus } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
-import type { Contact, InsertContact } from "@shared/schema";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ContactForm } from "@/components/ContactForm";
+import { Input } from "@/components/ui/input";
 import { useUser } from "@/hooks/useUser";
-import { sendContactNotification } from "@/lib/mail";
+//import { sendContactNotification } from "@/lib/mail"; // Removed as it's not relevant to items
 
 export default function Dashboard() {
   const [, setLocation] = useLocation();
@@ -21,12 +19,13 @@ export default function Dashboard() {
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [isNewItemOpen, setIsNewItemOpen] = useState(false);
+  const [newItem, setNewItem] = useState("");
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
 
-  const { data: items = [], refetch } = useQuery<Contact[]>({
-    queryKey: ['contacts', firebaseUser?.uid],
+  const { data: items = [], refetch } = useQuery({
+    queryKey: ['items', firebaseUser?.uid], // Changed queryKey
     queryFn: async () => {
-      const response = await apiRequest('GET', `/api/contacts?userId=${firebaseUser?.uid}`);
+      const response = await apiRequest('GET', `/api/items?userId=${firebaseUser?.uid}`); // Changed API endpoint
       const data = await response.json();
       return Array.isArray(data) ? data : [];
     },
@@ -35,7 +34,7 @@ export default function Dashboard() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      await apiRequest("DELETE", `/api/contacts/${id}`);
+      await apiRequest("DELETE", `/api/items/${id}`); // Changed API endpoint
     },
     onSuccess: () => {
       refetch();
@@ -56,9 +55,7 @@ export default function Dashboard() {
   }
 
   const filteredItems = items.filter(
-    (item) =>
-      item.firstName.toLowerCase().includes(search.toLowerCase()) ||
-      item.lastName.toLowerCase().includes(search.toLowerCase()),
+    (item: { item: string }) => item.item.toLowerCase().includes(search.toLowerCase()), //Simplified filtering
   );
 
   const handleNewItem = () => {
@@ -69,24 +66,48 @@ export default function Dashboard() {
     }
   };
 
-  const handleItemSubmit = async (data: InsertContact) => {
-    await apiRequest("POST", "/api/contacts", { ...data, userId: firebaseUser?.uid });
+  const handleItemSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user?.firebaseId) return;
 
-    // Send email notification if enabled
-    if (user?.emailNotifications && firebaseUser.email) {
-      await sendContactNotification(
-        firebaseUser.email,
-        "New item added",
-        `A new item has been added to your list:\n\nItem: ${data.firstName} ${data.lastName}`
-      );
+    try {
+      const response = await fetch("/api/items", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: user.firebaseId,
+          item: newItem
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.status === 403) {
+        setShowUpgradeDialog(true);
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to add item");
+      }
+
+      toast({
+        title: "Success",
+        description: "Item added successfully",
+      });
+
+      setNewItem("");
+      setIsNewItemOpen(false);
+      refetch();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to add item",
+        variant: "destructive",
+      });
     }
-
-    setIsNewItemOpen(false);
-    refetch();
-    toast({
-      title: "Item created",
-      description: "The item has been successfully created.",
-    });
   };
 
   return (
@@ -103,7 +124,16 @@ export default function Dashboard() {
           <DialogHeader>
             <DialogTitle>New Item</DialogTitle>
           </DialogHeader>
-          <ContactForm onSubmit={handleItemSubmit} />
+          <form onSubmit={handleItemSubmit} className="space-y-4">
+            <Input
+              placeholder="Enter item"
+              value={newItem}
+              onChange={(e) => setNewItem(e.target.value)}
+            />
+            <div className="flex justify-end">
+              <Button type="submit">Add Item</Button>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
 
@@ -124,15 +154,15 @@ export default function Dashboard() {
 
       <SearchBar value={search} onChange={setSearch} />
 
-      <ContactList
-        contacts={filteredItems}
-        onEdit={(id) => setLocation(`/contacts/edit/${id}`)}
-        onDelete={(id) => {
-          if (confirm("Are you sure you want to delete this item?")) {
-            deleteMutation.mutate(id);
-          }
-        }}
-      />
+      {/* Simplified item list -  no longer needs ContactList component */}
+      <ul>
+        {filteredItems.map((item) => (
+          <li key={item.id} className="py-2">
+            {item.item}
+            <button onClick={() => deleteMutation.mutate(item.id)}>Delete</button>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

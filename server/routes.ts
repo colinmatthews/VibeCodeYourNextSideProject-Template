@@ -198,25 +198,25 @@ export async function registerRoutes(app: Express) {
   });
 
 
-  // Contact routes
-  app.get("/api/contacts", async (req, res) => {
+  // Item routes
+  app.get("/api/items", async (req, res) => {
     const userId = req.query.userId?.toString();
     if (!userId) {
       return res.status(400).json({ error: "Invalid user ID" });
     }
     try {
-      const contacts = await storage.getContactsByUserId(userId);
-      res.json(contacts || []);
+      const items = await storage.getItemsByUserId(userId);
+      res.json(items || []);
     } catch (error) {
-      console.error("Error fetching contacts:", error);
+      console.error("Error fetching items:", error);
       res.json([]);
     }
   });
 
-  app.post("/api/contacts", async (req, res) => {
+  app.post("/api/items", async (req, res) => {
     try {
-      console.log("Server: Received full contact data:", req.body);
-      const contact = insertContactSchema.parse(req.body);
+      console.log("Server: Received item data:", req.body);
+      const item = insertItemSchema.parse(req.body);
       const userId = req.body.userId?.toString();
       console.log("Server: Parsed userId:", userId);
       if (!userId) {
@@ -224,61 +224,30 @@ export async function registerRoutes(app: Express) {
       }
 
       const userForPremiumCheck = await storage.getUserByFirebaseId(userId);
-      const contacts = await storage.getContactsByUserId(userId);
+      const items = await storage.getItemsByUserId(userId);
 
-      if (!userForPremiumCheck?.subscriptionType?.includes('pro') && contacts.length >= 5) {
+      if (!userForPremiumCheck?.subscriptionType?.includes('pro') && items.length >= 5) {
         return res.status(403).json({
-          error: "Contact limit reached. Please upgrade to Pro plan.",
+          error: "Item limit reached. Please upgrade to Pro plan.",
         });
       }
 
-      const created = await storage.createContact({ ...contact, userId });
-
-      // Send email notification
-      const userForEmail = await storage.getUserByFirebaseId(userId);
-      if (userForEmail) {
-        await sendEmail({
-          to: userForEmail.email,
-          from: "noreply@contactmanager.com",
-          subject: "New Contact Added",
-          text: `A new contact ${contact.firstName} ${contact.lastName} has been added to your contacts.`,
-        });
-      }
-
+      const created = await storage.createItem({ ...item, userId });
       res.json(created);
     } catch (error) {
       res.status(400).json({
-        error: "Invalid contact data",
+        error: "Invalid item data",
         errorDetails: error instanceof Error ? error.message : "Unknown error",
-        file: error instanceof Error ? error.fileName || "unknown" : "unknown",
-        stack: error instanceof Error ? error.stack : "No stack trace available",
       });
     }
   });
 
-  app.patch("/api/contacts/:id", async (req, res) => {
+  app.delete("/api/items/:id", async (req, res) => {
     const id = Number(req.params.id);
     if (isNaN(id)) {
-      return res.status(400).json({ error: "Invalid contact ID" });
+      return res.status(400).json({ error: "Invalid item ID" });
     }
-    try {
-      const contact = insertContactSchema.partial().parse(req.body);
-      const updated = await storage.updateContact(id, contact);
-      res.json(updated);
-    } catch (error) {
-      res.status(400).json({
-        error: "Invalid PATCH contact data",
-        errorDetails: error.message,
-      });
-    }
-  });
-
-  app.delete("/api/contacts/:id", async (req, res) => {
-    const id = Number(req.params.id);
-    if (isNaN(id)) {
-      return res.status(400).json({ error: "Invalid contact ID" });
-    }
-    await storage.deleteContact(id);
+    await storage.deleteItem(id);
     res.status(204).send();
   });
 
