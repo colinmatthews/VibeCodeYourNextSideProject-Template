@@ -79,8 +79,21 @@ export default function Dashboard() {
       if (!response.ok) {
         throw new Error('Failed to add item');
       }
-    e.preventDefault();
-    if (!user?.firebaseId) return;
+      
+      await refetch();
+      setNewItem('');
+      setIsNewItemOpen(false);
+      toast({
+        title: "Success",
+        description: "Item added successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to add item",
+        variant: "destructive",
+      });
+    }
 
     try {
       const response = await fetch("/api/items", {
