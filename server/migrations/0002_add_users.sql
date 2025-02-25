@@ -14,6 +14,6 @@ CREATE TABLE "users" (
 -- Create items table with foreign key
 CREATE TABLE "items" (
   "id" SERIAL PRIMARY KEY,
-  "user_id" TEXT NOT NULL REFERENCES "users"("firebase_id"),
-  "item" TEXT NOT NULL
+  "item" TEXT NOT NULL,
+  "user_id" TEXT NOT NULL REFERENCES "users"("firebase_id")
 );

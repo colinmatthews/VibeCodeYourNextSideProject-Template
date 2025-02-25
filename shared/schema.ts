@@ -19,8 +19,8 @@ export const users = pgTable("users", {
 
 export const items = pgTable("items", {
   id: serial("id").primaryKey(),
-  userId: text("user_id").notNull().references(() => users.firebaseId),
   item: text("item").notNull(),
+  userId: text("user_id").notNull().references(() => users.firebaseId),
 });
 
 export const insertUserSchema = createInsertSchema(users, {
