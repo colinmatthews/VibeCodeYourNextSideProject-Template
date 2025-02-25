@@ -20,6 +20,12 @@ export const users = pgTable("users", {
   emailNotifications: boolean("email_notifications").notNull().default(false),
 });
 
+export const items = pgTable("items", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.firebaseId),
+  item: text("item").notNull(),
+});
+
 export const insertUserSchema = createInsertSchema(users, {
   firebaseId: z.string(),
   email: z.string().email(),
