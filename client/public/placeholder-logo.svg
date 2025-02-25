@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="200" height="50" viewBox="0 0 200 50" version="1.1" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    .text { font-family: system-ui, -apple-system, sans-serif; font-weight: bold; }
+    .accent { fill: #6366f1; }
+    .main { fill: #1f2937; }
+  </style>
+  <rect x="10" y="10" width="30" height="30" rx="6" class="accent" opacity="0.8"/>
+  <text x="50" y="32" class="text main" font-size="18">Your Logo Here</text>
+  <path d="M15 25 L35 25" stroke="white" stroke-width="2"/>
+  <path d="M25 15 L25 35" stroke="white" stroke-width="2"/>
+</svg>
