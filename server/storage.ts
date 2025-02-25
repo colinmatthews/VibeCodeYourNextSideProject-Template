@@ -1,13 +1,14 @@
-import { type Contact, type InsertContact, type User, type InsertUser } from "@shared/schema";
-import neo4j from 'neo4j-driver';
+import { type Contact, type InsertContact, type User, type InsertUser, users, contacts } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import pg from 'pg';
+import { drizzle } from 'drizzle-orm/node-postgres';
 const { Pool } = pg;
 
 interface UpdateUserData {
-    firstName?: string;
-    lastName?: string;
-    emailNotifications?: boolean;
-  }
+  firstName?: string;
+  lastName?: string;
+  emailNotifications?: boolean;
+}
 
 export interface IStorage {
   // User operations
@@ -18,45 +19,33 @@ export interface IStorage {
   updateUser(id: number, data: UpdateUserData): Promise<User>;
 
   // Contact operations
-  getContact(id: string): Promise<Contact | undefined>;
+  getContact(id: number): Promise<Contact | undefined>;
   getContactsByUserId(userId: string): Promise<Contact[]>;
-  createContact(contact: InsertContact & { userId: string }): Promise<Contact>;
-  updateContact(id: string, contact: Partial<InsertContact>): Promise<Contact>;
-  deleteContact(id: string): Promise<void>;
+  createContact(contact: InsertContact): Promise<Contact>;
+  updateContact(id: number, contact: Partial<InsertContact>): Promise<Contact>;
+  deleteContact(id: number): Promise<void>;
 }
 
-export class HybridStorage implements IStorage {
-  private neo4jDriver: neo4j.Driver;
-  private pgPool: Pool;
+export class PostgresStorage implements IStorage {
+  private db: ReturnType<typeof drizzle>;
+  private pool: typeof Pool;
 
   constructor() {
-    // Neo4j setup
-    this.neo4jDriver = neo4j.driver(
-      process.env.NEO4J_URI || 'neo4j://localhost:7687',
-      neo4j.auth.basic(
-        process.env.NEO4J_USER || 'neo4j',
-        process.env.NEO4J_PASSWORD || 'password'
-      )
-    );
-
-    // PostgreSQL setup
-    this.pgPool = new Pool({
+    this.pool = new Pool({
       connectionString: process.env.DATABASE_URL
     });
+    this.db = drizzle(this.pool);
   }
 
-  // User operations with PostgreSQL
+  // User operations
   async getUser(id: number): Promise<User | undefined> {
-    const result = await this.pgPool.query('SELECT * FROM users WHERE id = $1', [id]);
-    return result.rows[0];
+    const [user] = await this.db.select().from(users).where(eq(users.id, id));
+    return user;
   }
 
   async getUserByFirebaseId(firebaseId: string): Promise<User | undefined> {
-    const result = await this.pgPool.query(
-      'SELECT id, firebase_id as "firebaseId", email, first_name as "firstName", last_name as "lastName", address, city, state, postal_code as "postalCode", subscription_type as "subscriptionType", stripe_customer_id as "stripeCustomerId" FROM users WHERE firebase_id = $1',
-      [firebaseId]
-    );
-    return result.rows[0];
+    const [user] = await this.db.select().from(users).where(eq(users.firebaseId, firebaseId));
+    return user;
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
@@ -68,33 +57,17 @@ export class HybridStorage implements IStorage {
   }
 
   async createUser(user: InsertUser): Promise<User> {
-    const result = await this.pgPool.query(
-      `INSERT INTO users (
-        firebase_id, email, stripe_customer_id, first_name, 
-        last_name, address, city, state, postal_code, subscription_type
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
-      [
-        user.firebaseId,
-        user.email,
-        user.stripeCustomerId || null,
-        user.firstName || '',
-        user.lastName || '',
-        user.address || '',
-        user.city || '',
-        user.state || '',
-        user.postalCode || '',
-        user.subscriptionType || 'free'
-      ]
-    );
-    return result.rows[0];
+    const [newUser] = await this.db.insert(users).values(user).returning();
+    return newUser;
   }
 
   async updateUserSubscription(id: number, subscriptionType: string): Promise<User> {
-    const result = await this.pgPool.query(
-      'UPDATE users SET subscription_type = $1 WHERE id = $2 RETURNING *',
-      [subscriptionType, id]
-    );
-    return result.rows[0];
+    const [updatedUser] = await this.db
+      .update(users)
+      .set({ subscriptionType })
+      .where(eq(users.id, id))
+      .returning();
+    return updatedUser;
   }
 
   async updateUserStripeCustomerId(id: number, stripeCustomerId: string): Promise<User> {
@@ -106,102 +79,49 @@ export class HybridStorage implements IStorage {
   }
 
   async updateUser(id: number, data: UpdateUserData): Promise<User> {
-    const setClause = Object.entries(data)
-      .map(([key, _], index) => `${this.toSnakeCase(key)} = $${index + 2}`)
-      .join(', ');
-
-    const values = Object.values(data);
-
-    const result = await this.pgPool.query(
-      `UPDATE users SET ${setClause} WHERE id = $1 RETURNING *`,
-      [id, ...values]
-    );
-    return result.rows[0];
+    const [updatedUser] = await this.db
+      .update(users)
+      .set(data)
+      .where(eq(users.id, id))
+      .returning();
+    return updatedUser;
   }
 
-  private toSnakeCase(str: string): string {
-    return str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
-  }
-
-
-  // Contact operations with Neo4j
-  async getContact(id: string): Promise<Contact | undefined> {
-    const session = this.neo4jDriver.session();
-    try {
-      const result = await session.run(
-        'MATCH (c:Contact {id: $id}) RETURN c',
-        { id }
-      );
-      return result.records[0]?.get('c').properties as Contact;
-    } finally {
-      await session.close();
-    }
+  // Contact operations
+  async getContact(id: number): Promise<Contact | undefined> {
+    const [contact] = await this.db
+      .select()
+      .from(contacts)
+      .where(eq(contacts.id, id));
+    return contact;
   }
 
   async getContactsByUserId(userId: string): Promise<Contact[]> {
-    const session = this.neo4jDriver.session();
-    try {
-      const result = await session.run(
-        'MATCH (c:Contact {userId: $userId}) RETURN c',
-        { userId }
-      );
-      return result.records.map(record => record.get('c').properties as Contact);
-    } finally {
-      await session.close();
-    }
+    return this.db.select().from(contacts).where(eq(contacts.userId, userId));
   }
 
-  async createContact(contact: InsertContact & { userId: string }): Promise<Contact> {
-    const session = this.neo4jDriver.session();
-    try {
-      const result = await session.run(
-        `
-        CREATE (c:Contact {
-          id: $id,
-          userId: $userId,
-          firstName: $firstName,
-          lastName: $lastName,
-          email: $email,
-          phone: $phone
-        })
-        RETURN c
-        `,
-        { ...contact, id: crypto.randomUUID() }
-      );
-      return result.records[0].get('c').properties as Contact;
-    } finally {
-      await session.close();
-    }
+  async createContact(contact: InsertContact): Promise<Contact> {
+    const [newContact] = await this.db
+      .insert(contacts)
+      .values(contact)
+      .returning();
+    return newContact;
   }
 
-  async updateContact(id: string, contact: Partial<InsertContact>): Promise<Contact> {
-    const session = this.neo4jDriver.session();
-    try {
-      const result = await session.run(
-        `
-        MATCH (c:Contact {id: $id})
-        SET c += $updates
-        RETURN c
-        `,
-        { id, updates: contact }
-      );
-      return result.records[0].get('c').properties as Contact;
-    } finally {
-      await session.close();
-    }
+  async updateContact(id: number, contact: Partial<InsertContact>): Promise<Contact> {
+    const [updatedContact] = await this.db
+      .update(contacts)
+      .set(contact)
+      .where(eq(contacts.id, id))
+      .returning();
+    return updatedContact;
   }
 
-  async deleteContact(id: string): Promise<void> {
-    const session = this.neo4jDriver.session();
-    try {
-      await session.run(
-        'MATCH (c:Contact {id: $id}) DELETE c',
-        { id }
-      );
-    } finally {
-      await session.close();
-    }
+  async deleteContact(id: number): Promise<void> {
+    await this.db
+      .delete(contacts)
+      .where(eq(contacts.id, id));
   }
 }
 
-export const storage = new HybridStorage();
+export const storage = new PostgresStorage();

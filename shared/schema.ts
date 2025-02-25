@@ -1,6 +1,7 @@
 import { pgTable, text, serial, varchar, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { relations } from "drizzle-orm";
 
 export const SubscriptionType = {
   FREE: "free",
@@ -25,6 +26,26 @@ export const users = pgTable("users", {
   emailNotifications: boolean("email_notifications").notNull().default(false),
 });
 
+export const contacts = pgTable("contacts", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.firebaseId),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  email: text("email").notNull(),
+  phone: text("phone").notNull(),
+});
+
+export const usersRelations = relations(users, ({ many }) => ({
+  contacts: many(contacts),
+}));
+
+export const contactsRelations = relations(contacts, ({ one }) => ({
+  user: one(users, {
+    fields: [contacts.userId],
+    references: [users.firebaseId],
+  }),
+}));
+
 export const insertUserSchema = createInsertSchema(users, {
   firebaseId: z.string(),
   email: z.string().email(),
@@ -39,26 +60,15 @@ export const insertUserSchema = createInsertSchema(users, {
   emailNotifications: z.boolean().default(false),
 });
 
-// Contact schema for Neo4j (not PostgreSQL)
-export const insertContactSchema = z.object({
+export const insertContactSchema = createInsertSchema(contacts, {
+  userId: z.string(),
   firstName: z.string(),
   lastName: z.string(),
-  email: z.string(),
+  email: z.string().email(),
   phone: z.string(),
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertContact = z.infer<typeof insertContactSchema>;
-
-// Define the Contact type using zod
-export const contactSchema = z.object({
-  id: z.string(),
-  userId: z.string(),
-  firstName: z.string(),
-  lastName: z.string(),
-  email: z.string(),
-  phone: z.string(),
-});
-
-export type Contact = z.infer<typeof contactSchema>;
+export type Contact = typeof contacts.$inferSelect;
