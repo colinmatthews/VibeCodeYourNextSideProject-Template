@@ -1,0 +1,14 @@
+
+{
+  "version": "5",
+  "dialect": "pg",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": "1701716530544",
+      "tag": "0000_drop_columns",
+      "breakpoints": true
+    }
+  ]
+}
