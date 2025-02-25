@@ -195,7 +195,7 @@ export default function Settings() {
               }}
             />
             <Label htmlFor="email-notifications">
-              Receive email notifications when new contacts are added
+              Receive email notifications when new items are added
             </Label>
           </div>
         </Card>
