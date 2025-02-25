@@ -10,11 +10,11 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { insertContactSchema, type InsertContact } from "@shared/schema";
+import { insertItemSchema, type InsertItem } from "@shared/schema";
 
 interface ContactFormProps {
-  defaultValues?: Partial<InsertContact>;
-  onSubmit: (data: InsertContact) => void;
+  defaultValues?: Partial<InsertItem>;
+  onSubmit: (data: InsertItem) => void;
   isLoading?: boolean;
 }
 
@@ -23,8 +23,8 @@ export function ContactForm({
   onSubmit,
   isLoading,
 }: ContactFormProps) {
-  const form = useForm<InsertContact>({
-    resolver: zodResolver(insertContactSchema),
+  const form = useForm<InsertItem>({
+    resolver: zodResolver(insertItemSchema),
     defaultValues: defaultValues || {
       firstName: "",
       lastName: "",
