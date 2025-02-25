@@ -1,4 +1,3 @@
-
 import { Link } from "wouter";
 
 export default function Footer() {
@@ -7,8 +6,8 @@ export default function Footer() {
       <div className="container mx-auto py-12 px-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div>
-            <h3 className="font-bold mb-4">Contact Manager</h3>
-            <p className="text-muted-foreground">Making relationship management simple and effective.</p>
+            <h3 className="font-bold mb-4">Web App Template</h3>
+            <p className="text-muted-foreground">Making modern web development simple and effective.</p>
           </div>
           <div>
             <h4 className="font-semibold mb-4">Quick Links</h4>
@@ -26,15 +25,15 @@ export default function Footer() {
             </ul>
           </div>
           <div>
-            <h4 className="font-semibold mb-4">Contact</h4>
+            <h4 className="font-semibold mb-4">Support</h4>
             <ul className="space-y-2">
-              <li>support@contactmanager.com</li>
-              <li>1-800-CONTACTS</li>
+              <li>support@webapptemplate.com</li>
+              <li>Documentation</li>
             </ul>
           </div>
         </div>
         <div className="border-t mt-8 pt-8 text-center text-muted-foreground">
-          <p>&copy; {new Date().getFullYear()} Contact Manager. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} Web App Template. All rights reserved.</p>
         </div>
       </div>
     </footer>
