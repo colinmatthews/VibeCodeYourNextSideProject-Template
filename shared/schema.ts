@@ -29,13 +29,7 @@ export const items = pgTable("items", {
 export const insertUserSchema = createInsertSchema(users, {
   firebaseId: z.string(),
   email: z.string().email(),
-  firstName: z.string(),
-  lastName: z.string(),
-  address: z.string(),
-  city: z.string(),
-  state: z.string(),
-  postalCode: z.string(),
-  subscriptionType: z.string(),
+  subscriptionType: z.string().default("free"),
   stripeCustomerId: z.string().optional(),
   emailNotifications: z.boolean().default(false),
 });

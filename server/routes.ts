@@ -43,12 +43,6 @@ export async function registerRoutes(app: Express) {
           firebaseId,
           email,
           stripeCustomerId,
-          firstName: firebaseId.displayName?.split(' ')[0] || "",
-          lastName: firebaseId.displayName?.split(' ')[1] || "",
-          address: "",
-          city: "",
-          state: "",
-          postalCode: "",
           subscriptionType: "free"
         });
         console.log("[User] Created new user with Stripe customer:", {
