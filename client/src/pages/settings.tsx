@@ -18,7 +18,7 @@ export default function Settings() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { user: firebaseUser, loading, signOut } = useAuth();
-  const { user } = useUser();
+  const { user: userData } = useUser(); // Renamed to avoid conflict
   const queryClient = useQueryClient();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -26,7 +26,7 @@ export default function Settings() {
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
   // Initialize emailNotifications from user data
-  const [emailNotifications, setEmailNotifications] = useState(user?.emailNotifications ?? false);
+  const [emailNotifications, setEmailNotifications] = useState(userData?.emailNotifications ?? false);
 
   // Check if user logged in with email/password
   const isEmailUser = firebaseUser?.providerData?.[0]?.providerId === 'password';
@@ -117,6 +117,11 @@ export default function Settings() {
     }
   };
 
+  const handleDowngrade = () => {
+    // Implement downgrade logic here
+    console.log("Downgrade to Free plan");
+  };
+
   return (
     <div className="container mx-auto py-10">
       <h1 className="text-4xl font-bold mb-8">Settings</h1>
@@ -198,6 +203,38 @@ export default function Settings() {
               Receive email notifications when new items are added
             </Label>
           </div>
+        </Card>
+
+        <Card className="mt-4">
+          <CardHeader>
+            <CardTitle>Your Plan</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-lg font-medium">Current Plan: {userData?.subscriptionType === 'pro' ? 'Pro' : 'Free'}</p>
+                <p className="text-sm text-muted-foreground">
+                  {userData?.subscriptionType === 'pro' 
+                    ? 'You have access to all pro features'
+                    : 'Upgrade to pro for unlimited items and premium features'}
+                </p>
+              </div>
+              {userData?.subscriptionType === 'pro' ? (
+                <Button
+                  variant="destructive"
+                  onClick={handleDowngrade}
+                >
+                  Cancel Pro Plan
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => setLocation('/pricing')}
+                >
+                  Upgrade to Pro
+                </Button>
+              )}
+            </div>
+          </CardContent>
         </Card>
       </div>
     </div>
