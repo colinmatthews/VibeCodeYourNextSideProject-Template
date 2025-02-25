@@ -10,7 +10,7 @@ import Dashboard from "@/pages/dashboard";
 import NewContact from "@/pages/contacts/new";
 import EditContact from "@/pages/contacts/edit";
 import NotFound from "@/pages/not-found";
-import Landing from "@/pages/landing";
+import LandingPage from "@/pages/LandingPage";
 import Profile from "@/pages/profile";
 import Pricing from "@/pages/pricing";
 import Footer from "@/components/Footer";
@@ -60,7 +60,7 @@ function Router() {
       <Navbar />
       <div className="flex-1">
         <Switch>
-          <Route path="/" component={Landing} />
+          <Route path="/" component={LandingPage} />
           <Route path="/login" component={Login} />
           <Route path="/dashboard" component={Dashboard} />
           <Route path="/pricing" component={Pricing} />
