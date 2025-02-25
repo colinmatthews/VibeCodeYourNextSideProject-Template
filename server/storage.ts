@@ -2,6 +2,12 @@
 import { type Item, type InsertItem, type User, type InsertUser, users, items } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import pg from 'pg';
+import { z } from "zod";
+
+export const insertItemSchema = z.object({
+  userId: z.string(),
+  item: z.string()
+});
 import { drizzle } from 'drizzle-orm/node-postgres';
 const { Pool } = pg;
 
