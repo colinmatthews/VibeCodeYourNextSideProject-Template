@@ -96,15 +96,9 @@ export default function Dashboard() {
     }
 
     try {
-      const response = await fetch("/api/items", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          userId: user.firebaseId,
-          item: newItem
-        }),
+      const response = await apiRequest('POST', '/api/items', {
+        userId: firebaseUser?.uid,
+        item: newItem.trim()
       });
 
       const data = await response.json();
@@ -118,14 +112,13 @@ export default function Dashboard() {
         throw new Error(data.error || "Failed to add item");
       }
 
+      await refetch();
+      setNewItem('');
+      setIsNewItemOpen(false);
       toast({
         title: "Success",
         description: "Item added successfully",
       });
-
-      setNewItem("");
-      setIsNewItemOpen(false);
-      refetch();
     } catch (error) {
       toast({
         title: "Error",
