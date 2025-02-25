@@ -21,10 +21,8 @@ export function ContactList({ contacts, onEdit, onDelete }: ContactListProps) {
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Name</TableHead>
-          <TableHead>Email</TableHead>
-          <TableHead>Phone</TableHead>
-          <TableHead>Actions</TableHead>
+          <TableHead>Item</TableHead>
+          <TableHead className="w-[100px]">Actions</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -33,8 +31,6 @@ export function ContactList({ contacts, onEdit, onDelete }: ContactListProps) {
             <TableCell>
               {contact.firstName} {contact.lastName}
             </TableCell>
-            <TableCell>{contact.email}</TableCell>
-            <TableCell>{contact.phone}</TableCell>
             <TableCell>
               <div className="flex gap-2">
                 <Button

@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { ContactList } from "@/components/ContactList";
 import { SearchBar } from "@/components/SearchBar";
-import { PaymentForm } from "@/components/PaymentForm";
 import { Plus } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import type { Contact, InsertContact } from "@shared/schema";
@@ -21,10 +20,10 @@ export default function Dashboard() {
   const { user } = useUser();
   const { toast } = useToast();
   const [search, setSearch] = useState("");
-  const [isNewContactOpen, setIsNewContactOpen] = useState(false);
+  const [isNewItemOpen, setIsNewItemOpen] = useState(false);
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
 
-  const { data: contacts = [], refetch } = useQuery<Contact[]>({
+  const { data: items = [], refetch } = useQuery<Contact[]>({
     queryKey: ['contacts', firebaseUser?.uid],
     queryFn: async () => {
       const response = await apiRequest('GET', `/api/contacts?userId=${firebaseUser?.uid}`);
@@ -41,8 +40,8 @@ export default function Dashboard() {
     onSuccess: () => {
       refetch();
       toast({
-        title: "Contact deleted",
-        description: "The contact has been successfully deleted.",
+        title: "Item deleted",
+        description: "The item has been successfully deleted.",
       });
     },
   });
@@ -56,67 +55,65 @@ export default function Dashboard() {
     return null;
   }
 
-  const filteredContacts = contacts.filter(
-    (contact) =>
-      contact.firstName.toLowerCase().includes(search.toLowerCase()) ||
-      contact.lastName.toLowerCase().includes(search.toLowerCase()) ||
-      contact.email.toLowerCase().includes(search.toLowerCase()),
+  const filteredItems = items.filter(
+    (item) =>
+      item.firstName.toLowerCase().includes(search.toLowerCase()) ||
+      item.lastName.toLowerCase().includes(search.toLowerCase()),
   );
 
-  const handleNewContact = () => {
-    if (user?.plan === 'free' && contacts.length >= 5) {
+  const handleNewItem = () => {
+    if (user?.subscriptionType === 'free' && items.length >= 5) {
       setShowUpgradeDialog(true);
     } else {
-      setIsNewContactOpen(true);
+      setIsNewItemOpen(true);
     }
   };
 
-  const handleContactSubmit = async (data: InsertContact) => {
-    console.log("Client: Submitting contact with user ID:", firebaseUser?.uid);
+  const handleItemSubmit = async (data: InsertContact) => {
     await apiRequest("POST", "/api/contacts", { ...data, userId: firebaseUser?.uid });
 
     // Send email notification if enabled
     if (user?.emailNotifications && firebaseUser.email) {
       await sendContactNotification(
         firebaseUser.email,
-        "New contact added",
-        `A new contact has been added to your contacts:\n\nName: ${data.firstName} ${data.lastName}\nEmail: ${data.email}\nPhone: ${data.phone}`
+        "New item added",
+        `A new item has been added to your list:\n\nItem: ${data.firstName} ${data.lastName}`
       );
     }
 
-    setIsNewContactOpen(false);
+    setIsNewItemOpen(false);
     refetch();
     toast({
-      title: "Contact created",
-      description: "The contact has been successfully created.",
+      title: "Item created",
+      description: "The item has been successfully created.",
     });
   };
 
   return (
     <div className="container mx-auto py-8 space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Contacts</h1>
-        <Button onClick={handleNewContact}>
-          <Plus className="h-4 w-4 mr-2" /> New Contact
+        <h1 className="text-3xl font-bold">Your List</h1>
+        <Button onClick={handleNewItem}>
+          <Plus className="h-4 w-4 mr-2" /> New Item
         </Button>
       </div>
 
-      <Dialog open={isNewContactOpen} onOpenChange={setIsNewContactOpen}>
+      <Dialog open={isNewItemOpen} onOpenChange={setIsNewItemOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>New Contact</DialogTitle>
+            <DialogTitle>New Item</DialogTitle>
           </DialogHeader>
-          <ContactForm onSubmit={handleContactSubmit} />
+          <ContactForm onSubmit={handleItemSubmit} />
         </DialogContent>
       </Dialog>
 
       <Dialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Contact Limit Reached</DialogTitle>
+            <DialogTitle>Item Limit Reached</DialogTitle>
           </DialogHeader>
           <div className="py-4">
-            <p>You've reached the maximum of 5 contacts on the free plan. Upgrade to Pro for unlimited contacts!</p>
+            <p>You've reached the maximum of 5 items on the free plan. Upgrade to Pro for unlimited items!</p>
           </div>
           <div className="flex justify-end gap-4">
             <Button variant="outline" onClick={() => setShowUpgradeDialog(false)}>Cancel</Button>
@@ -128,10 +125,10 @@ export default function Dashboard() {
       <SearchBar value={search} onChange={setSearch} />
 
       <ContactList
-        contacts={filteredContacts}
+        contacts={filteredItems}
         onEdit={(id) => setLocation(`/contacts/edit/${id}`)}
         onDelete={(id) => {
-          if (confirm("Are you sure you want to delete this contact?")) {
+          if (confirm("Are you sure you want to delete this item?")) {
             deleteMutation.mutate(id);
           }
         }}
