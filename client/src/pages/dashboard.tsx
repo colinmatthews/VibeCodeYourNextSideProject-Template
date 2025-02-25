@@ -68,6 +68,18 @@ export default function Dashboard() {
 
   const handleItemSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!firebaseUser?.uid || !newItem.trim()) return;
+
+    try {
+      const response = await apiRequest('POST', '/api/items', {
+        userId: firebaseUser.uid,
+        item: newItem.trim()
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to add item');
+      }
+    e.preventDefault();
     if (!user?.firebaseId) return;
 
     try {
