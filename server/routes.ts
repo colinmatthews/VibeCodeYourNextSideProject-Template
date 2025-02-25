@@ -103,9 +103,14 @@ export async function registerRoutes(app: Express) {
   app.post("/api/users", async (req, res) => {
     try {
       const user = insertUserSchema.parse(req.body);
-      const fullName = `${user.firstName} ${user.lastName}`.trim();
+      
+      // Check if user already exists
+      const existingUser = await storage.getUserByFirebaseId(user.firebaseId);
+      if (existingUser) {
+        return res.json(existingUser);
+      }
 
-      // Create Stripe customer with shipping and billing address
+      // Create new user
       const customer = await stripe.customers.create({
         email: user.email,
         name: fullName,

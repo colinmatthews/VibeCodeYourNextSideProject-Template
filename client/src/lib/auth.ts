@@ -40,7 +40,28 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const signInWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
-    await signInWithPopup(auth, provider);
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      const user = result.user;
+      // Create user in database
+      await fetch('/api/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          firebaseId: user.uid,
+          email: user.email,
+        }),
+      });
+      setUser(user);
+      setLoading(false);
+    } catch (error) {
+      // Handle Errors here.
+      console.error("Error during Google Sign-in:", error);
+      setLoading(false);
+    }
   };
 
   const signOut = () => firebaseSignOut(auth);
