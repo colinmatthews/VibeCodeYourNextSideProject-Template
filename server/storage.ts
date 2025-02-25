@@ -1,4 +1,5 @@
-import { type Contact, type InsertContact, type User, type InsertUser, users, contacts } from "@shared/schema";
+
+import { type Item, type InsertItem, type User, type InsertUser, users, items } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import pg from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
@@ -18,12 +19,12 @@ export interface IStorage {
   updateUserSubscription(id: number, subscriptionType: string): Promise<User>;
   updateUser(id: number, data: UpdateUserData): Promise<User>;
 
-  // Contact operations
-  getContact(id: number): Promise<Contact | undefined>;
-  getContactsByUserId(userId: string): Promise<Contact[]>;
-  createContact(contact: InsertContact): Promise<Contact>;
-  updateContact(id: number, contact: Partial<InsertContact>): Promise<Contact>;
-  deleteContact(id: number): Promise<void>;
+  // Item operations
+  getItem(id: number): Promise<Item | undefined>;
+  getItemsByUserId(userId: string): Promise<Item[]>;
+  createItem(item: InsertItem): Promise<Item>;
+  updateItem(id: number, item: Partial<InsertItem>): Promise<Item>;
+  deleteItem(id: number): Promise<void>;
 }
 
 export class PostgresStorage implements IStorage {
@@ -87,40 +88,40 @@ export class PostgresStorage implements IStorage {
     return updatedUser;
   }
 
-  // Contact operations
-  async getContact(id: number): Promise<Contact | undefined> {
-    const [contact] = await this.db
+  // Item operations
+  async getItem(id: number): Promise<Item | undefined> {
+    const [item] = await this.db
       .select()
-      .from(contacts)
-      .where(eq(contacts.id, id));
-    return contact;
+      .from(items)
+      .where(eq(items.id, id));
+    return item;
   }
 
-  async getContactsByUserId(userId: string): Promise<Contact[]> {
-    return this.db.select().from(contacts).where(eq(contacts.userId, userId));
+  async getItemsByUserId(userId: string): Promise<Item[]> {
+    return this.db.select().from(items).where(eq(items.userId, userId));
   }
 
-  async createContact(contact: InsertContact): Promise<Contact> {
-    const [newContact] = await this.db
-      .insert(contacts)
-      .values(contact)
+  async createItem(item: InsertItem): Promise<Item> {
+    const [newItem] = await this.db
+      .insert(items)
+      .values(item)
       .returning();
-    return newContact;
+    return newItem;
   }
 
-  async updateContact(id: number, contact: Partial<InsertContact>): Promise<Contact> {
-    const [updatedContact] = await this.db
-      .update(contacts)
-      .set(contact)
-      .where(eq(contacts.id, id))
+  async updateItem(id: number, item: Partial<InsertItem>): Promise<Item> {
+    const [updatedItem] = await this.db
+      .update(items)
+      .set(item)
+      .where(eq(items.id, id))
       .returning();
-    return updatedContact;
+    return updatedItem;
   }
 
-  async deleteContact(id: number): Promise<void> {
+  async deleteItem(id: number): Promise<void> {
     await this.db
-      .delete(contacts)
-      .where(eq(contacts.id, id));
+      .delete(items)
+      .where(eq(items.id, id));
   }
 }
 
