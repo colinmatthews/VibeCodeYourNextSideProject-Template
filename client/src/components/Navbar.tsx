@@ -3,6 +3,7 @@ import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { auth } from "@/lib/firebase";
 import { useEffect, useState } from "react";
+import { CardHeader } from "@/components/ui/card"; // Added import for CardHeader
 
 export default function Navbar() {
   const [user, setUser] = useState(auth.currentUser);
