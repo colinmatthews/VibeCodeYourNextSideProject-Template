@@ -188,7 +188,13 @@ export async function registerRoutes(app: Express) {
   // Add this route near the other user routes
   app.get("/api/users/:firebaseId", async (req, res) => {
     try {
+      console.log("[Debug] Fetching user data for firebaseId:", req.params.firebaseId);
       const user = await storage.getUserByFirebaseId(req.params.firebaseId);
+      console.log("[Debug] User data from database:", { 
+        id: user?.id,
+        email: user?.email,
+        subscriptionType: user?.subscriptionType 
+      });
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }

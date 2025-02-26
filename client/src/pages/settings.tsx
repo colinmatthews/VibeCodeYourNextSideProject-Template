@@ -210,6 +210,8 @@ export default function Settings() {
             <CardTitle>Your Plan</CardTitle>
           </CardHeader>
           <CardContent>
+            {console.log("[Debug] Settings - User data:", userData)}
+            {console.log("[Debug] Settings - Subscription type:", userData?.subscriptionType)}
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-lg font-medium">Current Plan: {userData?.subscriptionType === 'pro' ? 'Pro' : 'Free'}</p>
