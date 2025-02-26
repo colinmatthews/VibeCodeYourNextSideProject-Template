@@ -317,6 +317,7 @@ export async function registerRoutes(app: Express) {
         },
       });
 
+      console.log('[Subscription] Creating subscription with price:', process.env.STRIPE_PRICE_ID_PRO);
       // Create the subscription
       const subscription = await stripe.subscriptions.create({
         customer: user.stripeCustomerId!,
@@ -328,6 +329,7 @@ export async function registerRoutes(app: Express) {
           save_default_payment_method: 'on_subscription'
         }
       });
+      console.log('[Subscription] Created subscription:', subscription.id);
 
       const invoice = subscription.latest_invoice as Stripe.Invoice;
       const payment_intent = invoice.payment_intent as Stripe.PaymentIntent;
