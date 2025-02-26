@@ -210,7 +210,7 @@ export default function Pricing() {
           <CardContent>
             <ul className="space-y-2">
               <li className="flex items-center gap-2">
-                <Check className="h-4 w-4" /> Up to 5 contacts
+                <Check className="h-4 w-4" /> Up to 50 items (not enforced in the template)
               </li>
               <li className="flex items-center gap-2">
                 <Check className="h-4 w-4" /> Basic search
@@ -252,7 +252,7 @@ export default function Pricing() {
           <CardContent>
             <ul className="space-y-2">
               <li className="flex items-center gap-2">
-                <Check className="h-4 w-4" /> Unlimited contacts
+                <Check className="h-4 w-4" /> Unlimited items
               </li>
               <li className="flex items-center gap-2">
                 <Check className="h-4 w-4" /> Advanced search
