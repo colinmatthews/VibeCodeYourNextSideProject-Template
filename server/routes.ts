@@ -463,7 +463,7 @@ export async function registerRoutes(app: Express) {
           metadata: { firebaseId }
         });
         customerId = customer.id;
-        await storage.updateUserStripeCustomerId(user.id, customerId);
+        await storage.updateUserStripeCustomerId(firebaseId, customerId);
         console.log('[SetupIntent] Created customer:', customerId);
       }
 
