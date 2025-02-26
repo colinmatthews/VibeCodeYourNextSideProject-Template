@@ -82,11 +82,11 @@ export class PostgresStorage implements IStorage {
     return updatedUser;
   }
 
-  async updateUserStripeCustomerId(firebaseId: string, stripeCustomerId: string): Promise<User> {
+  async updateUserStripeCustomerId(id: number, stripeCustomerId: string): Promise<User> {
     const [updatedUser] = await this.db
       .update(users)
       .set({ stripeCustomerId })
-      .where(eq(users.firebaseId, firebaseId))
+      .where(eq(users.id, id))
       .returning();
     return updatedUser;
   }

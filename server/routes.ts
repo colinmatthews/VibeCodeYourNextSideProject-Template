@@ -283,7 +283,9 @@ export async function registerRoutes(app: Express) {
           }
         });
         console.log('[Subscription] Created new Stripe customer:', customer.id);
-        user = await storage.updateUserStripeCustomerId(user.id, customer.id);
+        if (user.id) {
+          user = await storage.updateUserStripeCustomerId(user.id, customer.id);
+        }
         console.log('[Subscription] Updated user with Stripe customer ID:', user.stripeCustomerId);
       }
 
