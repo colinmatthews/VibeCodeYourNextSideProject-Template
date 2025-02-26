@@ -10,6 +10,8 @@ import { apiRequest } from "@/lib/queryClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useUser } from "@/hooks/useUser";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Trash2 } from "lucide-react";
 //import { sendContactNotification } from "@/lib/mail"; // Removed as it's not relevant to items
 
 export default function Dashboard() {
@@ -152,14 +154,32 @@ export default function Dashboard() {
       <SearchBar value={search} onChange={setSearch} />
 
       {/* Simplified item list -  no longer needs ContactList component */}
-      <ul>
-        {filteredItems.map((item) => (
-          <li key={item.id} className="py-2">
-            {item.item}
-            <button onClick={() => deleteMutation.mutate(item.id)}>Delete</button>
-          </li>
-        ))}
-      </ul>
+      <div className="mt-4">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Item</TableHead>
+              <TableHead className="w-[100px]">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredItems.map((item) => (
+              <TableRow key={item.id}>
+                <TableCell>{item.item}</TableCell>
+                <TableCell>
+                  <Button
+                    variant="destructive"
+                    size="icon"
+                    onClick={() => deleteMutation.mutate(item.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }
