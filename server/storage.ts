@@ -76,7 +76,7 @@ export class PostgresStorage implements IStorage {
   async updateUserSubscription(id: number, subscriptionType: string): Promise<User> {
     const [updatedUser] = await this.db
       .update(users)
-      .set({ subscriptionType })
+      .set({ subscriptionType: subscriptionType })
       .where(eq(users.id, id))
       .returning();
     return updatedUser;
