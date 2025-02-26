@@ -45,6 +45,32 @@ export default function Dashboard() {
     },
   });
 
+  const addItemMutation = useMutation({
+    mutationFn: async (item: string) => {
+      await apiRequest('POST', '/api/items', {
+        userId: firebaseUser?.uid,
+        item: item.trim()
+      });
+    },
+    onSuccess: () => {
+      refetch();
+      setNewItem('');
+      setIsNewItemOpen(false);
+      toast({
+        title: "Success",
+        description: "Item added successfully",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to add item",
+        variant: "destructive",
+      });
+    }
+  });
+
+
   if (loading) {
     return <div className="container mx-auto py-8">Loading...</div>;
   }
@@ -55,7 +81,7 @@ export default function Dashboard() {
   }
 
   const filteredItems = items.filter(
-    (item: { item: string }) => item.item.toLowerCase().includes(search.toLowerCase()), //Simplified filtering
+    (item: { item: string; id: number }) => item.item.toLowerCase().includes(search.toLowerCase()), //Simplified filtering
   );
 
   const handleNewItem = () => {
@@ -71,54 +97,7 @@ export default function Dashboard() {
     if (!firebaseUser?.uid || !newItem.trim()) return;
 
     try {
-      const response = await apiRequest('POST', '/api/items', {
-        userId: firebaseUser.uid,
-        item: newItem.trim()
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to add item');
-      }
-      
-      await refetch();
-      setNewItem('');
-      setIsNewItemOpen(false);
-      toast({
-        title: "Success",
-        description: "Item added successfully",
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to add item",
-        variant: "destructive",
-      });
-    }
-
-    try {
-      const response = await apiRequest('POST', '/api/items', {
-        userId: firebaseUser?.uid,
-        item: newItem.trim()
-      });
-
-      const data = await response.json();
-
-      if (response.status === 403) {
-        setShowUpgradeDialog(true);
-        return;
-      }
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to add item");
-      }
-
-      await refetch();
-      setNewItem('');
-      setIsNewItemOpen(false);
-      toast({
-        title: "Success",
-        description: "Item added successfully",
-      });
+      await addItemMutation.mutateAsync(newItem);
     } catch (error) {
       toast({
         title: "Error",
