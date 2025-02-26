@@ -1,46 +1,34 @@
-
 import { type Item, type InsertItem, type User, type InsertUser, users, items } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import pg from 'pg';
-import { z } from "zod";
-
-export const getUserByEmail = async (email: string): Promise<User | undefined> => {
-  const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
-  return result[0];
-};
-
-export const insertItemSchema = z.object({
-  userId: z.string(),
-  item: z.string()
-});
 import { drizzle } from 'drizzle-orm/node-postgres';
+
 const { Pool } = pg;
 
 interface UpdateUserData {
   firstName?: string;
   lastName?: string;
   emailNotifications?: boolean;
+  subscriptionType?: "free" | "pro";
+  stripeCustomerId?: string;
 }
 
 export interface IStorage {
   // User operations
-  getUser(id: number): Promise<User | undefined>;
   getUserByFirebaseId(firebaseId: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
-  updateUserSubscription(id: number, subscriptionType: string): Promise<User>;
-  updateUser(id: number, data: UpdateUserData): Promise<User>;
+  updateUser(firebaseId: string, data: UpdateUserData): Promise<User>;
 
   // Item operations
-  getItem(id: number): Promise<Item | undefined>;
   getItemsByUserId(userId: string): Promise<Item[]>;
   createItem(item: InsertItem): Promise<Item>;
-  updateItem(id: number, item: Partial<InsertItem>): Promise<Item>;
   deleteItem(id: number): Promise<void>;
 }
 
 export class PostgresStorage implements IStorage {
+  private pool: pg.Pool;
   private db: ReturnType<typeof drizzle>;
-  private pool: typeof Pool;
 
   constructor() {
     this.pool = new Pool({
@@ -49,23 +37,14 @@ export class PostgresStorage implements IStorage {
     this.db = drizzle(this.pool);
   }
 
-  // User operations
-  async getUser(id: number): Promise<User | undefined> {
-    const [user] = await this.db.select().from(users).where(eq(users.id, id));
-    return user;
-  }
-
   async getUserByFirebaseId(firebaseId: string): Promise<User | undefined> {
     const [user] = await this.db.select().from(users).where(eq(users.firebaseId, firebaseId));
     return user;
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    const result = await this.pgPool.query(
-      'SELECT * FROM users WHERE email = $1',
-      [email]
-    );
-    return result.rows[0];
+    const [user] = await this.db.select().from(users).where(eq(users.email, email));
+    return user;
   }
 
   async createUser(user: InsertUser): Promise<User> {
@@ -73,40 +52,13 @@ export class PostgresStorage implements IStorage {
     return newUser;
   }
 
-  async updateUserSubscription(id: number, subscriptionType: string): Promise<User> {
-    const [updatedUser] = await this.db
-      .update(users)
-      .set({ subscriptionType: subscriptionType })
-      .where(eq(users.id, id))
-      .returning();
-    return updatedUser;
-  }
-
-  async updateUserStripeCustomerId(firebaseId: string, stripeCustomerId: string): Promise<User> {
-    const [updatedUser] = await this.db
-      .update(users)
-      .set({ stripeCustomerId })
-      .where(eq(users.firebaseId, firebaseId))
-      .returning();
-    return updatedUser;
-  }
-
-  async updateUser(id: number, data: UpdateUserData): Promise<User> {
+  async updateUser(firebaseId: string, data: UpdateUserData): Promise<User> {
     const [updatedUser] = await this.db
       .update(users)
       .set(data)
-      .where(eq(users.id, id))
+      .where(eq(users.firebaseId, firebaseId))
       .returning();
     return updatedUser;
-  }
-
-  // Item operations
-  async getItem(id: number): Promise<Item | undefined> {
-    const [item] = await this.db
-      .select()
-      .from(items)
-      .where(eq(items.id, id));
-    return item;
   }
 
   async getItemsByUserId(userId: string): Promise<Item[]> {
@@ -114,26 +66,12 @@ export class PostgresStorage implements IStorage {
   }
 
   async createItem(item: InsertItem): Promise<Item> {
-    const [newItem] = await this.db
-      .insert(items)
-      .values(item)
-      .returning();
+    const [newItem] = await this.db.insert(items).values(item).returning();
     return newItem;
   }
 
-  async updateItem(id: number, item: Partial<InsertItem>): Promise<Item> {
-    const [updatedItem] = await this.db
-      .update(items)
-      .set(item)
-      .where(eq(items.id, id))
-      .returning();
-    return updatedItem;
-  }
-
   async deleteItem(id: number): Promise<void> {
-    await this.db
-      .delete(items)
-      .where(eq(items.id, id));
+    await this.db.delete(items).where(eq(items.id, id));
   }
 }
 
