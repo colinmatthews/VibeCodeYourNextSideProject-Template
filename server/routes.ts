@@ -368,12 +368,14 @@ export async function registerRoutes(app: Express) {
         });
 
         for (const subscription of subscriptions.data) {
-          await stripe.subscriptions.del(subscription.id);
+          await stripe.subscriptions.cancel(subscription.id);
         }
       }
 
       // Update user's subscription type to free
-      await storage.updateUserSubscription(user.id, 'free');
+      await storage.updateUser(firebaseId, {
+        subscriptionType: 'free'
+      });
 
       res.json({ success: true });
     } catch (error) {
