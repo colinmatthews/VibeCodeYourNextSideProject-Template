@@ -38,7 +38,13 @@ export class PostgresStorage implements IStorage {
   }
 
   async getUserByFirebaseId(firebaseId: string): Promise<User | undefined> {
-    const [user] = await this.db.select().from(users).where(eq(users.firebaseId, firebaseId));
+    const [user] = await this.db.select({
+      id: users.firebaseId,
+      email: users.email,
+      subscriptionType: users.subscriptionType,
+      emailNotifications: users.emailNotifications,
+      stripeCustomerId: users.stripeCustomerId
+    }).from(users).where(eq(users.firebaseId, firebaseId));
     return user;
   }
 
