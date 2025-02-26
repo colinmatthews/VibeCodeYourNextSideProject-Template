@@ -82,12 +82,13 @@ export class PostgresStorage implements IStorage {
     return updatedUser;
   }
 
-  async updateUserStripeCustomerId(id: number, stripeCustomerId: string): Promise<User> {
-    const result = await this.pgPool.query(
-      'UPDATE users SET stripe_customer_id = $1 WHERE id = $2 RETURNING *',
-      [stripeCustomerId, id]
-    );
-    return result.rows[0];
+  async updateUserStripeCustomerId(firebaseId: string, stripeCustomerId: string): Promise<User> {
+    const [updatedUser] = await this.db
+      .update(users)
+      .set({ stripeCustomerId })
+      .where(eq(users.firebaseId, firebaseId))
+      .returning();
+    return updatedUser;
   }
 
   async updateUser(id: number, data: UpdateUserData): Promise<User> {

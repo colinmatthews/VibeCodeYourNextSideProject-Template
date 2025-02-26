@@ -15,6 +15,7 @@ export const users = pgTable("users", {
   email: text("email").notNull(),
   subscriptionType: text("subscription_type", { enum: ["free", "pro"] }).notNull().default("free"),
   emailNotifications: boolean("email_notifications").notNull().default(false),
+  stripeCustomerId: text("stripe_customer_id"),
 });
 
 export const items = pgTable("items", {
