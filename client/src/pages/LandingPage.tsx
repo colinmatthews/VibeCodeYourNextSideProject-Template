@@ -36,6 +36,8 @@ export default function LandingPage() {
                 <li>VITE_FIREBASE_API_KEY</li>
                 <li>VITE_FIREBASE_PROJECT_ID</li>
                 <li>VITE_FIREBASE_APP_ID</li>
+                <li>VITE_FIREBASE_AUTH_DOMAIN (your-project-id.firebaseapp.com)</li>
+                <li>VITE_FIREBASE_MESSAGING_SENDER_ID (from Project Settings)</li>
               </ul>
             </li>
           </ol>
@@ -74,7 +76,20 @@ export default function LandingPage() {
                 <li>Switch to live keys for production</li>
               </ul>
             </li>
-            <li>Add your Stripe secret key to Replit secrets as STRIPE_SECRET_KEY</li>
+            <li>Set up your product and price:
+              <ul className="list-disc list-inside ml-4 mt-2">
+                <li>Go to Products → Add Product</li>
+                <li>Create a product with a recurring price</li>
+                <li>Copy the price ID (starts with 'price_')</li>
+              </ul>
+            </li>
+            <li>Add these Stripe secrets to your Replit:
+              <ul className="list-disc list-inside ml-4 mt-2">
+                <li>STRIPE_SECRET_KEY (from API keys)</li>
+                <li>STRIPE_PRICE_ID_PRO (your price ID)</li>
+                <li>VITE_STRIPE_PUBLIC_KEY (publishable key from API keys)</li>
+              </ul>
+            </li>
             <li>Configure webhook endpoints (if needed):
               <ul className="list-disc list-inside ml-4 mt-2">
                 <li>Go to Developers → Webhooks</li>
