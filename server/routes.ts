@@ -166,7 +166,17 @@ export async function registerRoutes(app: Express) {
   app.patch("/api/users/:firebaseId", async (req, res) => {
     try {
       const { firstName, lastName, emailNotifications } = req.body;
+      console.log("[Debug] PATCH request for user:", {
+        firebaseId: req.params.firebaseId,
+        emailNotifications
+      });
+      
       const user = await storage.getUserByFirebaseId(req.params.firebaseId);
+      console.log("[Debug] Found user:", {
+        id: user?.id,
+        email: user?.email,
+        emailNotifications: user?.emailNotifications
+      });
 
       if (!user) {
         return res.status(404).json({ error: "User not found" });

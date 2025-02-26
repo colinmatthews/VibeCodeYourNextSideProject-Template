@@ -53,11 +53,13 @@ export class PostgresStorage implements IStorage {
   }
 
   async updateUser(firebaseId: string, data: UpdateUserData): Promise<User> {
+    console.log("[Debug] Updating user:", { firebaseId, data });
     const [updatedUser] = await this.db
       .update(users)
       .set(data)
       .where(eq(users.firebaseId, firebaseId))
       .returning();
+    console.log("[Debug] Updated user result:", updatedUser);
     return updatedUser;
   }
 
