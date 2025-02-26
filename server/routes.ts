@@ -103,7 +103,8 @@ export async function registerRoutes(app: Express) {
   app.post("/api/users", async (req, res) => {
     try {
       const user = insertUserSchema.parse(req.body);
-      
+      const fullName = `${user.firstName} ${user.lastName}`;
+
       // Check if user exists by firebase ID or email
       const [existingUserById, existingUserByEmail] = await Promise.all([
         storage.getUserByFirebaseId(user.firebaseId),
@@ -263,6 +264,7 @@ export async function registerRoutes(app: Express) {
       console.log('[Subscription] Received subscription request');
       const { firebaseId, paymentMethodId } = req.body;
       console.log('[Subscription] Processing payment for:', { firebaseId, paymentMethodId });
+
       let user = await storage.getUserByFirebaseId(firebaseId);
 
       if (!user) {
@@ -283,15 +285,10 @@ export async function registerRoutes(app: Express) {
           }
         });
         console.log('[Subscription] Created new Stripe customer:', customer.id);
-        if (user.id) {
-          user = await storage.updateUserStripeCustomerId(user.id, customer.id);
-        }
+        user = await storage.updateUser(firebaseId, {
+          stripeCustomerId: customer.id
+        });
         console.log('[Subscription] Updated user with Stripe customer ID:', user.stripeCustomerId);
-      }
-
-      // Ensure we have a valid Stripe customer ID
-      if (!user.stripeCustomerId) {
-        throw new Error('Failed to create or retrieve Stripe customer ID');
       }
 
       // Attach the payment method if not already attached
@@ -308,7 +305,7 @@ export async function registerRoutes(app: Express) {
       }
 
       // Set as default payment method
-      await stripe.customers.update(user.stripeCustomerId, {
+      await stripe.customers.update(user.stripeCustomerId!, {
         invoice_settings: {
           default_payment_method: paymentMethodId,
         },
@@ -322,18 +319,24 @@ export async function registerRoutes(app: Express) {
 
       // Create the subscription
       const subscription = await stripe.subscriptions.create({
-        customer: user.stripeCustomerId,
+        customer: user.stripeCustomerId!,
         items: [{ price: process.env.STRIPE_PRICE_ID_PRO }],
+        payment_behavior: 'default_incomplete',
         expand: ['latest_invoice.payment_intent'],
-        default_payment_method: paymentMethodId,
+        payment_settings: {
+          payment_method_types: ['card'],
+          save_default_payment_method: 'on_subscription'
+        }
       });
 
       const invoice = subscription.latest_invoice as Stripe.Invoice;
       const payment_intent = invoice.payment_intent as Stripe.PaymentIntent;
 
-      // Update user's subscription type if the subscription is active
-      if (subscription.status === 'active') {
-        await storage.updateUserSubscription(user.id, 'pro');
+      // Update user's subscription type if the subscription is active or trialing
+      if (['active', 'trialing'].includes(subscription.status)) {
+        await storage.updateUser(firebaseId, {
+          subscriptionType: 'pro'
+        });
       }
 
       res.json({
