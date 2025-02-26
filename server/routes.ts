@@ -311,12 +311,6 @@ export async function registerRoutes(app: Express) {
         },
       });
 
-      console.log('[Subscription] Creating subscription with params:', {
-        customer: user.stripeCustomerId,
-        priceId: process.env.STRIPE_PRICE_ID_PRO,
-        paymentMethodId: paymentMethodId
-      });
-
       // Create the subscription
       const subscription = await stripe.subscriptions.create({
         customer: user.stripeCustomerId!,
@@ -332,12 +326,11 @@ export async function registerRoutes(app: Express) {
       const invoice = subscription.latest_invoice as Stripe.Invoice;
       const payment_intent = invoice.payment_intent as Stripe.PaymentIntent;
 
-      // Update user's subscription type if the subscription is active or trialing
-      if (['active', 'trialing'].includes(subscription.status)) {
-        await storage.updateUser(firebaseId, {
-          subscriptionType: 'pro'
-        });
-      }
+      // Immediately update the subscription type to 'pro'
+      await storage.updateUser(firebaseId, {
+        subscriptionType: 'pro'
+      });
+      console.log('[Subscription] Updated user subscription to pro');
 
       res.json({
         subscriptionId: subscription.id,
