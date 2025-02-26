@@ -30,19 +30,24 @@ export async function sendEmail(params: EmailParams): Promise<boolean> {
     }
 
     // Log validation success
-    console.debug("Email parameters validation passed", { params });
+    console.log("[SendGrid] Email parameters validation passed", { params });
 
     // Ensure we're using a verified sender domain
     const from = "carlos@kindnessengineering.com";
-    console.log("Sending email from:", from, "to:", params.to);
+    console.log("[SendGrid] Preparing to send email:", {
+      from,
+      to: params.to,
+      subject: params.subject
+    });
 
-    // Log email sending action
-    console.debug("Sending email through SendGrid", {
+    // Log email sending action with full details
+    console.log("[SendGrid] Attempting to send email", {
       to: params.to,
       from: from,
       subject: params.subject,
-      text: params.text,
-      html: params.html || params.text.replace(/\n/g, "<br>"),
+      hasText: !!params.text,
+      hasHtml: !!params.html,
+      apiKeyPresent: !!process.env.SENDGRID_API_KEY
     });
 
     // Send email
@@ -54,19 +59,21 @@ export async function sendEmail(params: EmailParams): Promise<boolean> {
       html: params.html || params.text.replace(/\n/g, "<br>"),
     });
 
-    console.log("Email sent successfully to:", params.to);
+    console.log("[SendGrid] Email sent successfully to:", params.to);
     return true;
   } catch (error) {
-    console.error("SendGrid email error:", error);
-    console.debug("Error details", { error });
+    console.error("[SendGrid] Email sending failed:", error);
+    console.error("[SendGrid] Error details:", {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    });
     if (error.response) {
-      console.error("SendGrid API response:", {
+      console.error("[SendGrid] API error response:", {
         status: error.response.status,
+        statusText: error.response.statusText,
         body: error.response.body,
-      });
-      console.debug("API response received from SendGrid", {
-        status: error.response.status,
-        body: error.response.body,
+        headers: error.response.headers
       });
     }
     return false;
