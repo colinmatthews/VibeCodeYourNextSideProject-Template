@@ -40,11 +40,9 @@ function AddPaymentMethodForm({ onSuccess, onError }: { onSuccess: () => void; o
 
     setIsProcessing(true);
     try {
-      const { error } = await stripe.confirmSetup({
+      const { error, setupIntent } = await stripe.confirmSetup({
         elements,
-        confirmParams: {
-          return_url: window.location.href,
-        }
+        redirect: 'if_required'
       });
 
       if (error) {
