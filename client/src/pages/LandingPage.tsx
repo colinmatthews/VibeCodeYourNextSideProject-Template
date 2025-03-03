@@ -83,18 +83,21 @@ export default function LandingPage() {
                 <li>Copy the price ID (starts with 'price_')</li>
               </ul>
             </li>
+            <li>Configure webhook endpoint:
+              <ul className="list-disc list-inside ml-4 mt-2">
+                <li>Go to Developers → Webhooks</li>
+                <li>Click "Add endpoint"</li>
+                <li>Use your Replit URL + '/api/webhook'</li>
+                <li>Select events: payment_intent.succeeded, payment_intent.payment_failed</li>
+                <li>Copy the webhook signing secret (starts with 'whsec_')</li>
+              </ul>
+            </li>
             <li>Add these Stripe secrets to your Replit:
               <ul className="list-disc list-inside ml-4 mt-2">
                 <li>STRIPE_SECRET_KEY (from API keys)</li>
                 <li>STRIPE_PRICE_ID_PRO (your price ID)</li>
                 <li>VITE_STRIPE_PUBLIC_KEY (publishable key from API keys)</li>
-              </ul>
-            </li>
-            <li>Configure webhook endpoints (if needed):
-              <ul className="list-disc list-inside ml-4 mt-2">
-                <li>Go to Developers → Webhooks</li>
-                <li>Add your Replit endpoint URL</li>
-                <li>Select relevant events to monitor</li>
+                <li>STRIPE_WEBHOOK_SECRET (webhook signing secret)</li>
               </ul>
             </li>
           </ol>
