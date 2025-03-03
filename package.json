@@ -67,6 +67,7 @@
     "jest-environment-jsdom": "^29.7.0",
     "lucide-react": "^0.453.0",
     "memorystore": "^1.6.7",
+    "micro": "^10.0.1",
     "passport": "^0.7.0",
     "passport-local": "^1.0.0",
     "pg": "^8.13.3",

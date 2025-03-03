@@ -5,14 +5,80 @@ import { storage } from "./storage";
 import { insertContactSchema, insertUserSchema } from "@shared/schema";
 import { sendEmail } from "./mail";
 import Stripe from "stripe";
-import { create } from "domain";
+import { buffer } from "micro";
+import { Request, Response } from "express";
+import express from 'express';
+
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
-  apiVersion: "2023-10-16" as const, // Fix the API version type
+  apiVersion: "2023-10-16",
 });
+
+const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
 export async function registerRoutes(app: Express) {
   const server = createServer(app);
+
+  // Add raw body parsing for Stripe webhooks
+  app.use('/api/webhook', express.raw({ type: 'application/json' }));
+
+  // Stripe webhook handler
+  app.post('/api/webhook', async (req: Request, res: Response) => {
+    const sig = req.headers['stripe-signature'];
+    let event: Stripe.Event;
+
+    try {
+      const rawBody = await buffer(req);
+      event = stripe.webhooks.constructEvent(
+        rawBody,
+        sig as string,
+        endpointSecret as string
+      );
+    } catch (err) {
+      console.error('[Webhook] Signature verification failed:', err);
+      return res.status(400).send(`Webhook Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+
+    try {
+      // Handle the event
+      switch (event.type) {
+        case 'payment_intent.succeeded':
+          const paymentIntent = event.data.object as Stripe.PaymentIntent;
+          console.log('[Webhook] Payment succeeded:', paymentIntent.id);
+
+          // Get the subscription ID from metadata
+          const subscriptionId = paymentIntent.metadata.subscriptionId;
+          if (subscriptionId) {
+            const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+            const firebaseId = subscription.metadata.firebaseId;
+
+            if (firebaseId) {
+              // Update user subscription status
+              await storage.updateUser(firebaseId, {
+                subscriptionType: 'pro'
+              });
+              console.log('[Webhook] Updated user subscription to pro:', firebaseId);
+            }
+          }
+          break;
+
+        case 'payment_intent.payment_failed':
+          const failedPayment = event.data.object as Stripe.PaymentIntent;
+          console.log('[Webhook] Payment failed:', failedPayment.id);
+
+          // Handle failed payment (optional: notify user or take other actions)
+          break;
+
+        default:
+          console.log(`[Webhook] Unhandled event type: ${event.type}`);
+      }
+
+      res.json({ received: true });
+    } catch (err) {
+      console.error('[Webhook] Error processing event:', err);
+      res.status(500).json({ error: 'Failed to process webhook' });
+    }
+  });
 
   // User routes
   // Check and create Stripe customer if needed
@@ -170,7 +236,7 @@ export async function registerRoutes(app: Express) {
         firebaseId: req.params.firebaseId,
         emailNotifications
       });
-      
+
       const user = await storage.getUserByFirebaseId(req.params.firebaseId);
       console.log("[Debug] Found user:", {
         id: user?.id,
@@ -200,10 +266,10 @@ export async function registerRoutes(app: Express) {
     try {
       console.log("[Debug] Fetching user data for firebaseId:", req.params.firebaseId);
       const user = await storage.getUserByFirebaseId(req.params.firebaseId);
-      console.log("[Debug] User data from database:", { 
+      console.log("[Debug] User data from database:", {
         id: user?.id,
         email: user?.email,
-        subscriptionType: user?.subscriptionType 
+        subscriptionType: user?.subscriptionType
       });
       if (!user) {
         return res.status(404).json({ error: "User not found" });
@@ -242,17 +308,17 @@ export async function registerRoutes(app: Express) {
       console.log("[Items] Received item data:", req.body);
       const { userId, item } = req.body;
       console.log("[Items] Parsed userId:", userId);
-      
+
       if (!userId) {
         console.error("[Items] Invalid user ID");
         return res.status(400).json({ error: "Invalid user ID" });
       }
 
       const user = await storage.getUserByFirebaseId(userId);
-      console.log("[Items] User data:", { 
-        email: user?.email, 
+      console.log("[Items] User data:", {
+        email: user?.email,
         emailNotifications: user?.emailNotifications,
-        subscriptionType: user?.subscriptionType 
+        subscriptionType: user?.subscriptionType
       });
 
       const items = await storage.getItemsByUserId(userId);
@@ -330,13 +396,12 @@ export async function registerRoutes(app: Express) {
         user = await storage.updateUser(firebaseId, {
           stripeCustomerId: customer.id
         });
-        console.log('[Subscription] Updated user with Stripe customer ID:', user.stripeCustomerId);
       }
 
       // Attach the payment method if not already attached
       try {
         await stripe.paymentMethods.attach(paymentMethodId, {
-          customer: user.stripeCustomerId,
+          customer: user.stripeCustomerId!,
         });
       } catch (err) {
         const error = err as Error;
@@ -360,21 +425,24 @@ export async function registerRoutes(app: Express) {
         items: [{ price: process.env.STRIPE_PRICE_ID_PRO }],
         payment_behavior: 'default_incomplete',
         expand: ['latest_invoice.payment_intent'],
+        metadata: {
+          firebaseId: user.firebaseId // Add firebaseId to metadata for webhook handling
+        },
         payment_settings: {
           payment_method_types: ['card'],
           save_default_payment_method: 'on_subscription'
         }
       });
-      console.log('[Subscription] Created subscription:', subscription.id);
 
       const invoice = subscription.latest_invoice as Stripe.Invoice;
       const payment_intent = invoice.payment_intent as Stripe.PaymentIntent;
 
-      // Immediately update the subscription type to 'pro'
-      await storage.updateUser(firebaseId, {
-        subscriptionType: 'pro'
+      // Add subscription ID to payment intent metadata
+      await stripe.paymentIntents.update(payment_intent.id, {
+        metadata: {
+          subscriptionId: subscription.id
+        }
       });
-      console.log('[Subscription] Updated user subscription to pro');
 
       res.json({
         subscriptionId: subscription.id,
