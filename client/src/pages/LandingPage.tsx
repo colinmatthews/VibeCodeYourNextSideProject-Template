@@ -88,7 +88,7 @@ export default function LandingPage() {
                 <li>Go to Developers → Webhooks</li>
                 <li>Click "Add endpoint"</li>
                 <li>Use your Replit URL + '/api/webhook'</li>
-                <li>Select events: payment_intent.succeeded, payment_intent.payment_failed</li>
+                <li>Select events: checkout.session.completed, customer.subscription.updated, customer.subscription.deleted, invoice.payment_succeeded, invoice.payment_failed</li>
                 <li>Copy the webhook signing secret (starts with 'whsec_')</li>
               </ul>
             </li>

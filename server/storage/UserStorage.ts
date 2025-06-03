@@ -27,24 +27,20 @@ export class UserStorage {
   }
 
   async updateUser(firebaseId: string, data: UpdateUserData): Promise<User> {
-    console.log("[Debug] Updating user:", { firebaseId, data });
     const [updatedUser] = await db
       .update(users)
       .set(data)
       .where(eq(users.firebaseId, firebaseId))
       .returning();
-    console.log("[Debug] Updated user result:", updatedUser);
     return updatedUser;
   }
 
   async updateUserById(userId: string, data: UpdateUserData): Promise<User> {
-    console.log("[Debug] Updating user by ID:", { userId, data });
     const [updatedUser] = await db
       .update(users)
       .set(data)
       .where(eq(users.firebaseId, userId))
       .returning();
-    console.log("[Debug] Updated user result:", updatedUser);
     return updatedUser;
   }
 }

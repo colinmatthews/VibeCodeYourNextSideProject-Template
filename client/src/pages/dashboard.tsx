@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
@@ -23,6 +23,22 @@ export default function Dashboard() {
   const [isNewItemOpen, setIsNewItemOpen] = useState(false);
   const [newItem, setNewItem] = useState("");
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
+
+  // Handle checkout success from URL params
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const success = urlParams.get('success');
+    const sessionId = urlParams.get('session_id');
+
+    if (success === 'true' && sessionId) {
+      toast({
+        title: "Welcome to Pro! 🎉",
+        description: "Your subscription is now active. Enjoy unlimited items and all Pro features!",
+      });
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [toast]);
 
   const { data: items = [], refetch } = useQuery({
     queryKey: ['items', firebaseUser?.uid], // Changed queryKey

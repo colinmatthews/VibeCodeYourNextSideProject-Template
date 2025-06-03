@@ -4,7 +4,6 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Loader2 } from "lucide-react";
-import { PaymentMethodsList } from "@/components/PaymentMethodsList";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -13,11 +12,13 @@ import { updateUserPassword } from "@/lib/firebase";
 import { useUser } from "@/hooks/useUser";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { signOut } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 
 export default function Settings() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const { user: firebaseUser, loading, signOut } = useAuth();
+  const { user: firebaseUser, loading } = useAuth();
   const { user: userData } = useUser(); // Renamed to avoid conflict
   const queryClient = useQueryClient();
   const [currentPassword, setCurrentPassword] = useState("");
@@ -102,7 +103,7 @@ export default function Settings() {
 
   const handleSignOut = async () => {
     try {
-      await signOut();
+      await signOut(auth);
       toast({
         title: "Success",
         description: "You have been logged out successfully"
@@ -117,9 +118,46 @@ export default function Settings() {
     }
   };
 
-  const handleDowngrade = () => {
-    // Implement downgrade logic here
-    console.log("Downgrade to Free plan");
+  const handleOpenBillingPortal = async () => {
+    if (!firebaseUser?.uid) return;
+
+    try {
+      const response = await fetch('/api/create-portal-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firebaseId: firebaseUser.uid
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        
+        // Handle specific Stripe portal configuration error
+        if (errorData.error && errorData.error.includes('configuration')) {
+          toast({
+            title: "Portal Not Configured",
+            description: "The billing portal needs to be configured in Stripe Dashboard. Please configure it at: Settings > Billing > Customer portal",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        throw new Error(errorData.error || 'Failed to create portal session');
+      }
+
+      const { url } = await response.json();
+      
+      // Redirect to Stripe billing portal
+      window.location.href = url;
+    } catch (error) {
+      console.error('[Settings] Error opening billing portal:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to open billing portal",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -127,10 +165,6 @@ export default function Settings() {
       <h1 className="text-4xl font-bold mb-8">Settings</h1>
 
       <div className="space-y-6">
-        <Card className="p-6">
-          <PaymentMethodsList />
-        </Card>
-
         <Card className="p-6">
           <h2 className="text-2xl font-semibold mb-4">Account</h2>
           <div className="space-y-4">
@@ -210,23 +244,23 @@ export default function Settings() {
             <CardTitle>Your Plan</CardTitle>
           </CardHeader>
           <CardContent>
-            {console.log("[Debug] Settings - User data:", userData)}
-            {console.log("[Debug] Settings - Subscription type:", userData?.subscriptionType)}
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-lg font-medium">Current Plan: {userData?.subscriptionType === 'pro' ? 'Pro' : 'Free'}</p>
+                <p className="text-lg font-medium">
+                  Current Plan: {userData?.subscriptionType === 'pro' ? 'Pro' : 'Free'}
+                </p>
                 <p className="text-sm text-muted-foreground">
                   {userData?.subscriptionType === 'pro' 
-                    ? 'You have access to all pro features'
+                    ? 'You have access to all pro features. Manage your subscription through the billing portal.'
                     : 'Upgrade to pro for unlimited items and premium features'}
                 </p>
               </div>
               {userData?.subscriptionType === 'pro' ? (
                 <Button
-                  variant="destructive"
-                  onClick={handleDowngrade}
+                  variant="outline"
+                  onClick={handleOpenBillingPortal}
                 >
-                  Cancel Pro Plan
+                  Manage Subscription
                 </Button>
               ) : (
                 <Button
@@ -238,6 +272,28 @@ export default function Settings() {
             </div>
           </CardContent>
         </Card>
+
+        {userData?.subscriptionType === 'pro' && (
+          <Card className="p-6">
+            <h2 className="text-2xl font-semibold mb-4">Billing</h2>
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Manage your subscription, update payment methods, view billing history, 
+                and download invoices through the Stripe customer portal.
+              </p>
+              <Button 
+                variant="outline" 
+                onClick={handleOpenBillingPortal}
+                className="w-full sm:w-auto"
+              >
+                Open Billing Portal
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                💡 All payment methods and billing are securely handled by Stripe.
+              </p>
+            </div>
+          </Card>
+        )}
       </div>
     </div>
   );

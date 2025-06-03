@@ -1,7 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { storage } from "../storage/index";
 import Stripe from "stripe";
-import { buffer } from "micro";
 import express from 'express';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
@@ -10,9 +9,45 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
 
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
+// Fulfillment helper function for checkout sessions
+async function fulfillCheckoutSession(session: Stripe.Checkout.Session) {
+  const firebaseId = session.metadata?.firebaseId;
+  if (!firebaseId) {
+    console.error('[Webhook] No firebase ID in session metadata');
+    return;
+  }
+
+  try {
+    // Handle subscription completion
+    if (session.mode === 'subscription' && session.subscription) {
+      // Update user subscription status
+      await storage.updateUser(firebaseId, {
+        subscriptionType: 'pro'
+      });
+      
+      // Optional: Send confirmation email, update user permissions, etc.
+      // await sendSubscriptionConfirmationEmail(firebaseId);
+      
+    } else if (session.mode === 'payment' && session.payment_intent) {
+      // Handle one-time payment fulfillment
+      // You can add custom logic here based on what was purchased
+      const lineItems = await stripe.checkout.sessions.listLineItems(session.id, {
+        expand: ['data.price.product']
+      });
+      
+      // Optional: Process specific products, send digital goods, etc.
+      // await processOneTimePayment(firebaseId, lineItems);
+    }
+    
+  } catch (error) {
+    console.error('[Webhook] Error fulfilling checkout session:', error);
+    throw error;
+  }
+}
+
 export async function registerWebhookRoutes(app: Express) {
-  // Add raw body parsing for Stripe webhooks
-  app.use('/api/webhook', express.raw({ type: 'application/json' }));
+  // Raw body parsing for Stripe webhooks is now handled at top level
+  // before global express.json() middleware
 
   // Stripe webhook handler
   app.post('/api/webhook', async (req: Request, res: Response) => {
@@ -20,49 +55,107 @@ export async function registerWebhookRoutes(app: Express) {
     let event: Stripe.Event;
 
     try {
-      const rawBody = await buffer(req);
-      event = stripe.webhooks.constructEvent(
-        rawBody,
-        sig as string,
-        endpointSecret as string
-      );
+      if (!endpointSecret) {
+        console.error('[Webhook] STRIPE_WEBHOOK_SECRET not configured!');
+        throw new Error('Webhook secret not configured');
+      }
+      event = stripe.webhooks.constructEvent(req.body, sig as string, endpointSecret);
     } catch (err) {
-      console.error('[Webhook] Signature verification failed:', err);
-      return res.status(400).send(`Webhook Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      console.log('[Webhook] Signature verification failed:', (err as Error).message);
+      return res.status(400).send(`Webhook Error: ${(err as Error).message}`);
     }
 
     try {
       // Handle the event
       switch (event.type) {
-        case 'payment_intent.succeeded':
-          const paymentIntent = event.data.object as Stripe.PaymentIntent;
-          console.log('[Webhook] Payment succeeded:', paymentIntent.id);
+        // New Checkout Session events
+        case 'checkout.session.completed':
+          const checkoutSession = event.data.object as Stripe.Checkout.Session;
+          
+          // Only fulfill if payment was successful
+          if (checkoutSession.payment_status === 'paid') {
+            await fulfillCheckoutSession(checkoutSession);
+          }
+          break;
 
-          // Get the subscription ID from metadata
-          const subscriptionId = paymentIntent.metadata.subscriptionId;
-          if (subscriptionId) {
-            const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-            const firebaseId = subscription.metadata.firebaseId;
+        case 'checkout.session.expired':
+          const expiredSession = event.data.object as Stripe.Checkout.Session;
+          console.log('[Webhook] Checkout session expired:', expiredSession.id);
+          // Optional: Handle expired sessions (analytics, follow-up emails, etc.)
+          break;
 
-            if (firebaseId) {
-              // Update user subscription status
-              await storage.updateUser(firebaseId, {
+        // Subscription lifecycle events
+        case 'customer.subscription.created':
+          const newSubscription = event.data.object as Stripe.Subscription;
+          console.log('[Webhook] Subscription created:', newSubscription.id);
+          // Note: For checkout sessions, fulfillment is handled in checkout.session.completed
+          break;
+
+        case 'customer.subscription.updated':
+          const updatedSubscription = event.data.object as Stripe.Subscription;
+          
+          const firebaseIdFromSub = updatedSubscription.metadata.firebaseId;
+          if (firebaseIdFromSub) {
+            // Handle subscription status changes
+            if (updatedSubscription.status === 'active') {
+              await storage.updateUser(firebaseIdFromSub, {
                 subscriptionType: 'pro'
               });
-              console.log('[Webhook] Updated user subscription to pro:', firebaseId);
+            } else if (['canceled', 'unpaid', 'past_due'].includes(updatedSubscription.status)) {
+              await storage.updateUser(firebaseIdFromSub, {
+                subscriptionType: 'free'
+              });
             }
           }
           break;
 
-        case 'payment_intent.payment_failed':
-          const failedPayment = event.data.object as Stripe.PaymentIntent;
-          console.log('[Webhook] Payment failed:', failedPayment.id);
+        case 'customer.subscription.deleted':
+          const deletedSubscription = event.data.object as Stripe.Subscription;
+          
+          const firebaseIdFromDeleted = deletedSubscription.metadata.firebaseId;
+          if (firebaseIdFromDeleted) {
+            await storage.updateUser(firebaseIdFromDeleted, {
+              subscriptionType: 'free'
+            });
+          }
+          break;
 
-          // Handle failed payment (optional: notify user or take other actions)
+        // Invoice events (for subscription billing)
+        case 'invoice.payment_succeeded':
+          const paidInvoice = event.data.object as Stripe.Invoice;
+          
+          // Ensure subscription is marked as active
+          if (paidInvoice.subscription) {
+            const subscription = await stripe.subscriptions.retrieve(paidInvoice.subscription as string);
+            const firebaseIdFromInvoice = subscription.metadata.firebaseId;
+            
+            if (firebaseIdFromInvoice) {
+              await storage.updateUser(firebaseIdFromInvoice, {
+                subscriptionType: 'pro'
+              });
+            }
+          }
+          break;
+
+        case 'invoice.payment_failed':
+          const failedInvoice = event.data.object as Stripe.Invoice;
+          console.log('[Webhook] Invoice payment failed:', failedInvoice.id);
+          
+          // Optional: Handle failed invoice payments (send notification, etc.)
+          if (failedInvoice.subscription) {
+            const subscription = await stripe.subscriptions.retrieve(failedInvoice.subscription as string);
+            const firebaseIdFromFailedInvoice = subscription.metadata.firebaseId;
+            
+            if (firebaseIdFromFailedInvoice) {
+              // Don't immediately downgrade - Stripe will retry payment
+              console.log('[Webhook] Invoice payment failed for user:', firebaseIdFromFailedInvoice);
+            }
+          }
           break;
 
         default:
-          console.log(`[Webhook] Unhandled event type: ${event.type}`);
+          // Silently ignore unhandled events
+          break;
       }
 
       res.json({ received: true });

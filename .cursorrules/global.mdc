@@ -11,7 +11,7 @@ Technologies:
 - Frontend: React, TypeScript, React Query
 - Backend: Node.js, Express, TypeScript
 - Database: PostgreSQL
-s
+
 Data Fetching Patterns:
 - ALWAYS use the existing queryClient on the client
 - NEVER use fetch directly in components

@@ -1,318 +1,276 @@
-import { loadStripe } from "@stripe/stripe-js";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent, CardTitle, CardFooter } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Check } from "lucide-react";
-import { useState } from "react";
-import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
-import { PaymentMethodsList } from "@/components/PaymentMethodsList";
-import { QueryClient } from "@tanstack/react-query";
+import { Check, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
 
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || '');
-console.log('[Stripe] Initializing with key:', import.meta.env.VITE_STRIPE_PUBLIC_KEY ? 'Key present' : 'Key missing');
-
-interface CheckoutFormProps {
-  onSuccess: (paymentMethodId: string) => void;
-  onError: (error: string) => void;
-}
-
-function CheckoutForm({ onSuccess, onError }: CheckoutFormProps) {
-  const stripe = useStripe();
-  const elements = useElements();
-  const [processing, setProcessing] = useState(false);
-
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-
-    if (!stripe || !elements) {
-      return;
-    }
-
-    setProcessing(true);
-
-    try {
-      const result = await stripe.createPaymentMethod({
-        type: 'card',
-        card: elements.getElement(CardElement)!,
-      });
-
-      if (result.error) {
-        onError(result.error.message || "Failed to process payment");
-        return;
-      }
-
-      if (!result.paymentMethod) {
-        onError("No payment method created");
-        return;
-      }
-
-      console.log('[Payment] Created payment method:', result.paymentMethod.id);
-      onSuccess(result.paymentMethod.id);
-    } catch (err) {
-      console.error('[Payment] Error creating payment method:', err);
-      onError(err instanceof Error ? err.message : "An unexpected error occurred");
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <CardElement className="p-3 border rounded" />
-      <Button type="submit" disabled={!stripe || processing} className="w-full">
-        {processing ? 'Processing...' : 'Confirm Payment'}
-      </Button>
-    </form>
-  );
-}
-
-export default function Pricing() {
+function Pricing() {
   const { toast } = useToast();
   const { user } = useAuth();
-  const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [, setLocation] = useLocation();
-  const queryClient = new QueryClient();
+  const [isCreatingCheckout, setIsCreatingCheckout] = useState(false);
 
-  const { data: userData } = useQuery({
+  // Get URL params to handle success/cancel states
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const success = urlParams.get('success');
+    const canceled = urlParams.get('canceled');
+    const sessionId = urlParams.get('session_id');
+
+    if (success === 'true') {
+      toast({
+        title: "Payment Successful!",
+        description: "Your subscription has been activated. Welcome to Pro!",
+      });
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (canceled === 'true') {
+      toast({
+        title: "Payment Canceled",
+        description: "Your payment was canceled. You can try again anytime.",
+        variant: "destructive",
+      });
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [toast]);
+
+  const { data: userData, isLoading: userLoading } = useQuery({
     queryKey: ['user', user?.uid],
     queryFn: async () => {
-      const response = await fetch(`/api/users/${user?.uid}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch user data');
-      }
-      const data = await response.json();
-      console.log('[Pricing] User data:', data);
-      return data;
+      if (!user?.uid) return null;
+      const response = await fetch(`/api/users/${user.uid}`);
+      if (!response.ok) throw new Error('Failed to fetch user data');
+      return response.json();
     },
-    enabled: !!user
+    enabled: !!user?.uid
   });
 
   const isPro = userData?.subscriptionType === 'pro';
 
-  const handleSuccess = () => {
-    toast({
-      title: "Success!",
-      description: "Your subscription has been activated.",
-    });
-  };
+  const handleUpgrade = async () => {
+    if (!user?.uid) {
+      setLocation("/login");
+      return;
+    }
 
-  const handleError = (error: string) => {
-    toast({
-      title: "Error",
-      description: error || "Payment failed. Please try again.",
-      variant: "destructive",
-    });
-  };
-
-  const handleSubscriptionCreation = async (paymentMethodId: string) => {
+    setIsCreatingCheckout(true);
     try {
-      if (!user?.uid) {
-        throw new Error('User not authenticated');
-      }
-
-      console.log('[Pricing] Creating subscription for user:', user.uid);
-      const response = await fetch('/api/create-subscription', {
+      console.log('[Pricing] Creating checkout session for user:', user.uid);
+      
+      const response = await fetch('/api/create-checkout-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           firebaseId: user.uid,
-          paymentMethodId: paymentMethodId
+          mode: 'subscription',
+          // successUrl and cancelUrl will use defaults from the server
         })
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create subscription');
+        throw new Error(errorData.error || 'Failed to create checkout session');
       }
 
-      const data = await response.json();
-      console.log('[Pricing] Received response from server:', data);
-
-      if (data.status === 'active') {
-        setShowPaymentForm(false);
-        toast({
-          title: "Success!",
-          description: "Your subscription has been activated.",
-        });
-        queryClient.invalidateQueries({ queryKey: ['user', user.uid] });
-      } else if (data.clientSecret) {
-        const stripe = await stripePromise;
-        if (!stripe) throw new Error('Stripe not initialized');
-
-        const { error } = await stripe.confirmCardPayment(data.clientSecret);
-        if (error) {
-          throw new Error(error.message);
-        }
-
-        setShowPaymentForm(false);
-        toast({
-          title: "Success!",
-          description: "Your subscription has been activated.",
-        });
-        queryClient.invalidateQueries({ queryKey: ['user', user.uid] });
-      }
+      const { url } = await response.json();
+      console.log('[Pricing] Redirecting to checkout:', url);
+      
+      // Redirect to Stripe Checkout
+      window.location.href = url;
     } catch (error) {
-      console.error('[Pricing] Error:', error);
+      console.error('[Pricing] Error creating checkout session:', error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to process payment",
+        description: error instanceof Error ? error.message : "Failed to start checkout process",
         variant: "destructive",
       });
+    } finally {
+      setIsCreatingCheckout(false);
     }
   };
 
-  const handleDowngrade = async () => {
+  const handleManageSubscription = async () => {
     if (!user?.uid) return;
 
     try {
-      const response = await fetch('/api/downgrade-subscription', {
+      const response = await fetch('/api/create-portal-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ firebaseId: user.uid })
+        body: JSON.stringify({
+          firebaseId: user.uid
+        })
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to downgrade subscription');
+        
+        // Handle specific Stripe portal configuration error
+        if (errorData.error && errorData.error.includes('configuration')) {
+          toast({
+            title: "Portal Not Configured",
+            description: "The billing portal needs to be configured in Stripe Dashboard.",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        throw new Error(errorData.error || 'Failed to create portal session');
       }
 
-      toast({
-        title: "Success!",
-        description: "Your subscription has been downgraded to free plan.",
-      });
-      queryClient.invalidateQueries({ queryKey: ['user', user.uid] });
+      const { url } = await response.json();
+      
+      // Redirect to Stripe billing portal
+      window.location.href = url;
     } catch (error) {
+      console.error('[Pricing] Error opening billing portal:', error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to downgrade subscription",
+        description: error instanceof Error ? error.message : "Failed to open billing portal",
         variant: "destructive",
       });
     }
   };
 
   return (
-    <div className="container mx-auto py-16 px-4">
-      <div className="text-center mb-12">
-        <h1 className="text-4xl font-bold mb-4">Simple, Transparent Pricing</h1>
-        <p className="text-muted-foreground">Choose the plan that's right for you</p>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-4">
+      <div className="max-w-4xl mx-auto">
+        <div className="text-center mb-12">
+          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
+            Choose Your Plan
+          </h1>
+          <p className="text-xl text-gray-600 dark:text-gray-300">
+            Unlock powerful features with our Pro subscription
+          </p>
+        </div>
 
-      <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-        <Card>
-          <CardHeader>
-            <CardTitle>Free</CardTitle>
-            <p className="text-2xl font-bold">$0/month</p>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2">
-              <li className="flex items-center gap-2">
-                <Check className="h-4 w-4" /> Up to 50 items (not enforced in the template)
-              </li>
-              <li className="flex items-center gap-2">
-                <Check className="h-4 w-4" /> Basic search
-              </li>
-              <li className="flex items-center gap-2">
-                <Check className="h-4 w-4" /> Email support
-              </li>
-            </ul>
-          </CardContent>
-          <CardFooter className="flex flex-col gap-2">
-            {!isPro && (
-              <p className="text-sm text-muted-foreground">You're using this plan</p>
-            )}
-            {isPro ? (
-              <Button
-                className="w-full"
-                onClick={handleDowngrade}
+        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+          {/* Free Plan */}
+          <Card className="relative">
+            <CardHeader>
+              <CardTitle className="text-2xl">Free</CardTitle>
+              <div className="text-3xl font-bold">$0<span className="text-lg font-normal">/month</span></div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <ul className="space-y-3">
+                <li className="flex items-center">
+                  <Check className="h-5 w-5 text-green-500 mr-3" />
+                  Basic features
+                </li>
+                <li className="flex items-center">
+                  <Check className="h-5 w-5 text-green-500 mr-3" />
+                  Limited usage
+                </li>
+                <li className="flex items-center">
+                  <Check className="h-5 w-5 text-green-500 mr-3" />
+                  Community support
+                </li>
+              </ul>
+            </CardContent>
+            <CardFooter>
+              <Button 
+                className="w-full" 
                 variant="outline"
-              >
-                Downgrade to Free
-              </Button>
-            ) : (
-              <Button
-                className="w-full"
-                variant="secondary"
                 disabled
               >
                 Current Plan
               </Button>
-            )}
-          </CardFooter>
-        </Card>
+            </CardFooter>
+          </Card>
 
-        <Card className="border-primary">
-          <CardHeader>
-            <CardTitle>Pro</CardTitle>
-            <p className="text-2xl font-bold">$10/month</p>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2">
-              <li className="flex items-center gap-2">
-                <Check className="h-4 w-4" /> Unlimited items
-              </li>
-              <li className="flex items-center gap-2">
-                <Check className="h-4 w-4" /> Advanced search
-              </li>
-              <li className="flex items-center gap-2">
-                <Check className="h-4 w-4" /> Priority support
-              </li>
-              <li className="flex items-center gap-2">
-                <Check className="h-4 w-4" /> Custom tags
-              </li>
-            </ul>
-          </CardContent>
-          <CardFooter className="flex flex-col gap-2">
-            {isPro && (
-              <p className="text-sm text-muted-foreground">You're using this plan</p>
-            )}
-            {isPro ? (
-              <Button
-                className="w-full"
-                variant="secondary"
-                disabled
-              >
-                Current Plan
-              </Button>
-            ) : (
-              <Button
-                className="w-full"
-                onClick={() => {
-                  if (!user) {
-                    setLocation("/login");
-                    return;
-                  }
-                  setShowPaymentForm(true);
-                }}
-              >
-                Upgrade to Pro
-              </Button>
-            )}
+          {/* Pro Plan */}
+          <Card className="relative border-primary">
+            <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+              <span className="bg-primary text-primary-foreground px-4 py-1 rounded-full text-sm font-medium">
+                Most Popular
+              </span>
+            </div>
+            <CardHeader>
+              <CardTitle className="text-2xl">Pro</CardTitle>
+              <div className="text-3xl font-bold">$29<span className="text-lg font-normal">/month</span></div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <ul className="space-y-3">
+                <li className="flex items-center">
+                  <Check className="h-5 w-5 text-green-500 mr-3" />
+                  All features included
+                </li>
+                <li className="flex items-center">
+                  <Check className="h-5 w-5 text-green-500 mr-3" />
+                  Unlimited usage
+                </li>
+                <li className="flex items-center">
+                  <Check className="h-5 w-5 text-green-500 mr-3" />
+                  Priority support
+                </li>
+                <li className="flex items-center">
+                  <Check className="h-5 w-5 text-green-500 mr-3" />
+                  Advanced analytics
+                </li>
+                <li className="flex items-center">
+                  <Check className="h-5 w-5 text-green-500 mr-3" />
+                  API access
+                </li>
+              </ul>
+            </CardContent>
+            <CardFooter className="flex flex-col gap-2">
+              {userLoading ? (
+                <Button className="w-full" disabled>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Loading...
+                </Button>
+              ) : isPro ? (
+                <>
+                  <p className="text-sm text-muted-foreground mb-2">You're using this plan</p>
+                  <Button
+                    className="w-full"
+                    variant="secondary"
+                    disabled
+                  >
+                    Current Plan
+                  </Button>
+                  <Button
+                    className="w-full mt-2"
+                    variant="outline"
+                    onClick={handleManageSubscription}
+                  >
+                    Manage Subscription
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  className="w-full"
+                  onClick={handleUpgrade}
+                  disabled={isCreatingCheckout}
+                >
+                  {isCreatingCheckout ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Redirecting to checkout...
+                    </>
+                  ) : (
+                    "Upgrade to Pro"
+                  )}
+                </Button>
+              )}
+            </CardFooter>
+          </Card>
+        </div>
 
-            {showPaymentForm && (
-              <Dialog open={showPaymentForm} onOpenChange={setShowPaymentForm}>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Payment Methods</DialogTitle>
-                    <DialogDescription>
-                      Select or add a payment method to upgrade to Pro
-                    </DialogDescription>
-                  </DialogHeader>
-                  <Elements stripe={stripePromise}>
-                    <PaymentMethodsList
-                      onSelect={handleSubscriptionCreation}
-                      onError={handleError}
-                    />
-                  </Elements>
-                </DialogContent>
-              </Dialog>
-            )}
-          </CardFooter>
-        </Card>
+        <div className="text-center mt-12">
+          <p className="text-gray-600 dark:text-gray-400">
+            All plans include a 14-day free trial. Cancel anytime.
+          </p>
+          <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">
+            Secure payments powered by Stripe
+          </p>
+        </div>
       </div>
     </div>
   );
 }
+
+export default Pricing;

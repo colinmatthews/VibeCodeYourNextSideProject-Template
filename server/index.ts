@@ -1,40 +1,51 @@
 import 'dotenv/config';
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
+import { registerWebhookRoutes } from "./routes/webhookRoutes";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-
-app.use((req, res, next) => {
-  const start = Date.now();
-  const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
-
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
-
-  res.on("finish", () => {
-    const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
-        let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-        if (capturedJsonResponse) {
-          log(logLine);
-          log(`Response: ${JSON.stringify(capturedJsonResponse, null, 2)}`);
-        } else {
-          log(logLine);
-        }
-    }
-  });
-
-  next();
-});
 
 (async () => {
+  // IMPORTANT: Add raw body parsing specifically for webhook endpoint BEFORE express.json()
+  // This ensures Stripe webhooks receive raw body for signature verification
+  app.use('/api/webhook', express.raw({ type: 'application/json' }));
+
+  // IMPORTANT: Register webhook routes BEFORE express.json() middleware
+  // This ensures Stripe webhooks receive raw body for signature verification
+  await registerWebhookRoutes(app);
+
+  // Now apply global JSON parsing middleware for all other routes
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: false }));
+
+  app.use((req, res, next) => {
+    const start = Date.now();
+    const path = req.path;
+    let capturedJsonResponse: Record<string, any> | undefined = undefined;
+
+    const originalResJson = res.json;
+    res.json = function (bodyJson, ...args) {
+      capturedJsonResponse = bodyJson;
+      return originalResJson.apply(res, [bodyJson, ...args]);
+    };
+
+    res.on("finish", () => {
+      const duration = Date.now() - start;
+      if (path.startsWith("/api")) {
+          let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+          if (capturedJsonResponse) {
+            log(logLine);
+            log(`Response: ${JSON.stringify(capturedJsonResponse, null, 2)}`);
+          } else {
+            log(logLine);
+          }
+      }
+    });
+
+    next();
+  });
+
   const server = await registerRoutes(app);
 
   // Global error handler
