@@ -62,6 +62,7 @@ VITE_STRIPE_PUBLIC_KEY=pk_test_...      # Your Stripe publishable key
 
 ```bash
 npm install
+npm run db:push
 npm run dev
 ```
 
