@@ -72,16 +72,11 @@ export async function registerItemRoutes(app: Express) {
   });
 
   app.delete("/api/items/:id", async (req, res) => {
-    try {
-      const id = Number(req.params.id);
-      if (isNaN(id)) {
-        return res.status(400).json({ error: "Invalid item ID" });
-      }
-      await storage.deleteItem(id);
-      res.status(204).send();
-    } catch (error) {
-      console.error("Error deleting item:", error);
-      res.status(500).json({ error: "Failed to delete item" });
+    const id = Number(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ error: "Invalid item ID" });
     }
+    await storage.deleteItem(id);
+    res.status(204).send();
   });
 }
