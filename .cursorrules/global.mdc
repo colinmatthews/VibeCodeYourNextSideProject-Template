@@ -1,0 +1,117 @@
+You are an expert in React and Node.js development with deep knowledge of PostgreSQL.
+You understand how to architect clean, consistent full-stack applications that follow established patterns.
+You excel at implementing features that align with existing codebase conventions.
+
+Technologies:
+- Frontend: React, TypeScript, React Query
+- Backend: Node.js, Express, TypeScript
+- Database: PostgreSQL
+
+Data Fetching Patterns:
+- ALWAYS use the existing queryClient on the client
+- NEVER use fetch directly in components
+- Follow established patterns for query keys and cache management
+- Use query invalidation for data mutations instead of manual refetching
+- Maintain consistent error and loading state handling
+
+Database Access Patterns:
+- ALWAYS add storage methods on the server
+- NEVER access the database directly from API routes
+- Centralize database access in dedicated storage modules
+- Follow existing error handling patterns for database operations
+- Use proper SQL parameterization to prevent injection attacks
+
+Implementation Approach:
+- ALWAYS mimic existing patterns for implementing features
+- Check other similar files before implementing new functionality
+- Identify at least 2-3 similar implementations before coding
+- Note conventions for file structure, naming patterns, and error handling
+- Maintain consistent component composition structures
+
+File Structure:
+- Components: src/components/{feature}/{Component}.tsx
+- API Routes: src/api/{feature}.ts
+- Storage: src/storage/{entity}.ts
+- Hooks: src/hooks/use{Feature}.ts
+- Utils: src/utils/{function}.ts
+- AI Agents: src/agents/{agentName}.ts
+
+Code Style:
+- Use TypeScript for all code
+- Create precise types that reflect your data models
+- Avoid using 'any' type or type assertions unless necessary
+- Export types from a central location for reuse
+- Use functional programming patterns when possible
+
+Naming Conventions:
+- Use PascalCase for components
+- Use camelCase for variables, functions, and methods
+- Use descriptive variable names that indicate purpose
+- Prefix custom hooks with 'use'
+- Use consistent naming for database tables and columns
+
+Query Pattern Examples:
+```javascript
+// CORRECT - Using queryClient
+const { data, isLoading } = useQuery({
+  queryKey: ['entityName', id],
+  queryFn: () => queryClient.fetchEntityById(id)
+});
+
+// INCORRECT - Direct fetch
+const [data, setData] = useState(null);
+useEffect(() => {
+  fetch('/api/entity/' + id)
+    .then(res => res.json())
+    .then(setData);
+}, [id]);
+```
+
+Storage Pattern Examples:
+```javascript
+// CORRECT - Using storage methods
+// In api route:
+export async function GET(request) {
+  const { id } = parseParams(request);
+  const entity = await entityStorage.getEntityById(id);
+  return Response.json(entity);
+}
+
+// In storage module:
+export const entityStorage = {
+  async getEntityById(id) {
+    return await db.query('SELECT * FROM entities WHERE id = $1', [id]);
+  }
+}
+
+// INCORRECT - Direct DB access in API route
+export async function GET(request) {
+  const { id } = parseParams(request);
+  const entity = await db.query('SELECT * FROM entities WHERE id = $1', [id]);
+  return Response.json(entity);
+}
+```
+
+Security Best Practices:
+- Implement proper authentication and authorization
+- Sanitize user inputs to prevent injection attacks
+- Use environment variables for sensitive configuration
+- Follow the principle of least privilege for API access
+- Validate and sanitize all inputs, especially from external sources
+
+Performance Optimization:
+- Optimize database queries with proper indexing
+- Implement caching strategies for frequently accessed data
+- Use lazy loading for large datasets
+- Monitor and optimize API response times
+- Use connection pooling for database connections
+
+Common Anti-Patterns to Avoid:
+- Mixing database access and business logic
+- Direct API fetching in components
+- Inconsistent error handling
+- Redundant implementations of existing patterns
+- Bypassing established state management patterns
+
+Memories
+- Create and reference plans in the ./memories directory as .md files
