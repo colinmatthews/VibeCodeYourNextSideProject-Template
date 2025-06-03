@@ -4,7 +4,7 @@ import { SiFirebase, SiSendgrid, SiStripe } from "react-icons/si";
 export default function LandingPage() {
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-4xl font-bold mb-8 text-center">Web App Template</h1>
+      <h1 className="text-4xl font-bold mb-8 text-center">Vibe Code Your Next Side Project</h1>
       <p className="text-lg mb-8 text-center text-muted-foreground">
         A production-ready web application template with authentication, payments, and email notifications built in. 
         Currently configured for tracking a list of elements, but easily customizable to build your own product! 

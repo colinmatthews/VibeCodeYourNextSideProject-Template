@@ -6,7 +6,7 @@ export default function Footer() {
       <div className="container mx-auto py-12 px-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div>
-            <h3 className="font-bold mb-4">Web App Template</h3>
+            <h3 className="font-bold mb-4">Vibe Code Your Next Side Project</h3>
             <p className="text-muted-foreground">Making modern web development simple and effective.</p>
           </div>
           <div>
@@ -33,7 +33,7 @@ export default function Footer() {
           </div>
         </div>
         <div className="border-t mt-8 pt-8 text-center text-muted-foreground">
-          <p>&copy; {new Date().getFullYear()} Web App Template. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} Vibe Code Your Next Side Project. All rights reserved.</p>
         </div>
       </div>
     </footer>
