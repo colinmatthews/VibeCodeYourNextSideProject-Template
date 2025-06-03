@@ -13,6 +13,13 @@ export type SubscriptionType = typeof SubscriptionType[keyof typeof Subscription
 export const users = pgTable("users", {
   firebaseId: text("firebase_id").primaryKey(),
   email: text("email").notNull(),
+  firstName: text("first_name").notNull().default(""),
+  lastName: text("last_name").notNull().default(""),
+  address: text("address").notNull().default(""),
+  city: text("city").notNull().default(""),
+  state: text("state").notNull().default(""),
+  postalCode: text("postal_code").notNull().default(""),
+  isPremium: boolean("is_premium").notNull().default(false),
   subscriptionType: text("subscription_type", { enum: ["free", "pro"] }).notNull().default("free"),
   emailNotifications: boolean("email_notifications").notNull().default(false),
   stripeCustomerId: text("stripe_customer_id"),
@@ -27,6 +34,13 @@ export const items = pgTable("items", {
 export const insertUserSchema = createInsertSchema(users, {
   firebaseId: z.string(),
   email: z.string().email(),
+  firstName: z.string().default(""),
+  lastName: z.string().default(""),
+  address: z.string().default(""),
+  city: z.string().default(""),
+  state: z.string().default(""),
+  postalCode: z.string().default(""),
+  isPremium: z.boolean().default(false),
   subscriptionType: z.enum(["free", "pro"]).default("free"),
   emailNotifications: z.boolean().default(false),
 });

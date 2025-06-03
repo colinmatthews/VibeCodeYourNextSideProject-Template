@@ -2,7 +2,7 @@ import { type User, type InsertUser, users } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { db } from "../db";
 
-interface UpdateUserData {
+export interface UpdateUserData {
   firstName?: string;
   lastName?: string;
   emailNotifications?: boolean;
@@ -12,13 +12,7 @@ interface UpdateUserData {
 
 export class UserStorage {
   async getUserByFirebaseId(firebaseId: string): Promise<User | undefined> {
-    const [user] = await db.select({
-      id: users.firebaseId,
-      email: users.email,
-      subscriptionType: users.subscriptionType,
-      emailNotifications: users.emailNotifications,
-      stripeCustomerId: users.stripeCustomerId
-    }).from(users).where(eq(users.firebaseId, firebaseId));
+    const [user] = await db.select().from(users).where(eq(users.firebaseId, firebaseId));
     return user;
   }
 
@@ -38,6 +32,17 @@ export class UserStorage {
       .update(users)
       .set(data)
       .where(eq(users.firebaseId, firebaseId))
+      .returning();
+    console.log("[Debug] Updated user result:", updatedUser);
+    return updatedUser;
+  }
+
+  async updateUserById(userId: string, data: UpdateUserData): Promise<User> {
+    console.log("[Debug] Updating user by ID:", { userId, data });
+    const [updatedUser] = await db
+      .update(users)
+      .set(data)
+      .where(eq(users.firebaseId, userId))
       .returning();
     console.log("[Debug] Updated user result:", updatedUser);
     return updatedUser;

@@ -4,7 +4,7 @@ import { insertUserSchema } from "@shared/schema";
 import Stripe from "stripe";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
-  apiVersion: "2023-10-16",
+  apiVersion: "2025-01-27.acacia",
 });
 
 export async function registerUserRoutes(app: Express) {
@@ -18,9 +18,8 @@ export async function registerUserRoutes(app: Express) {
       let customer;
       const existingUser = await storage.getUserByFirebaseId(firebaseId);
       console.log("[User] Checking existing user by Firebase ID:", {
-        id: existingUser?.id,
-        email: existingUser?.email,
-        firebaseId: existingUser?.firebaseId
+        firebaseId: existingUser?.firebaseId,
+        email: existingUser?.email
       });
 
       if (!existingUser) {
@@ -36,10 +35,11 @@ export async function registerUserRoutes(app: Express) {
           firebaseId,
           email,
           stripeCustomerId,
-          subscriptionType: "free"
+          subscriptionType: "free",
+          emailNotifications: false
         });
         console.log("[User] Created new user with Stripe customer:", {
-          userId: newUser.id,
+          firebaseId: newUser.firebaseId,
           stripeCustomerId
         });
 
@@ -155,7 +155,7 @@ export async function registerUserRoutes(app: Express) {
         return res.status(404).json({ error: "User not found" });
       }
 
-      const updatedUser = await storage.updateUser(user.id, {
+      const updatedUser = await storage.updateUser(user.firebaseId, {
         ...(firstName !== undefined && { firstName }),
         ...(lastName !== undefined && { lastName }),
         ...(emailNotifications !== undefined && { emailNotifications }),
@@ -181,7 +181,7 @@ export async function registerUserRoutes(app: Express) {
         return res.status(404).json({ error: "User not found" });
       }
       res.json({
-        id: user.id,
+        firebaseId: user.firebaseId,
         email: user.email,
         subscriptionType: user.subscriptionType,
         firstName: user.firstName,
