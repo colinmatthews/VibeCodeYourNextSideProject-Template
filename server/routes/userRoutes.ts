@@ -1,5 +1,5 @@
 import type { Express } from "express";
-import { storage } from "../storage";
+import { storage } from "../storage/index.js";
 import { insertUserSchema } from "@shared/schema";
 import Stripe from "stripe";
 
@@ -34,6 +34,13 @@ export async function registerUserRoutes(app: Express) {
         const newUser = await storage.createUser({
           firebaseId,
           email,
+          firstName: "",
+          lastName: "",
+          address: "",
+          city: "",
+          state: "",
+          postalCode: "",
+          isPremium: false,
           stripeCustomerId,
           subscriptionType: "free",
           emailNotifications: false
@@ -122,7 +129,6 @@ export async function registerUserRoutes(app: Express) {
       const created = await storage.createUser({
         ...user,
         stripeCustomerId: customer.id,
-        isPremium: false,
       });
 
       res.json(created);

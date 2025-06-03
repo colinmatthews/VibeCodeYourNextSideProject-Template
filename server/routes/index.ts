@@ -1,9 +1,9 @@
 import type { Express } from "express";
 import { createServer } from "http";
-import { registerUserRoutes } from './userRoutes';
-import { registerItemRoutes } from './itemRoutes';
-import { registerPaymentRoutes } from './paymentRoutes';
-import { registerWebhookRoutes } from './webhookRoutes';
+import { registerUserRoutes } from './userRoutes.js';
+import { registerItemRoutes } from './itemRoutes.js';
+import { registerPaymentRoutes } from './paymentRoutes.js';
+import { registerWebhookRoutes } from './webhookRoutes.js';
 
 export async function registerRoutes(app: Express) {
   const server = createServer(app);

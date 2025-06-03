@@ -1,5 +1,5 @@
-import { UserStorage, UpdateUserData } from './UserStorage';
-import { ItemStorage } from './ItemStorage';
+import { UserStorage, UpdateUserData } from './UserStorage.js';
+import { ItemStorage } from './ItemStorage.js';
 import { type Item, type InsertItem, type User, type InsertUser } from "@shared/schema";
 
 
