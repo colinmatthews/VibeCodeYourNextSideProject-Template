@@ -1,8 +1,14 @@
-import { UserStorage, UpdateUserData } from './UserStorage';
+import { UserStorage } from './UserStorage';
 import { ItemStorage } from './ItemStorage';
 import { type Item, type InsertItem, type User, type InsertUser } from "@shared/schema";
 
-
+interface UpdateUserData {
+  firstName?: string;
+  lastName?: string;
+  emailNotifications?: boolean;
+  subscriptionType?: "free" | "pro";
+  stripeCustomerId?: string;
+}
 
 export interface IStorage {
   // User operations

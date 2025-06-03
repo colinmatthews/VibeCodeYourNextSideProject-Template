@@ -2,7 +2,7 @@ import { type User, type InsertUser, users } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { db } from "../db";
 
-export interface UpdateUserData {
+interface UpdateUserData {
   firstName?: string;
   lastName?: string;
   emailNotifications?: boolean;
