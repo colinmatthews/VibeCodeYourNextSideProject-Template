@@ -1,5 +1,6 @@
 
 import { pgTable, text, serial, boolean } from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -30,6 +31,17 @@ export const items = pgTable("items", {
   item: text("item").notNull(),
   userId: text("user_id").notNull().references(() => users.firebaseId),
 });
+
+export const usersRelations = relations(users, ({ many }) => ({
+  items: many(items),
+}));
+
+export const itemsRelations = relations(items, ({ one }) => ({
+  user: one(users, {
+    fields: [items.userId],
+    references: [users.firebaseId],
+  }),
+}));
 
 export const insertUserSchema = createInsertSchema(users, {
   firebaseId: z.string(),
