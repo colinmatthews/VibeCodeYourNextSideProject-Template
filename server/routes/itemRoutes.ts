@@ -1,5 +1,5 @@
 import type { Express } from "express";
-import { storage } from "../storage/index.js";
+import { storage } from "../storage/index";
 import { sendEmail } from "../mail";
 
 export async function registerItemRoutes(app: Express) {

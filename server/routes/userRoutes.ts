@@ -1,5 +1,5 @@
 import type { Express } from "express";
-import { storage } from "../storage/index.js";
+import { storage } from "../storage/index";
 import { insertUserSchema } from "@shared/schema";
 import Stripe from "stripe";
 

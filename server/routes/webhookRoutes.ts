@@ -1,5 +1,5 @@
 import type { Express, Request, Response } from "express";
-import { storage } from "../storage/index.js";
+import { storage } from "../storage/index";
 import Stripe from "stripe";
 import { buffer } from "micro";
 import express from 'express';
