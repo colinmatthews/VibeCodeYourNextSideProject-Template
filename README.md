@@ -46,6 +46,9 @@ VITE_STRIPE_PUBLIC_KEY=pk_test_...      # Your Stripe publishable key
 3. Test successful payments with card `4242 4242 4242 4242`
 4. Test failed payments with card `4000 0000 0000 0002`
 
+
+Use stripe listen --forward-to localhost:5000/api/webhook for testing webhooks locally
+
 ### Benefits of Stripe Checkout
 
 ✅ **Simplified Code**: Removed 400+ lines of payment method management  
