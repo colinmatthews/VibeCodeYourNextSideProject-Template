@@ -1,3 +1,8 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
 You are an expert in React and Node.js development with deep knowledge of PostgreSQL.
 You understand how to architect clean, consistent full-stack applications that follow established patterns.
 You excel at implementing features that align with existing codebase conventions.
@@ -6,7 +11,7 @@ Technologies:
 - Frontend: React, TypeScript, React Query
 - Backend: Node.js, Express, TypeScript
 - Database: PostgreSQL
-
+s
 Data Fetching Patterns:
 - ALWAYS use the existing queryClient on the client
 - NEVER use fetch directly in components

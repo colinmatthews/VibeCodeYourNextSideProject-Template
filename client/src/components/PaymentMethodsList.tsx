@@ -95,7 +95,7 @@ export function PaymentMethodsList({ onSelect, onError }: PaymentMethodsListProp
     queryKey: ['paymentMethods', user?.uid],
     queryFn: async () => {
       console.log("[PaymentMethods] Fetching payment methods for user:", user?.uid);
-      const response = await fetch(`/api/payment-methods?firebaseId=${user?.uid}`);
+      const response = await fetch(`/api/payment-methods/${user?.uid}`);
       if (!response.ok) {
         throw new Error('Failed to fetch payment methods');
       }
@@ -116,7 +116,7 @@ export function PaymentMethodsList({ onSelect, onError }: PaymentMethodsListProp
     }
 
     try {
-      const response = await fetch('/api/setup-intent', {
+      const response = await fetch('/api/setup-payment-method', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -128,8 +128,8 @@ export function PaymentMethodsList({ onSelect, onError }: PaymentMethodsListProp
         throw new Error('Failed to create setup intent');
       }
 
-      const { clientSecret } = await response.json();
-      setSetupIntent(clientSecret);
+      const { client_secret } = await response.json();
+      setSetupIntent(client_secret);
       setShowAddPaymentMethod(true);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to initialize payment setup";
