@@ -36,15 +36,6 @@ app.use((req, res, next) => {
 (async () => {
   const server = await registerRoutes(app);
 
-  // Global error handler
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    console.error('Error:', err);
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-
-    res.status(status).json({ message });
-  });
-
   // Handle uncaught exceptions
   process.on('uncaughtException', (error) => {
     console.error('Uncaught Exception:', error);
@@ -63,6 +54,15 @@ app.use((req, res, next) => {
   } else {
     serveStatic(app);
   }
+
+  // Global error handler - must be after Vite setup to catch all errors
+  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+    console.error('Error:', err);
+    const status = err.status || err.statusCode || 500;
+    const message = err.message || "Internal Server Error";
+
+    res.status(status).json({ message });
+  });
 
   // ALWAYS serve the app on port 5000
   // this serves both the API and the client
