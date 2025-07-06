@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { storage } from "../storage/index";
 import Stripe from "stripe";
+import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
   apiVersion: "2025-01-27.acacia",
@@ -8,14 +9,11 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
 
 export async function registerPaymentRoutes(app: Express) {
   // New Stripe Checkout endpoint - replaces complex payment method flow
-  app.post("/api/create-checkout-session", async (req, res) => {
+  app.post("/api/create-checkout-session", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       console.log('[Checkout] Creating checkout session');
-      const { firebaseId, mode = 'subscription', priceId, successUrl, cancelUrl } = req.body;
-      
-      if (!firebaseId) {
-        return res.status(400).json({ error: "Firebase ID is required" });
-      }
+      const { mode = 'subscription', priceId, successUrl, cancelUrl } = req.body;
+      const firebaseId = req.user!.uid;
 
       let user = await storage.getUserByFirebaseId(firebaseId);
       if (!user) {
@@ -100,14 +98,10 @@ export async function registerPaymentRoutes(app: Express) {
   });
 
   // Create Stripe Customer Portal session for subscription management
-  app.post('/api/create-portal-session', async (req, res) => {
-    const { firebaseId } = req.body;
-
-    if (!firebaseId) {
-      return res.status(400).json({ error: 'Firebase ID is required' });
-    }
-
+  app.post('/api/create-portal-session', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      const firebaseId = req.user!.uid;
+
       // Get user data to find their Stripe customer ID
       const user = await storage.getUserByFirebaseId(firebaseId);
       if (!user || !user.stripeCustomerId) {

@@ -2,16 +2,65 @@ import type { Express } from "express";
 import { storage } from "../storage/index";
 import { insertUserSchema } from "@shared/schema";
 import Stripe from "stripe";
+import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
+import { requiresOwnership, requiresUserExists } from "../middleware/authHelpers";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
   apiVersion: "2025-01-27.acacia",
 });
 
 export async function registerUserRoutes(app: Express) {
-  // Check and create Stripe customer if needed
-  app.post("/api/users/ensure-stripe", async (req, res) => {
+  // Login endpoint for token verification and user session creation
+  app.post("/api/login", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
-      const { firebaseId, email } = req.body;
+      const firebaseId = req.user!.uid;
+      const email = req.user!.email;
+
+      // Check if user exists in our database
+      let user = await storage.getUserByFirebaseId(firebaseId);
+      
+      if (!user) {
+        // Create a basic user profile if none exists
+        user = await storage.createUser({
+          firebaseId,
+          email: email || '',
+          firstName: '',
+          lastName: '',
+          address: '',
+          city: '',
+          state: '',
+          postalCode: '',
+          isPremium: false,
+          subscriptionType: 'free',
+          emailNotifications: false
+        });
+      }
+
+      // Return user info for client
+      res.json({
+        firebaseId: user.firebaseId,
+        email: user.email,
+        subscriptionType: user.subscriptionType,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        emailNotifications: user.emailNotifications,
+        isPremium: user.isPremium
+      });
+    } catch (error) {
+      console.error("Login error:", error);
+      res.status(500).json({ error: "Login failed" });
+    }
+  });
+
+  // Check and create Stripe customer if needed
+  app.post("/api/users/ensure-stripe", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const firebaseId = req.user!.uid;
+      const email = req.user!.email;
+
+      if (!email) {
+        return res.status(400).json({ error: "User email is required" });
+      }
 
       let stripeCustomerId;
       let customer;
@@ -62,9 +111,24 @@ export async function registerUserRoutes(app: Express) {
     }
   });
 
-  app.post("/api/users", async (req, res) => {
+  app.post("/api/users", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
-      const user = insertUserSchema.parse(req.body);
+      const userInput = req.body;
+      const firebaseId = req.user!.uid;
+      const authenticatedEmail = req.user!.email;
+
+      // Ensure the user is creating their own profile
+      if (userInput.firebaseId && userInput.firebaseId !== firebaseId) {
+        return res.status(403).json({ error: "Access denied: You can only create your own profile" });
+      }
+
+      // Use authenticated user's data
+      const user = insertUserSchema.parse({
+        ...userInput,
+        firebaseId,
+        email: authenticatedEmail || userInput.email
+      });
+      
       const fullName = `${user.firstName} ${user.lastName}`;
 
       // Check if user exists by firebase ID or email
@@ -124,11 +188,12 @@ export async function registerUserRoutes(app: Express) {
     }
   });
 
-  app.patch("/api/users/:firebaseId", async (req, res) => {
+  app.patch("/api/users/:firebaseId", requireAuth, requiresOwnership, async (req: AuthenticatedRequest, res) => {
     try {
       const { firstName, lastName, emailNotifications } = req.body;
+      const firebaseId = req.user!.uid;
 
-      const user = await storage.getUserByFirebaseId(req.params.firebaseId);
+      const user = await storage.getUserByFirebaseId(firebaseId);
 
       if (!user) {
         return res.status(404).json({ error: "User not found" });
@@ -147,18 +212,23 @@ export async function registerUserRoutes(app: Express) {
     }
   });
 
-  app.get("/api/users/:firebaseId", async (req, res) => {
+  app.get("/api/users/:firebaseId", requireAuth, requiresOwnership, async (req: AuthenticatedRequest, res) => {
     try {
-      const user = await storage.getUserByFirebaseId(req.params.firebaseId);
+      const firebaseId = req.user!.uid;
+      const user = await storage.getUserByFirebaseId(firebaseId);
+      
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
+      
       res.json({
         firebaseId: user.firebaseId,
         email: user.email,
         subscriptionType: user.subscriptionType,
         firstName: user.firstName,
-        lastName: user.lastName
+        lastName: user.lastName,
+        emailNotifications: user.emailNotifications,
+        isPremium: user.isPremium
       });
     } catch (error) {
       console.error("Error fetching user:", error);

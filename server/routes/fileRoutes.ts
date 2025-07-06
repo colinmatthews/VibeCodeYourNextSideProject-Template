@@ -1,13 +1,12 @@
 import type { Express } from "express";
 import { storage } from "../storage/index";
+import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
+import { requiresOwnership, requiresFileOwnership } from "../middleware/authHelpers";
 
 export async function registerFileRoutes(app: Express) {
-  app.get("/api/files", async (req, res) => {
-    const userId = req.query.userId?.toString();
-    if (!userId) {
-      return res.status(400).json({ error: "Invalid user ID" });
-    }
+  app.get("/api/files", requireAuth, requiresOwnership, async (req: AuthenticatedRequest, res) => {
     try {
+      const userId = req.user!.uid;
       const files = await storage.getFilesByUserId(userId);
       res.json(files || []);
     } catch (error) {
@@ -16,16 +15,10 @@ export async function registerFileRoutes(app: Express) {
     }
   });
 
-  app.get("/api/files/:id", async (req, res) => {
-    const id = Number(req.params.id);
-    if (isNaN(id)) {
-      return res.status(400).json({ error: "Invalid file ID" });
-    }
+  app.get("/api/files/:id", requireAuth, requiresFileOwnership, async (req: AuthenticatedRequest, res) => {
     try {
-      const file = await storage.getFileById(id);
-      if (!file) {
-        return res.status(404).json({ error: "File not found" });
-      }
+      // File is already attached to request by requiresFileOwnership middleware
+      const file = (req as any).file;
       res.json(file);
     } catch (error) {
       console.error("Error fetching file:", error);
@@ -33,13 +26,14 @@ export async function registerFileRoutes(app: Express) {
     }
   });
 
-  app.post("/api/files", async (req, res) => {
+  app.post("/api/files", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
-      console.log("[Files] Received file data:", req.body);
-      const { userId, name, originalName, path, url, size, type } = req.body;
-      console.log("[Files] Parsed userId:", userId);
+      const { name, originalName, path, url, size, type } = req.body;
+      const userId = req.user!.uid;
+      
+      console.log("[Files] Received file data:", { name, originalName, path, size, type, userId });
 
-      if (!userId || !name || !originalName || !path || !url || !size || !type) {
+      if (!name || !originalName || !path || !url || !size || !type) {
         console.error("[Files] Missing required fields");
         return res.status(400).json({ error: "Missing required fields" });
       }
@@ -96,16 +90,15 @@ export async function registerFileRoutes(app: Express) {
     }
   });
 
-  app.delete("/api/files/:id", async (req, res) => {
-    const id = Number(req.params.id);
-    if (isNaN(id)) {
-      return res.status(400).json({ error: "Invalid file ID" });
-    }
+  app.delete("/api/files/:id", requireAuth, requiresFileOwnership, async (req: AuthenticatedRequest, res) => {
     try {
-      const file = await storage.getFileById(id);
-      if (!file) {
-        return res.status(404).json({ error: "File not found" });
+      const id = Number(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid file ID" });
       }
+      
+      // File is already verified to exist and be owned by user via middleware
+      const file = (req as any).file;
       
       await storage.deleteFile(id);
       res.json({ message: "File deleted successfully", filePath: file.path });

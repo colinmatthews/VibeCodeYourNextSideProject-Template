@@ -1,31 +1,30 @@
 import type { Express } from "express";
 import { storage } from "../storage/index";
 import { sendEmail } from "../mail";
+import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
+import { requiresOwnership, requiresItemOwnership } from "../middleware/authHelpers";
 
 export async function registerItemRoutes(app: Express) {
-  app.get("/api/items", async (req, res) => {
-    const userId = req.query.userId?.toString();
-    if (!userId) {
-      return res.status(400).json({ error: "Invalid user ID" });
-    }
+  app.get("/api/items", requireAuth, requiresOwnership, async (req: AuthenticatedRequest, res) => {
     try {
+      const userId = req.user!.uid;
       const items = await storage.getItemsByUserId(userId);
       res.json(items || []);
     } catch (error) {
       console.error("Error fetching items:", error);
-      res.json([]);
+      res.status(500).json({ error: "Failed to fetch items" });
     }
   });
 
-  app.post("/api/items", async (req, res) => {
+  app.post("/api/items", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
-      console.log("[Items] Received item data:", req.body);
-      const { userId, item } = req.body;
-      console.log("[Items] Parsed userId:", userId);
+      const { item } = req.body;
+      const userId = req.user!.uid;
+      
+      console.log("[Items] Received item data:", { item, userId });
 
-      if (!userId) {
-        console.error("[Items] Invalid user ID");
-        return res.status(400).json({ error: "Invalid user ID" });
+      if (!item || typeof item !== 'string' || item.trim().length === 0) {
+        return res.status(400).json({ error: "Item text is required" });
       }
 
       const user = await storage.getUserByFirebaseId(userId);
@@ -71,12 +70,18 @@ export async function registerItemRoutes(app: Express) {
     }
   });
 
-  app.delete("/api/items/:id", async (req, res) => {
-    const id = Number(req.params.id);
-    if (isNaN(id)) {
-      return res.status(400).json({ error: "Invalid item ID" });
+  app.delete("/api/items/:id", requireAuth, requiresItemOwnership, async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = Number(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid item ID" });
+      }
+      
+      await storage.deleteItem(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting item:", error);
+      res.status(500).json({ error: "Failed to delete item" });
     }
-    await storage.deleteItem(id);
-    res.status(204).send();
   });
 }

@@ -54,6 +54,22 @@ const app = express();
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
+    // Handle authentication errors specially
+    if (err.code && err.code.startsWith('auth/')) {
+      return res.status(401).json({ 
+        error: message,
+        code: err.code
+      });
+    }
+
+    // Handle authorization errors
+    if (status === 403) {
+      return res.status(403).json({ 
+        error: message,
+        code: 'auth/access-denied'
+      });
+    }
+
     res.status(status).json({ message });
   });
 
