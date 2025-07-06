@@ -1,6 +1,6 @@
-# /add-ai - Add AI Features
+# /add-ai - Add AI Features with AI SDK
 
-You are a helpful assistant that guides users through adding AI features to their VibeCode Template app. This leverages existing authentication, database, and API patterns to integrate AI services.
+You are a helpful assistant that guides users through adding AI features to their VibeCode Template app using the Vercel AI SDK. This leverages existing authentication, database, and API patterns to integrate AI services with a unified interface.
 
 ## What This Command Does
 
@@ -26,10 +26,12 @@ Ask these focused questions to minimize scope:
 
 **AI Service:**
 - [ ] Which AI service do you prefer?
-  - OpenAI (GPT-4, DALL-E, Whisper)
-  - Anthropic Claude
+  - OpenAI (GPT-4, GPT-3.5)
+  - Anthropic Claude (Claude 3, Claude 2)
   - Google Gemini
-  - Other specific service
+  - Mistral AI
+  - Cohere
+  - Multiple providers (AI SDK makes switching easy)
 
 **Integration Location:**
 - [ ] Where should the AI feature appear?
@@ -74,28 +76,68 @@ If user wants a chat assistant:
    });
    ```
 
-2. **Create AI Service Integration**
+2. **Install AI SDK Dependencies**
+   ```bash
+   npm install ai @ai-sdk/openai @ai-sdk/anthropic @ai-sdk/google @ai-sdk/mistral
+   ```
+
+3. **Create AI Service Integration**
    ```typescript
    // server/services/aiService.ts
-   import OpenAI from 'openai';
+   import { createOpenAI } from '@ai-sdk/openai';
+   import { createAnthropic } from '@ai-sdk/anthropic';
+   import { createGoogleGenerativeAI } from '@ai-sdk/google';
+   import { createMistral } from '@ai-sdk/mistral';
+   import { generateText, streamText } from 'ai';
    
-   const openai = new OpenAI({
-     apiKey: process.env.OPENAI_API_KEY,
-   });
+   // Initialize providers based on environment variables
+   const providers = {
+     openai: process.env.OPENAI_API_KEY ? createOpenAI({
+       apiKey: process.env.OPENAI_API_KEY,
+     }) : null,
+     anthropic: process.env.ANTHROPIC_API_KEY ? createAnthropic({
+       apiKey: process.env.ANTHROPIC_API_KEY,
+     }) : null,
+     google: process.env.GOOGLE_AI_API_KEY ? createGoogleGenerativeAI({
+       apiKey: process.env.GOOGLE_AI_API_KEY,
+     }) : null,
+     mistral: process.env.MISTRAL_API_KEY ? createMistral({
+       apiKey: process.env.MISTRAL_API_KEY,
+     }) : null,
+   };
    
-   export async function generateChatResponse(messages: Array<{role: string, content: string}>) {
+   export async function generateChatResponse(
+     messages: Array<{role: string, content: string}>,
+     provider: string = 'openai',
+     model?: string
+   ) {
      try {
-       const completion = await openai.chat.completions.create({
-         model: 'gpt-4',
+       const selectedProvider = providers[provider as keyof typeof providers];
+       if (!selectedProvider) {
+         throw new Error(`Provider ${provider} not configured`);
+       }
+       
+       // Default models for each provider
+       const defaultModels = {
+         openai: 'gpt-4-turbo',
+         anthropic: 'claude-3-opus-20240229',
+         google: 'gemini-pro',
+         mistral: 'mistral-large-latest',
+       };
+       
+       const selectedModel = model || defaultModels[provider as keyof typeof defaultModels];
+       
+       const { text, usage } = await generateText({
+         model: selectedProvider(selectedModel),
          messages: messages,
-         max_tokens: 500,
+         maxTokens: 500,
          temperature: 0.7,
        });
        
        return {
-         message: completion.choices[0].message.content,
-         tokens: completion.usage?.total_tokens || 0,
-         cost: calculateCost(completion.usage?.total_tokens || 0, 'gpt-4'),
+         message: text,
+         tokens: usage?.totalTokens || 0,
+         cost: calculateCost(usage?.totalTokens || 0, provider, selectedModel),
        };
      } catch (error) {
        console.error('AI service error:', error);
@@ -103,14 +145,58 @@ If user wants a chat assistant:
      }
    }
    
-   function calculateCost(tokens: number, model: string): number {
-     // GPT-4 pricing: $0.03 per 1K tokens input, $0.06 per 1K tokens output
-     // Simplified calculation - adjust based on actual pricing
-     return Math.round((tokens / 1000) * 0.045 * 100); // in cents
+   export async function streamChatResponse(
+     messages: Array<{role: string, content: string}>,
+     provider: string = 'openai',
+     model?: string
+   ) {
+     const selectedProvider = providers[provider as keyof typeof providers];
+     if (!selectedProvider) {
+       throw new Error(`Provider ${provider} not configured`);
+     }
+     
+     const defaultModels = {
+       openai: 'gpt-4-turbo',
+       anthropic: 'claude-3-opus-20240229',
+       google: 'gemini-pro',
+       mistral: 'mistral-large-latest',
+     };
+     
+     const selectedModel = model || defaultModels[provider as keyof typeof defaultModels];
+     
+     return streamText({
+       model: selectedProvider(selectedModel),
+       messages: messages,
+       maxTokens: 500,
+       temperature: 0.7,
+     });
+   }
+   
+   function calculateCost(tokens: number, provider: string, model: string): number {
+     // Simplified pricing calculation - adjust based on actual pricing
+     const pricing = {
+       openai: {
+         'gpt-4-turbo': 0.01, // $0.01 per 1K tokens
+         'gpt-3.5-turbo': 0.001, // $0.001 per 1K tokens
+       },
+       anthropic: {
+         'claude-3-opus-20240229': 0.015,
+         'claude-3-sonnet-20240229': 0.003,
+       },
+       google: {
+         'gemini-pro': 0.0005,
+       },
+       mistral: {
+         'mistral-large-latest': 0.008,
+       },
+     };
+     
+     const rate = pricing[provider]?.[model] || 0.01;
+     return Math.round((tokens / 1000) * rate * 100); // in cents
    }
    ```
 
-3. **Create AI Chat API Routes**
+4. **Create AI Chat API Routes**
    ```typescript
    // server/routes/aiRoutes.ts
    import express from 'express';
@@ -122,7 +208,7 @@ If user wants a chat assistant:
    
    router.post('/chat', async (req, res) => {
      try {
-       const { conversationId, message } = req.body;
+       const { conversationId, message, provider = 'openai', model } = req.body;
        const userId = req.user.firebaseId;
        
        // Check usage limits for free users
@@ -147,7 +233,7 @@ If user wants a chat assistant:
        const messages = await getConversationMessages(conversation.id);
        
        // Generate AI response
-       const aiResponse = await generateChatResponse(messages);
+       const aiResponse = await generateChatResponse(messages, provider, model);
        
        // Save AI response
        await saveMessage(conversation.id, 'assistant', aiResponse.message, aiResponse.tokens);
@@ -159,11 +245,70 @@ If user wants a chat assistant:
          conversationId: conversation.id,
          message: aiResponse.message,
          tokens: aiResponse.tokens,
+         provider,
+         model,
        });
        
      } catch (error) {
        console.error('Chat error:', error);
        res.status(500).json({ error: 'Failed to process chat message' });
+     }
+   });
+   
+   // Streaming endpoint for real-time responses
+   router.post('/chat/stream', async (req, res) => {
+     try {
+       const { conversationId, message, provider = 'openai', model } = req.body;
+       const userId = req.user.firebaseId;
+       
+       // Set up SSE headers
+       res.setHeader('Content-Type', 'text/event-stream');
+       res.setHeader('Cache-Control', 'no-cache');
+       res.setHeader('Connection', 'keep-alive');
+       
+       // Check usage limits
+       if (!req.user.isPremium) {
+         const todayUsage = await getDailyUsage(userId);
+         if (todayUsage > 10) {
+           res.write(`data: ${JSON.stringify({ error: 'Daily limit reached' })}\n\n`);
+           res.end();
+           return;
+         }
+       }
+       
+       // Get or create conversation
+       let conversation;
+       if (conversationId) {
+         conversation = await getConversation(conversationId);
+       } else {
+         conversation = await createConversation(userId, message.substring(0, 50));
+       }
+       
+       // Save user message
+       await saveMessage(conversation.id, 'user', message);
+       
+       // Get conversation history
+       const messages = await getConversationMessages(conversation.id);
+       
+       // Stream AI response
+       const { textStream } = await streamChatResponse(messages, provider, model);
+       
+       let fullResponse = '';
+       for await (const text of textStream) {
+         fullResponse += text;
+         res.write(`data: ${JSON.stringify({ text })}\n\n`);
+       }
+       
+       // Save complete response
+       await saveMessage(conversation.id, 'assistant', fullResponse);
+       
+       res.write(`data: ${JSON.stringify({ done: true, conversationId: conversation.id })}\n\n`);
+       res.end();
+       
+     } catch (error) {
+       console.error('Stream error:', error);
+       res.write(`data: ${JSON.stringify({ error: 'Failed to stream response' })}\n\n`);
+       res.end();
      }
    });
    
@@ -180,14 +325,15 @@ If user wants a chat assistant:
    export default router;
    ```
 
-4. **Create Chat Component**
+5. **Create Chat Component with Streaming Support**
    ```tsx
    // client/src/components/AIChat.tsx
    import { useState, useEffect, useRef } from 'react';
    import { Button } from './ui/button';
    import { Input } from './ui/input';
    import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-   import { Send, Bot, User } from 'lucide-react';
+   import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+   import { Send, Bot, User, Sparkles } from 'lucide-react';
    
    interface Message {
      id: string;
@@ -201,6 +347,8 @@ If user wants a chat assistant:
      const [input, setInput] = useState('');
      const [isLoading, setIsLoading] = useState(false);
      const [conversationId, setConversationId] = useState<number | null>(null);
+     const [provider, setProvider] = useState('openai');
+     const [streamingEnabled, setStreamingEnabled] = useState(true);
      const messagesEndRef = useRef<HTMLDivElement>(null);
    
      const scrollToBottom = () => {
@@ -227,30 +375,91 @@ If user wants a chat assistant:
        setIsLoading(true);
    
        try {
-         const response = await fetch('/api/chat', {
-           method: 'POST',
-           headers: { 'Content-Type': 'application/json' },
-           body: JSON.stringify({
-             conversationId,
-             message: input,
-           }),
-         });
-   
-         const data = await response.json();
-   
-         if (response.ok) {
-           setConversationId(data.conversationId);
-           
+         if (streamingEnabled) {
+           // Create a placeholder message for streaming
            const assistantMessage = {
              id: (Date.now() + 1).toString(),
              role: 'assistant' as const,
-             content: data.message,
+             content: '',
              timestamp: new Date().toISOString(),
            };
-   
            setMessages(prev => [...prev, assistantMessage]);
+   
+           // Use EventSource for SSE streaming
+           const response = await fetch('/api/chat/stream', {
+             method: 'POST',
+             headers: { 'Content-Type': 'application/json' },
+             body: JSON.stringify({
+               conversationId,
+               message: input,
+               provider,
+             }),
+           });
+   
+           const reader = response.body?.getReader();
+           const decoder = new TextDecoder();
+           
+           if (reader) {
+             while (true) {
+               const { done, value } = await reader.read();
+               if (done) break;
+               
+               const chunk = decoder.decode(value);
+               const lines = chunk.split('\n');
+               
+               for (const line of lines) {
+                 if (line.startsWith('data: ')) {
+                   try {
+                     const data = JSON.parse(line.slice(6));
+                     if (data.text) {
+                       setMessages(prev => {
+                         const newMessages = [...prev];
+                         const lastMessage = newMessages[newMessages.length - 1];
+                         if (lastMessage.role === 'assistant') {
+                           lastMessage.content += data.text;
+                         }
+                         return newMessages;
+                       });
+                     } else if (data.done) {
+                       setConversationId(data.conversationId);
+                     } else if (data.error) {
+                       throw new Error(data.error);
+                     }
+                   } catch (e) {
+                     // Ignore parse errors
+                   }
+                 }
+               }
+             }
+           }
          } else {
-           throw new Error(data.error || 'Failed to send message');
+           // Non-streaming request
+           const response = await fetch('/api/chat', {
+             method: 'POST',
+             headers: { 'Content-Type': 'application/json' },
+             body: JSON.stringify({
+               conversationId,
+               message: input,
+               provider,
+             }),
+           });
+   
+           const data = await response.json();
+   
+           if (response.ok) {
+             setConversationId(data.conversationId);
+             
+             const assistantMessage = {
+               id: (Date.now() + 1).toString(),
+               role: 'assistant' as const,
+               content: data.message,
+               timestamp: new Date().toISOString(),
+             };
+   
+             setMessages(prev => [...prev, assistantMessage]);
+           } else {
+             throw new Error(data.error || 'Failed to send message');
+           }
          }
        } catch (error) {
          console.error('Error sending message:', error);
@@ -270,9 +479,29 @@ If user wants a chat assistant:
        <Card className="h-96 flex flex-col">
          <CardHeader>
            <CardTitle className="flex items-center gap-2">
-             <Bot size={20} />
+             <Sparkles size={20} />
              AI Assistant
            </CardTitle>
+           <div className="flex gap-2 mt-2">
+             <Select value={provider} onValueChange={setProvider}>
+               <SelectTrigger className="w-32">
+                 <SelectValue />
+               </SelectTrigger>
+               <SelectContent>
+                 <SelectItem value="openai">OpenAI</SelectItem>
+                 <SelectItem value="anthropic">Claude</SelectItem>
+                 <SelectItem value="google">Gemini</SelectItem>
+                 <SelectItem value="mistral">Mistral</SelectItem>
+               </SelectContent>
+             </Select>
+             <Button
+               variant={streamingEnabled ? "default" : "outline"}
+               size="sm"
+               onClick={() => setStreamingEnabled(!streamingEnabled)}
+             >
+               {streamingEnabled ? "Streaming" : "Standard"}
+             </Button>
+           </div>
          </CardHeader>
          <CardContent className="flex-1 flex flex-col">
            <div className="flex-1 overflow-y-auto space-y-4 mb-4">
@@ -471,20 +700,52 @@ If user wants image generation:
 1. **Create Image Generation API**
    ```typescript
    // Add to server/services/aiService.ts
-   export async function generateImage(prompt: string, size: '256x256' | '512x512' | '1024x1024' = '512x512') {
+   import { generateObject } from 'ai';
+   import { z } from 'zod';
+   
+   export async function generateImage(prompt: string, provider: string = 'openai') {
      try {
-       const response = await openai.images.generate({
-         model: 'dall-e-3',
-         prompt,
-         n: 1,
-         size,
-         quality: 'standard',
-       });
-       
-       return {
-         imageUrl: response.data[0].url,
-         revisedPrompt: response.data[0].revised_prompt,
-       };
+       if (provider === 'openai' && providers.openai) {
+         // Use OpenAI for image generation
+         const openai = createOpenAI({
+           apiKey: process.env.OPENAI_API_KEY,
+         });
+         
+         const response = await openai.images.generate({
+           model: 'dall-e-3',
+           prompt,
+           n: 1,
+           size: '1024x1024',
+           quality: 'standard',
+         });
+         
+         return {
+           imageUrl: response.data[0].url,
+           revisedPrompt: response.data[0].revised_prompt,
+         };
+       } else {
+         // For other providers, generate image description
+         const selectedProvider = providers[provider as keyof typeof providers];
+         if (!selectedProvider) {
+           throw new Error(`Provider ${provider} not configured`);
+         }
+         
+         const { object } = await generateObject({
+           model: selectedProvider('gpt-4'),
+           schema: z.object({
+             description: z.string(),
+             style: z.string(),
+             elements: z.array(z.string()),
+           }),
+           prompt: `Create a detailed image description for: ${prompt}`,
+         });
+         
+         return {
+           description: object.description,
+           style: object.style,
+           elements: object.elements,
+         };
+       }
      } catch (error) {
        console.error('Image generation error:', error);
        throw new Error('Failed to generate image');
@@ -580,6 +841,7 @@ Add AI service API keys:
 OPENAI_API_KEY="sk-your-openai-key"
 ANTHROPIC_API_KEY="sk-ant-your-anthropic-key"
 GOOGLE_AI_API_KEY="your-google-ai-key"
+MISTRAL_API_KEY="your-mistral-key"
 ```
 
 ## Step 4: Usage Limits and Pricing
@@ -644,6 +906,15 @@ After implementation:
 **Image Generation**: Great for creative projects, marketing materials
 **Data Analysis**: Ideal for business insights, report generation
 
+## AI SDK Benefits
+
+- **Unified API**: Switch between providers without changing code
+- **Streaming Support**: Real-time responses for better UX
+- **Type Safety**: Full TypeScript support
+- **Provider Flexibility**: Easy to add new AI providers
+- **Built-in Utilities**: generateText, generateObject, streamText
+- **Cost Optimization**: Compare pricing across providers
+
 ## Remember
 
 - Monitor AI costs carefully (tokens can add up quickly)
@@ -653,3 +924,6 @@ After implementation:
 - Consider content moderation for public-facing AI features
 - Test thoroughly with different prompts and edge cases
 - Provide clear usage limits and upgrade paths
+- Take advantage of AI SDK's unified interface for provider switching
+- Use streaming for better user experience
+- Implement proper error handling for different providers

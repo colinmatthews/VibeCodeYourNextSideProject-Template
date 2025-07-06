@@ -1,16 +1,31 @@
 # /add-file-features - Extend File Management
 
-You are a helpful assistant that guides users through extending the existing file management features in their VibeCode Template app. This template already has Firebase Storage integration with file upload, metadata storage, and user-specific file organization.
+You are a helpful assistant that guides users through extending the existing file management features in their VibeCode Template app. This template already has a complete file management system with Firebase Storage integration.
 
 ## What This Command Does
 
 Helps users extend the existing file management system. The template already includes:
-- Firebase Storage integration with security rules
-- File upload component with drag-and-drop
-- File metadata storage in PostgreSQL
+
+### 🔧 **Backend Foundation**
+- Complete file CRUD operations (`server/routes/fileRoutes.ts`)
+- File storage layer (`server/storage/FileStorage.ts`)
+- User ownership verification and security middleware
+- Plan-based file limits (Free: 10 files/100MB, Pro: 100 files/1GB)
+
+### 🖥️ **Frontend Components**
+- `useFiles()` hook - Complete file operations with state management
+- `<FileUpload />` - Drag & drop upload with progress tracking
+- `<FileList />` - File listing with preview, download, and delete
+- `/files` page - Complete file management interface
+- Firebase integration (`client/src/lib/firebase.ts`)
+
+### 📊 **Current Features**
+- File upload with progress tracking and validation
+- File preview for images and PDFs
+- Download and delete functionality
+- Storage usage tracking and limits
 - User-specific file organization (`users/{userId}/files/`)
-- File size limits (Free: 10MB per file, Pro: 50MB per file)
-- File listing and management interface
+- Secure file access with Firebase Auth
 
 ## Step 1: Understanding User Needs
 
@@ -47,7 +62,7 @@ If user wants file sharing capabilities:
 
 1. **Extend Database Schema**
    ```typescript
-   // Add to shared/schema.ts
+   // Add to shared/schema.ts (existing file)
    export const fileShares = pgTable('file_shares', {
      id: serial('id').primaryKey(),
      fileId: integer('file_id').references(() => files.id),
@@ -69,13 +84,11 @@ If user wants file sharing capabilities:
    });
    ```
 
-2. **Create File Sharing Service**
+2. **Extend Existing FileStorage Service**
    ```typescript
-   // server/services/fileShareService.ts
-   import { db } from '../db';
-   import { fileShares, files } from '../../shared/schema';
-   import { eq } from 'drizzle-orm';
+   // Add to server/storage/FileStorage.ts (existing file)
    import { nanoid } from 'nanoid';
+   import { fileShares } from '../../shared/schema';
    
    export async function createFileShare(
      fileId: number,
@@ -117,17 +130,19 @@ If user wants file sharing capabilities:
    }
    ```
 
-3. **Create File Share API Routes**
+3. **Extend Existing File Routes**
    ```typescript
-   // Add to server/routes/fileRoutes.ts
-   router.post('/files/:id/share', async (req, res) => {
+   // Add to server/routes/fileRoutes.ts (existing file)
+   import { createFileShare, getFileByShareToken } from '../storage/FileStorage';
+   
+   router.post('/files/:id/share', requiresAuth, async (req, res) => {
      try {
        const fileId = parseInt(req.params.id);
        const userId = req.user.firebaseId;
        const { shareType, password, expiresAt, allowDownload } = req.body;
        
-       // Verify user owns the file
-       const file = await fileStorage.getById(fileId);
+       // Use existing getFileById from FileStorage
+       const file = await fileStorage.getFileById(fileId);
        if (!file || file.userId !== userId) {
          return res.status(404).json({ error: 'File not found' });
        }
@@ -202,6 +217,7 @@ If user wants file sharing capabilities:
    import { Label } from './ui/label';
    import { Switch } from './ui/switch';
    import { Share2, Copy, Check } from 'lucide-react';
+   import { useToast } from './ui/use-toast'; // Use existing toast system
    
    interface FileShareDialogProps {
      fileId: number;
@@ -218,6 +234,7 @@ If user wants file sharing capabilities:
        allowDownload: true,
        expiresIn: '7', // days
      });
+     const { toast } = useToast(); // Use existing toast system
    
      const createShareLink = async () => {
        setIsCreating(true);
@@ -237,9 +254,22 @@ If user wants file sharing capabilities:
          });
          
          const data = await response.json();
-         setShareUrl(data.shareUrl);
+         if (response.ok) {
+           setShareUrl(data.shareUrl);
+           toast({
+             title: "Share link created",
+             description: "File share link has been created successfully.",
+           });
+         } else {
+           throw new Error(data.error || 'Failed to create share link');
+         }
        } catch (error) {
          console.error('Error creating share link:', error);
+         toast({
+           title: "Error",
+           description: "Failed to create share link. Please try again.",
+           variant: "destructive",
+         });
        } finally {
          setIsCreating(false);
        }
@@ -249,6 +279,10 @@ If user wants file sharing capabilities:
        await navigator.clipboard.writeText(shareUrl);
        setCopied(true);
        setTimeout(() => setCopied(false), 2000);
+       toast({
+         title: "Link copied",
+         description: "Share link has been copied to clipboard.",
+       });
      };
    
      return (
@@ -337,7 +371,7 @@ If user wants folder organization:
 
 1. **Create Folder Database Schema**
    ```typescript
-   // Add to shared/schema.ts
+   // Add to shared/schema.ts (existing file)
    export const folders = pgTable('folders', {
      id: serial('id').primaryKey(),
      name: text('name').notNull(),
@@ -347,8 +381,8 @@ If user wants folder organization:
      updatedAt: timestamp('updated_at').defaultNow(),
    });
    
-   // Update files table to include folder reference
-   // Add this column to existing files table:
+   // Update existing files table to include folder reference
+   // Add this column to existing files table in shared/schema.ts:
    // folderId: integer('folder_id').references(() => folders.id),
    ```
 
@@ -360,6 +394,7 @@ If user wants folder organization:
    import { Button } from './ui/button';
    import { Input } from './ui/input';
    import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
+   import { useToast } from './ui/use-toast'; // Use existing toast system
    
    interface FolderNode {
      id: number;
@@ -382,15 +417,27 @@ If user wants folder organization:
      const [selectedFolder, setSelectedFolder] = useState<number | null>(null);
      const [newFolderName, setNewFolderName] = useState('');
      const [isCreating, setIsCreating] = useState(false);
+     const { toast } = useToast(); // Use existing toast system
    
      useEffect(() => {
        fetchFolders();
      }, []);
    
      const fetchFolders = async () => {
-       const response = await fetch('/api/folders');
-       const data = await response.json();
-       setFolders(data);
+       try {
+         const response = await fetch('/api/folders');
+         if (response.ok) {
+           const data = await response.json();
+           setFolders(data);
+         }
+       } catch (error) {
+         console.error('Error fetching folders:', error);
+         toast({
+           title: "Error",
+           description: "Failed to load folders. Please try again.",
+           variant: "destructive",
+         });
+       }
      };
    
      const createFolder = async () => {
@@ -410,9 +457,20 @@ If user wants folder organization:
          if (response.ok) {
            setNewFolderName('');
            fetchFolders();
+           toast({
+             title: "Folder created",
+             description: `Folder "${newFolderName}" has been created successfully.`,
+           });
+         } else {
+           throw new Error('Failed to create folder');
          }
        } catch (error) {
          console.error('Error creating folder:', error);
+         toast({
+           title: "Error",
+           description: "Failed to create folder. Please try again.",
+           variant: "destructive",
+         });
        } finally {
          setIsCreating(false);
        }
@@ -513,7 +571,7 @@ If user wants tagging and search:
 
 1. **Create Tags Database Schema**
    ```typescript
-   // Add to shared/schema.ts
+   // Add to shared/schema.ts (existing file)
    export const tags = pgTable('tags', {
      id: serial('id').primaryKey(),
      name: text('name').notNull(),
@@ -535,6 +593,7 @@ If user wants tagging and search:
    import { Search, Tag, X } from 'lucide-react';
    import { Input } from './ui/input';
    import { Badge } from './ui/badge';
+   import { useToast } from './ui/use-toast'; // Use existing toast system
    
    interface FileSearchProps {
      onFilesChange: (files: any[]) => void;
@@ -649,12 +708,51 @@ If user wants tagging and search:
 
 Integrate new features with existing file upload and management:
 
+### A. Update FileList Component
 ```tsx
-// Update client/src/components/FileList.tsx to include new features
+// Update client/src/components/FileList.tsx (existing file)
 import { FileShareDialog } from './FileShareDialog';
 import { FileTagEditor } from './FileTagEditor';
 
 // Add share buttons and tag displays to existing file list items
+// The FileList component already has proper structure with:
+// - File display with metadata
+// - Delete functionality with confirmation
+// - Download functionality 
+// - Progress tracking
+// - Error handling with toast notifications
+
+// Simply add the new sharing and tagging features to the existing action buttons
+```
+
+### B. Update useFiles Hook
+```tsx
+// Update client/src/hooks/useFiles.ts (existing file)
+// Add new functions for sharing and tagging:
+// - shareFile(fileId, options)
+// - addTag(fileId, tagId)
+// - removeTag(fileId, tagId)
+// - searchFiles(query, tags, fileType)
+
+// The hook already provides:
+// - files, loading, error states
+// - uploadFile, deleteFile, refreshFiles functions
+// - totalSize, totalFiles calculations
+```
+
+### C. Update Files Page
+```tsx
+// Update client/src/pages/Files.tsx (existing file)
+// Add new features to existing tabbed interface:
+// - Search and filter tab
+// - Folder organization (if implementing folders)
+// - Bulk operations interface
+
+// The page already has:
+// - Storage usage dashboard
+// - Plan-based restrictions
+// - Upload and manage tabs
+// - Integration with useFiles hook
 ```
 
 ## Step 4: Testing Instructions
@@ -665,17 +763,21 @@ import { FileTagEditor } from './FileTagEditor';
    - [ ] Search and filtering work as expected
    - [ ] Tags can be added and removed
 
-2. **Test Integration**
-   - [ ] New features work with existing file upload
-   - [ ] File limits are still enforced
-   - [ ] Security rules still apply
-   - [ ] Mobile responsiveness maintained
+2. **Test Integration with Existing System**
+   - [ ] New features work with existing `useFiles()` hook
+   - [ ] File limits are still enforced (Free: 10 files/100MB, Pro: 100 files/1GB)
+   - [ ] Firebase Storage security rules still apply
+   - [ ] Existing `<FileUpload />` and `<FileList />` components work properly
+   - [ ] Mobile responsiveness maintained on `/files` page
+   - [ ] Toast notifications work for all operations
 
 3. **Test Edge Cases**
    - [ ] Shared link expiration
    - [ ] Password-protected shares
    - [ ] Nested folder operations
    - [ ] Bulk file operations
+   - [ ] File ownership verification still works
+   - [ ] Authentication middleware still protects routes
 
 ## Step 5: Next Steps
 
@@ -688,9 +790,13 @@ After implementation:
 
 ## Remember
 
-- Maintain existing Firebase Storage security rules
-- Keep file size limits for free/pro users
-- Test sharing permissions thoroughly
-- Ensure search performance with large file counts
-- Backup database before schema changes
-- Update file organization incrementally to avoid breaking existing functionality
+- **Leverage existing components**: Use the current `useFiles()` hook, `<FileUpload />`, `<FileList />`, and `/files` page structure
+- **Maintain existing security**: Keep Firebase Storage security rules and authentication middleware
+- **Preserve file limits**: Maintain Free (10 files/100MB) and Pro (100 files/1GB) restrictions
+- **Use existing patterns**: Follow the established database storage layer pattern (`server/storage/FileStorage.ts`)
+- **Test sharing permissions**: Thoroughly test file ownership verification and access controls
+- **Ensure search performance**: Consider database indexing for large file counts
+- **Backup database**: Always backup before schema changes with `npm run db:push`
+- **Update incrementally**: Extend existing functionality rather than replacing it
+- **Use existing UI components**: Leverage shadcn/ui components and existing toast system
+- **Follow established API patterns**: Use the existing route structure and error handling patterns

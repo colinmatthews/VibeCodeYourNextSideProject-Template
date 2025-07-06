@@ -51,7 +51,7 @@ This is a **full-stack web application template** designed for rapid side projec
 ### Backend
 - **Express** server with TypeScript
 - **Drizzle ORM** for database operations
-- **PostgreSQL** (Neon hosted) database
+- **PostgreSQL** (Render hosted) database
 - **Stripe** for payments and subscriptions
 - **SendGrid** for email
 - **Express Session** for session management
@@ -433,3 +433,68 @@ npm run start
 ```
 
 This template is designed for rapid development of SaaS side projects with all the essential features pre-configured and ready to customize.
+
+## Claude Code MCP Tools
+
+This project includes Model Context Protocol (MCP) server configurations that provide Claude Code with enhanced capabilities. These tools should be used appropriately based on the task at hand.
+
+### 🌐 Render MCP Server
+**Purpose**: Manage Render infrastructure directly from Claude Code
+**Instructions**: 
+1. Create an API key
+The MCP server uses an API key to authenticate with the Render platform. Create an API key from your Account Settings page:
+
+2. Add mcp server:
+claude mcp add --transport http render https://mcp.render.com/mcp --header "Authorization: Bearer render-api-key"
+
+3. list workspace with list_workspaces
+
+
+**When to use:**
+- Checking deployment status and service health
+- Creating new services or databases
+- Managing environment variables
+- Monitoring resource usage and logs
+- Troubleshooting deployment issues
+
+**Example prompts:**
+- "Show me the status of my Render services"
+- "Create a new web service on Render"
+- "Check the logs for my production app"
+- Create a new database named user-db with 5 GB storage
+- Deploy an example Flask web service on Render using https://github.com/render-examples/flask-hello-world
+- Using my Render database, tell me which items were the most frequently bought together
+- Query my read replica for daily signup counts for the last 30 days
+- Pull the most recent error-level logs for my API service
+- Why isn't my site at example.onrender.com working?
+
+### 📖 Context7 MCP Server
+**Purpose**: Get up-to-date documentation for any library or framework
+
+
+**When to use:**
+- Working with external libraries or frameworks
+- Need current API documentation and examples
+- Implementing features with unfamiliar technologies
+- Ensuring code uses latest best practices
+
+**How to use:**
+Add "use context7" to any prompt that involves external libraries:
+- "Create a FastAPI CRUD API use context7"
+- "Show me how to use React Query for data fetching use context7"
+- "Implement Stripe checkout with latest API use context7"
+
+### 🎭 Puppeteer MCP Server
+**Purpose**: Browser automation, web scraping, and testing
+
+**When to use:**
+- Taking screenshots for documentation or testing
+- Automating web interactions for testing
+- Scraping data from websites
+- Generating visual content or reports
+- End-to-end testing scenarios
+
+**Example prompts:**
+- "Take a screenshot of the login page"
+- "Navigate to the pricing page and extract all plan details"
+- "Test the complete signup flow and take screenshots"

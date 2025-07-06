@@ -11,6 +11,8 @@ Helps users deploy their app to Render using existing configurations:
 - Firebase services (auth and storage) work in production
 - Static file serving and API routes properly structured
 
+IMPORTANT: LEVERAGE RENDER MCP TO ASSIST USER. DO NOT TAKE ANY DESTRUCTIVE ACTIONS!
+
 ## Step 1: Understanding User Needs
 
 Ask these focused questions to minimize scope:
@@ -361,7 +363,6 @@ If user wants a custom domain:
 
 ### Database Issues
 - Test database connection string
-- Verify Neon database allows connections from Render
 - Check if schema needs to be updated
 ```
 
