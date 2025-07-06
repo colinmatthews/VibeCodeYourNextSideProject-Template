@@ -117,6 +117,3 @@ Common Anti-Patterns to Avoid:
 - Inconsistent error handling
 - Redundant implementations of existing patterns
 - Bypassing established state management patterns
-
-Memories
-- Create and reference plans in the ./memories directory as .md files
