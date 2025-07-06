@@ -3,6 +3,7 @@ import { createServer } from "http";
 import { registerUserRoutes } from './userRoutes';
 import { registerItemRoutes } from './itemRoutes';
 import { registerPaymentRoutes } from './paymentRoutes';
+import { registerFileRoutes } from './fileRoutes';
 
 export async function registerRoutes(app: Express) {
   const server = createServer(app);
@@ -11,6 +12,7 @@ export async function registerRoutes(app: Express) {
   await registerUserRoutes(app);
   await registerItemRoutes(app);
   await registerPaymentRoutes(app);
+  await registerFileRoutes(app);
 
   return server;
 }

@@ -14,6 +14,17 @@ import {
   reauthenticateWithCredential,
   User
 } from "firebase/auth";
+import { 
+  getStorage, 
+  ref, 
+  uploadBytesResumable, 
+  getDownloadURL, 
+  deleteObject,
+  listAll,
+  getMetadata,
+  StorageReference,
+  UploadTaskSnapshot
+} from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -26,6 +37,7 @@ const firebaseConfig = {
 
 export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
+export const storage = getStorage(app);
 
 const googleProvider = new GoogleAuthProvider();
 googleProvider.addScope('profile');
@@ -114,5 +126,100 @@ export async function updateUserPassword(user: User, currentPassword: string, ne
       throw new Error("New password should be at least 6 characters long");
     }
     throw new Error(error.message);
+  }
+}
+
+export interface FileUploadProgress {
+  bytesTransferred: number;
+  totalBytes: number;
+  percentage: number;
+}
+
+export interface FileUploadResult {
+  url: string;
+  path: string;
+  name: string;
+  size: number;
+  type: string;
+}
+
+export async function uploadFile(
+  file: File,
+  userId: string,
+  onProgress?: (progress: FileUploadProgress) => void
+): Promise<FileUploadResult> {
+  const fileExtension = file.name.split('.').pop();
+  const fileName = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${fileExtension}`;
+  const filePath = `users/${userId}/files/${fileName}`;
+  
+  const storageRef = ref(storage, filePath);
+  const uploadTask = uploadBytesResumable(storageRef, file);
+
+  return new Promise((resolve, reject) => {
+    uploadTask.on(
+      'state_changed',
+      (snapshot: UploadTaskSnapshot) => {
+        const progress = {
+          bytesTransferred: snapshot.bytesTransferred,
+          totalBytes: snapshot.totalBytes,
+          percentage: (snapshot.bytesTransferred / snapshot.totalBytes) * 100
+        };
+        onProgress?.(progress);
+      },
+      (error) => {
+        console.error('Upload error:', error);
+        reject(error);
+      },
+      async () => {
+        try {
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+          resolve({
+            url: downloadURL,
+            path: filePath,
+            name: file.name,
+            size: file.size,
+            type: file.type
+          });
+        } catch (error) {
+          reject(error);
+        }
+      }
+    );
+  });
+}
+
+export async function deleteFile(filePath: string): Promise<void> {
+  try {
+    const fileRef = ref(storage, filePath);
+    await deleteObject(fileRef);
+  } catch (error) {
+    console.error('Delete error:', error);
+    throw error;
+  }
+}
+
+export async function listUserFiles(userId: string): Promise<StorageReference[]> {
+  try {
+    const userFilesRef = ref(storage, `users/${userId}/files`);
+    const result = await listAll(userFilesRef);
+    return result.items;
+  } catch (error) {
+    console.error('List files error:', error);
+    throw error;
+  }
+}
+
+export async function getFileMetadata(filePath: string) {
+  try {
+    const fileRef = ref(storage, filePath);
+    const metadata = await getMetadata(fileRef);
+    const downloadURL = await getDownloadURL(fileRef);
+    return {
+      ...metadata,
+      downloadURL
+    };
+  } catch (error) {
+    console.error('Get metadata error:', error);
+    throw error;
   }
 }

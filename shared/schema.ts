@@ -1,5 +1,5 @@
 
-import { pgTable, text, serial, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, boolean, timestamp, integer } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -32,13 +32,34 @@ export const items = pgTable("items", {
   userId: text("user_id").notNull().references(() => users.firebaseId),
 });
 
+export const files = pgTable("files", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  originalName: text("original_name").notNull(),
+  path: text("path").notNull(),
+  url: text("url").notNull(),
+  size: integer("size").notNull(),
+  type: text("type").notNull(),
+  userId: text("user_id").notNull().references(() => users.firebaseId),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 export const usersRelations = relations(users, ({ many }) => ({
   items: many(items),
+  files: many(files),
 }));
 
 export const itemsRelations = relations(items, ({ one }) => ({
   user: one(users, {
     fields: [items.userId],
+    references: [users.firebaseId],
+  }),
+}));
+
+export const filesRelations = relations(files, ({ one }) => ({
+  user: one(users, {
+    fields: [files.userId],
     references: [users.firebaseId],
   }),
 }));
@@ -62,7 +83,19 @@ export const insertItemSchema = createInsertSchema(items, {
   item: z.string(),
 });
 
+export const insertFileSchema = createInsertSchema(files, {
+  name: z.string(),
+  originalName: z.string(),
+  path: z.string(),
+  url: z.string(),
+  size: z.number(),
+  type: z.string(),
+  userId: z.string(),
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertItem = z.infer<typeof insertItemSchema>;
 export type Item = typeof items.$inferSelect;
+export type InsertFile = z.infer<typeof insertFileSchema>;
+export type File = typeof files.$inferSelect;
