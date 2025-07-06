@@ -17,7 +17,11 @@ Sets up your complete development environment with:
 npm install
 ```
 
-## Step 2: Create Environment Variables
+## Step 2: Setup MCPs
+- Set up RenderMCP (check claude.md for steps). Use MCP to help user with render setup
+- Set up Context7 
+
+## Step 3: Create Environment Variables
 
 Create a `.env` file in the root directory:
 
@@ -50,7 +54,7 @@ VITE_FIREBASE_MESSAGING_SENDER_ID="your-sender-id"
 SENDGRID_API_KEY="SG.your-sendgrid-api-key"
 ```
 
-## Step 3: Set Up PostgreSQL Database
+## Step 4: Set Up PostgreSQL Database
 
 ### Option A: Use Render PostgreSQL (Recommended)
 
@@ -64,7 +68,7 @@ SENDGRID_API_KEY="SG.your-sendgrid-api-key"
 2. Create a database: `createdb your_database_name`
 3. Update `.env` with local connection details
 
-## Step 4: Set Up Firebase
+## Step 5: Set Up Firebase
 
 ### Create Firebase Project
 
@@ -93,7 +97,7 @@ SENDGRID_API_KEY="SG.your-sendgrid-api-key"
 2. Scroll to "Your apps" → Web app
 3. Copy the config values to your `.env` file
 
-## Step 5: Set Up Stripe
+## Step 6: Set Up Stripe
 
 ### Create Stripe Account
 
@@ -119,14 +123,14 @@ SENDGRID_API_KEY="SG.your-sendgrid-api-key"
 3. Select events: `checkout.session.completed`, `customer.subscription.updated`
 4. Copy webhook secret → `STRIPE_WEBHOOK_SECRET`
 
-## Step 6: Set Up SendGrid
+## Step 7: Set Up SendGrid
 
 1. Go to [sendgrid.com](https://sendgrid.com) and create an account
 2. Settings → API Keys → Create API Key
 3. Choose "Restricted Access" and enable Mail Send
 4. Copy the API key → `SENDGRID_API_KEY`
 
-## Step 7: Initialize Database
+## Step 8: Initialize Database
 
 Push the database schema:
 
@@ -136,7 +140,7 @@ npm run db:push
 
 This creates all necessary tables in your PostgreSQL database.
 
-## Step 8: Start Development Server
+## Step 9: Start Development Server
 
 ```bash
 npm run dev
@@ -144,7 +148,7 @@ npm run dev
 
 Your app will be running at: http://localhost:5000
 
-## Step 9: Test Your Setup
+## Step 10: Test Your Setup
 
 ### Test Authentication
 
@@ -166,7 +170,7 @@ Your app will be running at: http://localhost:5000
 3. Use Stripe test card: `4242 4242 4242 4242`
 4. Complete the checkout flow
 
-## Step 10: Firebase Storage Rules (Optional)
+## Step 11: Firebase Storage Rules (Optional)
 
 Deploy secure storage rules:
 
