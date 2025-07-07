@@ -55,774 +55,165 @@ Ask these focused questions to understand the scope:
 Before implementing, analyze the existing codebase:
 
 1. **Check Similar Features**
-   - Look for existing similar functionality
-   - Review patterns and conventions used
-   - Identify reusable components and utilities
+   - Study existing components in `client/src/components/`
+   - Review patterns in `client/src/pages/`
+   - Examine custom hooks in `client/src/hooks/`
+   - Look for similar functionality in existing features
 
 2. **Database Schema Review**
-   - Examine current database structure
-   - Check for existing relationships
-   - Identify schema changes needed
+   - Examine `shared/schema.ts` for current database structure
+   - Check existing table relationships and foreign keys
+   - Review migration files in `server/migrations/`
+   - Study existing storage patterns in `server/storage/`
 
 3. **API Patterns**
-   - Review existing API route structure
-   - Check authentication patterns
-   - Identify error handling conventions
+   - Review existing routes in `server/routes/`
+   - Study authentication middleware in `server/middleware/auth.ts`
+   - Check error handling patterns in existing API endpoints
+   - Examine existing storage layer implementations
 
 4. **Frontend Architecture**
-   - Review component structure and patterns
-   - Check routing and navigation
-   - Identify UI component usage
+   - Review component structure and naming conventions
+   - Check routing patterns in `client/src/App.tsx`
+   - Study existing UI component usage from `client/src/components/ui/`
+   - Examine existing hooks and state management patterns
 
 ## Step 3: Feature Implementation Plan
 
 ### Phase 1: Database Layer (if needed)
 
 1. **Schema Design**
-   ```typescript
-   // Add to shared/schema.ts
-   export const [featureName] = pgTable('[table_name]', {
-     id: serial('id').primaryKey(),
-     userId: text('user_id').references(() => users.firebaseId),
-     // Add feature-specific fields
-     createdAt: timestamp('created_at').defaultNow(),
-     updatedAt: timestamp('updated_at').defaultNow(),
-   });
-   ```
+   - Study existing table definitions in `shared/schema.ts`
+   - Follow the same naming conventions and field patterns
+   - Use consistent foreign key relationships (reference `users.firebaseId`)
+   - Include standard fields like `createdAt` and `updatedAt`
+   - Follow the established patterns for primary keys and indexes
 
 2. **Database Migration**
-   ```bash
-   # Push schema changes
-   npm run db:push
-   
-   # Or create migration
-   npm run db:generate
-   npm run migrate
-   ```
+   - Use the same migration commands as established in `package.json`
+   - Follow existing migration patterns in `server/migrations/`
+   - Test schema changes using established development workflow
+   - Ensure proper rollback capabilities
 
 ### Phase 2: Server Layer
 
 1. **Storage Layer**
-   ```typescript
-   // server/storage/[featureName]Storage.ts
-   import { db } from '../db';
-   import { [tableName] } from '../../shared/schema';
-   import { eq, and, desc } from 'drizzle-orm';
-   
-   export const [featureName]Storage = {
-     async create(data: CreateData) {
-       // Implementation
-     },
-     
-     async getByUserId(userId: string) {
-       // Implementation
-     },
-     
-     async update(id: number, data: UpdateData) {
-       // Implementation
-     },
-     
-     async delete(id: number) {
-       // Implementation
-     },
-   };
-   ```
+   - Study existing storage implementations in `server/storage/`
+   - Follow the same patterns as `UserStorage.ts`, `ItemStorage.ts`, or `FileStorage.ts`
+   - Use consistent database connection patterns from `server/db.ts`
+   - Implement the same error handling and query patterns
+   - Follow established naming conventions for storage methods
+   - Use the same Drizzle ORM query patterns as existing storage files
 
 2. **API Routes with Security**
-   ```typescript
-   // server/routes/[featureName]Routes.ts
-   import express from 'express';
-   import { [featureName]Storage } from '../storage/[featureName]Storage';
-   import { requireAuth, AuthenticatedRequest } from '../middleware/auth';
-   import { requiresOwnership, requiresUserExists } from '../middleware/authHelpers';
-   import { z } from 'zod';
-   
-   const router = express.Router();
-   
-   // Input validation schemas
-   const create[FeatureName]Schema = z.object({
-     title: z.string().min(1).max(100),
-     description: z.string().max(500).optional(),
-     // Add other field validations
-   });
-   
-   const update[FeatureName]Schema = z.object({
-     title: z.string().min(1).max(100).optional(),
-     description: z.string().max(500).optional(),
-     // Add other field validations
-   });
-   
-   // GET /api/[feature] - Get user's items
-   router.get('/[feature]', requireAuth, async (req: AuthenticatedRequest, res) => {
-     try {
-       const userId = req.user!.uid;
-       const data = await [featureName]Storage.getByUserId(userId);
-       res.json(data);
-     } catch (error) {
-       console.error('Error fetching [feature]:', error);
-       res.status(500).json({ error: 'Failed to fetch [feature]' });
-     }
-   });
-   
-   // POST /api/[feature] - Create new item
-   router.post('/[feature]', requireAuth, requiresUserExists, async (req: AuthenticatedRequest, res) => {
-     try {
-       const userId = req.user!.uid;
-       
-       // Validate input
-       const validatedData = create[FeatureName]Schema.parse(req.body);
-       
-       const data = await [featureName]Storage.create({
-         userId,
-         ...validatedData,
-       });
-       res.json(data);
-     } catch (error) {
-       console.error('Error creating [feature]:', error);
-       if (error instanceof z.ZodError) {
-         return res.status(400).json({ 
-           error: 'Invalid input', 
-           details: error.errors 
-         });
-       }
-       res.status(500).json({ error: 'Failed to create [feature]' });
-     }
-   });
-   
-   // PUT /api/[feature]/:id - Update item (with ownership verification)
-   router.put('/[feature]/:id', requireAuth, async (req: AuthenticatedRequest, res) => {
-     try {
-       const id = parseInt(req.params.id);
-       const userId = req.user!.uid;
-       
-       if (isNaN(id)) {
-         return res.status(400).json({ error: 'Invalid ID' });
-       }
-       
-       // Validate input
-       const validatedData = update[FeatureName]Schema.parse(req.body);
-       
-       // Verify ownership
-       const existing = await [featureName]Storage.getById(id);
-       if (!existing) {
-         return res.status(404).json({ error: 'Item not found' });
-       }
-       
-       if (existing.userId !== userId) {
-         return res.status(403).json({ 
-           error: 'Access denied: You can only update your own items',
-           code: 'auth/access-denied'
-         });
-       }
-       
-       const data = await [featureName]Storage.update(id, validatedData);
-       res.json(data);
-     } catch (error) {
-       console.error('Error updating [feature]:', error);
-       if (error instanceof z.ZodError) {
-         return res.status(400).json({ 
-           error: 'Invalid input', 
-           details: error.errors 
-         });
-       }
-       res.status(500).json({ error: 'Failed to update [feature]' });
-     }
-   });
-   
-   // DELETE /api/[feature]/:id - Delete item (with ownership verification)
-   router.delete('/[feature]/:id', requireAuth, async (req: AuthenticatedRequest, res) => {
-     try {
-       const id = parseInt(req.params.id);
-       const userId = req.user!.uid;
-       
-       if (isNaN(id)) {
-         return res.status(400).json({ error: 'Invalid ID' });
-       }
-       
-       // Verify ownership
-       const existing = await [featureName]Storage.getById(id);
-       if (!existing) {
-         return res.status(404).json({ error: 'Item not found' });
-       }
-       
-       if (existing.userId !== userId) {
-         return res.status(403).json({ 
-           error: 'Access denied: You can only delete your own items',
-           code: 'auth/access-denied'
-         });
-       }
-       
-       await [featureName]Storage.delete(id);
-       res.json({ success: true });
-     } catch (error) {
-       console.error('Error deleting [feature]:', error);
-       res.status(500).json({ error: 'Failed to delete [feature]' });
-     }
-   });
-   
-   // GET /api/[feature]/:id - Get single item (with ownership verification)
-   router.get('/[feature]/:id', requireAuth, async (req: AuthenticatedRequest, res) => {
-     try {
-       const id = parseInt(req.params.id);
-       const userId = req.user!.uid;
-       
-       if (isNaN(id)) {
-         return res.status(400).json({ error: 'Invalid ID' });
-       }
-       
-       const item = await [featureName]Storage.getById(id);
-       if (!item) {
-         return res.status(404).json({ error: 'Item not found' });
-       }
-       
-       // Verify ownership
-       if (item.userId !== userId) {
-         return res.status(403).json({ 
-           error: 'Access denied: You can only access your own items',
-           code: 'auth/access-denied'
-         });
-       }
-       
-       res.json(item);
-     } catch (error) {
-       console.error('Error fetching [feature]:', error);
-       res.status(500).json({ error: 'Failed to fetch [feature]' });
-     }
-   });
-   
-   export default router;
-   ```
+   - Study existing route implementations in `server/routes/`
+   - Follow the same authentication patterns as `userRoutes.ts`, `itemRoutes.ts`, or `fileRoutes.ts`
+   - Use the same middleware patterns from `server/middleware/auth.ts` and `server/middleware/authHelpers.ts`
+   - Implement input validation using Zod schemas (study existing validation patterns)
+   - Follow the same error handling and response patterns
+   - Use consistent ownership verification patterns
+   - Implement the same security checks and status codes
+   - Register routes in `server/routes/index.ts` following existing patterns
 
 3. **Register Routes**
-   ```typescript
-   // server/routes/index.ts
-   import [featureName]Routes from './[featureName]Routes';
-   
-   // Register your new feature routes
-   app.use('/api', [featureName]Routes);
-   ```
+   - Study how existing routes are registered in `server/routes/index.ts`
+   - Follow the same import and registration patterns
+   - Use consistent route prefixes and organization
+   - Ensure proper middleware order and application
 
 4. **Custom Middleware (if needed)**
-   ```typescript
-   // server/middleware/[featureName]Middleware.ts
-   import { Response, NextFunction } from 'express';
-   import { AuthenticatedRequest } from './auth';
-   import { [featureName]Storage } from '../storage/[featureName]Storage';
-   
-   /**
-    * Middleware to verify ownership of a specific [feature] item
-    */
-   export async function requires[FeatureName]Ownership(
-     req: AuthenticatedRequest,
-     res: Response,
-     next: NextFunction
-   ) {
-     if (!req.user) {
-       return res.status(401).json({
-         error: 'Authentication required',
-         code: 'auth/no-token'
-       });
-     }
-   
-     const itemId = Number(req.params.id);
-     
-     if (isNaN(itemId)) {
-       return res.status(400).json({
-         error: 'Invalid item ID'
-       });
-     }
-   
-     try {
-       const item = await [featureName]Storage.getById(itemId);
-       
-       if (!item) {
-         return res.status(404).json({
-           error: 'Item not found'
-         });
-       }
-   
-       // Verify the authenticated user owns this item
-       if (item.userId !== req.user.uid) {
-         return res.status(403).json({
-           error: 'Access denied: You can only access your own items',
-           code: 'auth/access-denied'
-         });
-       }
-   
-       // Add item to request for use in route handler
-       (req as any).[featureName]Item = item;
-       next();
-     } catch (error) {
-       console.error('Error checking [feature] ownership:', error);
-       return res.status(500).json({
-         error: 'Failed to verify item ownership'
-       });
-     }
-   }
-   
-   /**
-    * Middleware to check premium access (if feature requires premium)
-    */
-   export async function requiresPremium(
-     req: AuthenticatedRequest,
-     res: Response,
-     next: NextFunction
-   ) {
-     if (!req.user) {
-       return res.status(401).json({
-         error: 'Authentication required',
-         code: 'auth/no-token'
-       });
-     }
-   
-     try {
-       const user = await storage.getUserByFirebaseId(req.user.uid);
-       
-       if (!user) {
-         return res.status(404).json({
-           error: 'User not found'
-         });
-       }
-   
-       if (!user.isPremium) {
-         return res.status(403).json({
-           error: 'Premium subscription required',
-           code: 'premium/required'
-         });
-       }
-   
-       next();
-     } catch (error) {
-       console.error('Error checking premium status:', error);
-       return res.status(500).json({
-         error: 'Failed to verify premium status'
-       });
-     }
-   }
-   ```
+   - Study existing middleware patterns in `server/middleware/`
+   - Follow the same patterns as `auth.ts` and `authHelpers.ts`
+   - Use consistent error handling and response formats
+   - Implement the same security checks and ownership verification patterns
+   - Use the same TypeScript interfaces and naming conventions
+   - Follow existing logging and error reporting patterns
 
 ### Phase 3: Client Layer
 
 1. **Data Fetching Hook**
-   ```tsx
-   // client/src/hooks/use[FeatureName].ts
-   import { useState, useEffect } from 'react';
-   
-   export interface [FeatureName]Data {
-     id: number;
-     // Add type definitions
-   }
-   
-   export function use[FeatureName]() {
-     const [data, setData] = useState<[FeatureName]Data[]>([]);
-     const [loading, setLoading] = useState(true);
-     const [error, setError] = useState<string | null>(null);
-   
-     const fetchData = async () => {
-       try {
-         setLoading(true);
-         const response = await fetch('/api/[feature]');
-         if (!response.ok) {
-           throw new Error('Failed to fetch data');
-         }
-         const result = await response.json();
-         setData(result);
-       } catch (err) {
-         setError(err instanceof Error ? err.message : 'An error occurred');
-       } finally {
-         setLoading(false);
-       }
-     };
-   
-     useEffect(() => {
-       fetchData();
-     }, []);
-   
-     const create = async (newData: Omit<[FeatureName]Data, 'id'>) => {
-       try {
-         const response = await fetch('/api/[feature]', {
-           method: 'POST',
-           headers: { 'Content-Type': 'application/json' },
-           body: JSON.stringify(newData),
-         });
-         
-         if (!response.ok) {
-           throw new Error('Failed to create');
-         }
-         
-         await fetchData(); // Refresh data
-         return true;
-       } catch (err) {
-         setError(err instanceof Error ? err.message : 'Failed to create');
-         return false;
-       }
-     };
-   
-     const update = async (id: number, updates: Partial<[FeatureName]Data>) => {
-       try {
-         const response = await fetch(`/api/[feature]/${id}`, {
-           method: 'PUT',
-           headers: { 'Content-Type': 'application/json' },
-           body: JSON.stringify(updates),
-         });
-         
-         if (!response.ok) {
-           throw new Error('Failed to update');
-         }
-         
-         await fetchData(); // Refresh data
-         return true;
-       } catch (err) {
-         setError(err instanceof Error ? err.message : 'Failed to update');
-         return false;
-       }
-     };
-   
-     const remove = async (id: number) => {
-       try {
-         const response = await fetch(`/api/[feature]/${id}`, {
-           method: 'DELETE',
-         });
-         
-         if (!response.ok) {
-           throw new Error('Failed to delete');
-         }
-         
-         await fetchData(); // Refresh data
-         return true;
-       } catch (err) {
-         setError(err instanceof Error ? err.message : 'Failed to delete');
-         return false;
-       }
-     };
-   
-     return {
-       data,
-       loading,
-       error,
-       create,
-       update,
-       remove,
-       refresh: fetchData,
-     };
-   }
-   ```
+   - Study existing hooks in `client/src/hooks/`
+   - Follow the same patterns as `useFiles.ts`, `useUser.ts`, or `use-auth.ts`
+   - Use consistent data fetching patterns and error handling
+   - Implement the same loading states and error management
+   - Follow established TypeScript interface patterns
+   - Use the same API communication patterns
+   - Implement consistent CRUD operations following existing hook patterns
 
 2. **Main Feature Component**
-   ```tsx
-   // client/src/components/[FeatureName].tsx
-   import { useState } from 'react';
-   import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-   import { Button } from './ui/button';
-   import { Plus, Edit, Trash2 } from 'lucide-react';
-   import { use[FeatureName] } from '../hooks/use[FeatureName]';
-   import { [FeatureName]Form } from './[FeatureName]Form';
-   
-   export function [FeatureName]() {
-     const { data, loading, error, create, update, remove } = use[FeatureName]();
-     const [showForm, setShowForm] = useState(false);
-     const [editingItem, setEditingItem] = useState<number | null>(null);
-   
-     if (loading) {
-       return (
-         <div className="flex items-center justify-center p-8">
-           <div className="text-gray-500">Loading...</div>
-         </div>
-       );
-     }
-   
-     if (error) {
-       return (
-         <div className="p-4 text-red-600 bg-red-50 rounded-md">
-           Error: {error}
-         </div>
-       );
-     }
-   
-     return (
-       <div className="space-y-6">
-         <div className="flex items-center justify-between">
-           <div>
-             <h2 className="text-2xl font-bold">[Feature Name]</h2>
-             <p className="text-gray-600">[Feature description]</p>
-           </div>
-           <Button onClick={() => setShowForm(true)}>
-             <Plus size={16} className="mr-2" />
-             Add New
-           </Button>
-         </div>
-   
-         {showForm && (
-           <[FeatureName]Form
-             onSubmit={async (data) => {
-               const success = await create(data);
-               if (success) {
-                 setShowForm(false);
-               }
-             }}
-             onCancel={() => setShowForm(false)}
-           />
-         )}
-   
-         <div className="grid gap-4">
-           {data.map((item) => (
-             <Card key={item.id}>
-               <CardHeader className="flex flex-row items-center justify-between">
-                 <div>
-                   <CardTitle>{item.title}</CardTitle>
-                   <CardDescription>{item.description}</CardDescription>
-                 </div>
-                 <div className="flex gap-2">
-                   <Button
-                     variant="outline"
-                     size="sm"
-                     onClick={() => setEditingItem(item.id)}
-                   >
-                     <Edit size={16} />
-                   </Button>
-                   <Button
-                     variant="outline"
-                     size="sm"
-                     onClick={() => {
-                       if (confirm('Are you sure you want to delete this item?')) {
-                         remove(item.id);
-                       }
-                     }}
-                   >
-                     <Trash2 size={16} />
-                   </Button>
-                 </div>
-               </CardHeader>
-               <CardContent>
-                 {/* Display item details */}
-               </CardContent>
-             </Card>
-           ))}
-         </div>
-   
-         {data.length === 0 && (
-           <div className="text-center py-8 text-gray-500">
-             No items found. Create your first one!
-           </div>
-         )}
-       </div>
-     );
-   }
-   ```
+   - Study existing components in `client/src/components/`
+   - Follow the same UI patterns as `FileList.tsx`, `ContactList.tsx`, or `UserProfileForm.tsx`
+   - Use consistent shadcn/ui components from `client/src/components/ui/`
+   - Implement the same loading and error state patterns
+   - Follow established component structure and naming conventions
+   - Use the same icon patterns from lucide-react
+   - Implement consistent user interaction patterns and confirmation dialogs
 
 3. **Form Component**
-   ```tsx
-   // client/src/components/[FeatureName]Form.tsx
-   import { useState } from 'react';
-   import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-   import { Button } from './ui/button';
-   import { Input } from './ui/input';
-   import { Label } from './ui/label';
-   import { Textarea } from './ui/textarea';
-   
-   interface [FeatureName]FormData {
-     title: string;
-     description: string;
-     // Add form fields
-   }
-   
-   interface [FeatureName]FormProps {
-     onSubmit: (data: [FeatureName]FormData) => Promise<void>;
-     onCancel: () => void;
-     initialData?: [FeatureName]FormData;
-   }
-   
-   export function [FeatureName]Form({ onSubmit, onCancel, initialData }: [FeatureName]FormProps) {
-     const [formData, setFormData] = useState<[FeatureName]FormData>(
-       initialData || {
-         title: '',
-         description: '',
-       }
-     );
-     const [submitting, setSubmitting] = useState(false);
-   
-     const handleSubmit = async (e: React.FormEvent) => {
-       e.preventDefault();
-       setSubmitting(true);
-       try {
-         await onSubmit(formData);
-       } finally {
-         setSubmitting(false);
-       }
-     };
-   
-     return (
-       <Card>
-         <CardHeader>
-           <CardTitle>
-             {initialData ? 'Edit' : 'Create'} [Feature Name]
-           </CardTitle>
-         </CardHeader>
-         <CardContent>
-           <form onSubmit={handleSubmit} className="space-y-4">
-             <div className="space-y-2">
-               <Label htmlFor="title">Title</Label>
-               <Input
-                 id="title"
-                 value={formData.title}
-                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                 required
-               />
-             </div>
-             
-             <div className="space-y-2">
-               <Label htmlFor="description">Description</Label>
-               <Textarea
-                 id="description"
-                 value={formData.description}
-                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                 rows={3}
-               />
-             </div>
-             
-             <div className="flex gap-2">
-               <Button type="submit" disabled={submitting}>
-                 {submitting ? 'Saving...' : 'Save'}
-               </Button>
-               <Button type="button" variant="outline" onClick={onCancel}>
-                 Cancel
-               </Button>
-             </div>
-           </form>
-         </CardContent>
-       </Card>
-     );
-   }
-   ```
+   - Study existing form components like `ContactForm.tsx` or `UserProfileForm.tsx`
+   - Follow the same form handling patterns and validation approaches
+   - Use consistent shadcn/ui form components
+   - Implement the same loading states and button behaviors
+   - Follow established form layout and styling patterns
+   - Use the same error handling and user feedback patterns
 
 4. **Page Component (if needed)**
-   ```tsx
-   // client/src/pages/[FeatureName]Page.tsx
-   import { [FeatureName] } from '../components/[FeatureName]';
-   
-   export function [FeatureName]Page() {
-     return (
-       <div className="container mx-auto px-4 py-8">
-         <[FeatureName] />
-       </div>
-     );
-   }
-   ```
+   - Study existing page components in `client/src/pages/`
+   - Follow the same layout patterns as `Files.tsx`, `profile.tsx`, or `settings.tsx`
+   - Use consistent container and spacing patterns
+   - Implement the same navigation and routing patterns
 
 5. **Add to Navigation**
-   ```tsx
-   // client/src/App.tsx
-   import { [FeatureName]Page } from './pages/[FeatureName]Page';
-   
-   // Add route
-   <Route path="/[feature]" component={[FeatureName]Page} />
-   ```
+   - Study existing routing patterns in `client/src/App.tsx`
+   - Follow the same route registration and navigation patterns
+   - Update navigation components consistently
+   - Ensure proper authentication guards if needed
 
 ## Step 4: Integration Enhancements
 
 ### Security & Authentication Integration
 
 1. **Always Use Authentication Middleware**
-```typescript
-// Import required middleware
-import { requireAuth, AuthenticatedRequest } from '../middleware/auth';
-import { requiresOwnership, requiresUserExists } from '../middleware/authHelpers';
-
-// Apply authentication to all routes
-router.use(requireAuth);
-
-// Or apply to specific routes
-router.get('/[feature]', requireAuth, async (req: AuthenticatedRequest, res) => {
-  const userId = req.user!.uid; // Firebase UID
-  // Route logic here
-});
-```
+   - Study existing middleware usage in `server/middleware/auth.ts`
+   - Follow the same authentication patterns as existing routes
+   - Use the same `AuthenticatedRequest` interface and patterns
+   - Apply consistent middleware order and error handling
 
 2. **Use Ownership Verification**
-```typescript
-// For user-specific resources, verify ownership
-router.get('/users/:firebaseId/[feature]', requireAuth, requiresOwnership, async (req: AuthenticatedRequest, res) => {
-  // User can only access their own resources
-});
-
-// For item-specific resources, create custom middleware
-import { requires[FeatureName]Ownership } from '../middleware/[featureName]Middleware';
-
-router.put('/[feature]/:id', requireAuth, requires[FeatureName]Ownership, async (req: AuthenticatedRequest, res) => {
-  // User can only update items they own
-  const item = (req as any).[featureName]Item; // Item attached by middleware
-});
-```
+   - Study existing ownership verification in `server/middleware/authHelpers.ts`
+   - Follow the same ownership verification patterns as existing routes
+   - Use consistent error responses and status codes
+   - Implement the same user access control patterns
 
 3. **Input Validation & Sanitization**
-```typescript
-import { z } from 'zod';
-
-// Define validation schemas
-const createSchema = z.object({
-  title: z.string().min(1).max(100).trim(),
-  description: z.string().max(500).optional(),
-  tags: z.array(z.string()).max(10).optional(),
-});
-
-// Use in routes
-try {
-  const validatedData = createSchema.parse(req.body);
-  // Use validatedData instead of req.body
-} catch (error) {
-  if (error instanceof z.ZodError) {
-    return res.status(400).json({ 
-      error: 'Invalid input', 
-      details: error.errors 
-    });
-  }
-}
-```
+   - Study existing validation patterns using Zod schemas
+   - Follow the same validation error handling and response patterns
+   - Use consistent input sanitization and validation rules
+   - Implement the same error response formats
 
 4. **Premium Feature Access**
-```typescript
-// For premium-only features
-import { requiresPremium } from '../middleware/[featureName]Middleware';
-
-router.post('/[feature]/premium-action', requireAuth, requiresPremium, async (req: AuthenticatedRequest, res) => {
-  // Only premium users can access this endpoint
-});
-```
+   - Study existing premium access patterns in the codebase
+   - Follow the same subscription verification patterns
+   - Use consistent premium feature gating approaches
+   - Implement the same user subscription checking logic
 
 ### File Storage Integration (if needed)
-```typescript
-// Add file upload support
-import { uploadFile } from '../services/fileService';
-
-// In your route handler
-const fileUrl = await uploadFile(req.file, userId);
-```
+   - Study existing file handling patterns in `server/routes/fileRoutes.ts`
+   - Follow the same Firebase Storage integration patterns
+   - Use consistent file upload and security validation
+   - Implement the same file ownership and access control
 
 ### Payment Integration (if needed)
-```typescript
-// Add premium feature checks
-import { isPremiumUser } from '../services/userService';
-
-// Check user subscription
-const user = await isPremiumUser(userId);
-if (!user.isPremium) {
-  return res.status(403).json({ error: 'Premium feature' });
-}
-```
+   - Study existing payment patterns in `server/routes/paymentRoutes.ts`
+   - Follow the same Stripe integration and webhook handling
+   - Use consistent subscription verification patterns
+   - Implement the same premium feature access control
 
 ### Email Notifications (if needed)
-```typescript
-// Add email notifications
-import { emailNotificationService } from '../services/emailNotificationService';
-
-// Send notification
-await emailNotificationService.sendNotification({
-  userId,
-  category: 'feature',
-  subject: 'New [Feature] Created',
-  htmlContent: `<p>Your [feature] has been created successfully.</p>`,
-});
-```
+   - Study existing email patterns in `server/lib/sendgrid.ts`
+   - Follow the same SendGrid integration patterns
+   - Use consistent email template and sending patterns
+   - Implement the same notification categorization and user preferences
 
 ## Step 5: Testing and Validation
 

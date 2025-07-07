@@ -11,288 +11,89 @@ Sets up complete Sentry monitoring with:
 - Error boundaries for graceful error handling
 - Production-ready configuration
 
-```bash
-npm install @sentry/react @sentry/node @sentry/tracing
+**Installation:**
+- Install required Sentry packages: `@sentry/react @sentry/node @sentry/tracing`
+
+**Frontend Setup:**
+- Create a Sentry configuration file in `client/src/lib/` following existing lib patterns
+- Study `client/src/lib/firebase.ts` for configuration structure examples
+- Initialize Sentry with DSN from environment variables
+- Configure performance monitoring and session replay
+- Filter out development errors and common non-critical errors
+- Set up user context tracking for better debugging
+
+**Main Entry Point:**
+- Update `client/src/main.tsx` to initialize Sentry before React
+- Follow the existing import patterns in the file
+- Initialize Sentry early in the application lifecycle
 ```
 
-Create `client/src/lib/sentry.ts`:
-
-```typescript
-import * as Sentry from '@sentry/react';
-import { BrowserTracing } from '@sentry/tracing';
-
-export function initSentry() {
-  Sentry.init({
-    dsn: import.meta.env.VITE_SENTRY_DSN,
-    environment: import.meta.env.MODE,
-    integrations: [
-      new BrowserTracing(),
-    ],
-    
-    // Performance Monitoring
-    tracesSampleRate: import.meta.env.PROD ? 0.1 : 1.0,
-    
-    // Session Replay for error reproduction
-    replaysSessionSampleRate: 0.1,
-    replaysOnErrorSampleRate: 1.0,
-    
-    // Filter out development errors
-    beforeSend(event, hint) {
-      if (import.meta.env.DEV) {
-        console.error('Sentry would send:', event, hint);
-        return null;
-      }
-      
-      // Filter out common non-critical errors
-      if (event.exception) {
-        const error = hint.originalException as Error;
-        if (error?.message?.includes('Non-Error promise rejection')) {
-          return null;
-        }
-      }
-      
-      return event;
-    },
-    
-    initialScope: {
-      tags: { component: 'frontend' },
-    },
-  });
-}
-
-export function captureError(error: Error, context?: Record<string, any>) {
-  Sentry.captureException(error, { extra: context });
-}
-
-export function setUserContext(user: {
-  id: string;
-  email: string;
-  subscriptionType: string;
-}) {
-  Sentry.setUser({
-    id: user.id,
-    email: user.email,
-    subscription: user.subscriptionType,
-  });
-}
+**Error Boundary Component:**
+- Create an ErrorBoundary component in `client/src/components/`
+- Use existing UI components from `client/src/components/ui/` (Card, Button)
+- Follow the existing component structure patterns in the components directory
+- Use Lucide React icons consistently with other components
+- Apply Tailwind classes following existing styling patterns
+- Create a user-friendly error fallback UI with retry functionality
+- Integrate with Sentry's error boundary wrapper
+- Include proper error context and tagging
 ```
 
-Update `client/src/main.tsx`:
-
-```tsx
-import { initSentry } from './lib/sentry';
-
-// Initialize Sentry before React
-initSentry();
-
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
+**Backend Setup:**
+- Create a Sentry configuration file in `server/lib/` following existing patterns
+- Study `server/lib/sendgrid.ts` for server-side configuration examples
+- Configure Node.js and Express integrations
+- Set up performance tracing for API endpoints
+- Implement data filtering to remove sensitive information (passwords, tokens)
+- Follow the existing environment variable patterns
+- Create utility functions for error capture and user context
 ```
 
-Create `client/src/components/ErrorBoundary.tsx`:
-
-```tsx
-import * as Sentry from '@sentry/react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Button } from './ui/button';
-import { RefreshCw, Bug } from 'lucide-react';
-
-interface ErrorFallbackProps {
-  error: Error;
-  resetErrorBoundary: () => void;
-}
-
-function ErrorFallback({ error, resetErrorBoundary }: ErrorFallbackProps) {
-  return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Bug className="text-red-500" size={20} />
-            Something went wrong
-          </CardTitle>
-          <CardDescription>
-            We've been notified about this error and will fix it soon.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="bg-gray-100 p-3 rounded text-sm font-mono">
-            {error.message}
-          </div>
-          <div className="flex gap-2">
-            <Button onClick={resetErrorBoundary} className="flex-1">
-              <RefreshCw size={16} className="mr-2" />
-              Try Again
-            </Button>
-            <Button 
-              variant="outline"
-              onClick={() => window.location.href = '/'}
-            >
-              Go Home
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-export const SentryErrorBoundary = Sentry.withErrorBoundary(
-  ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  {
-    fallback: ErrorFallback,
-    beforeCapture: (scope) => {
-      scope.setTag('errorBoundary', true);
-    },
-  }
-);
-```
-
-Create `server/lib/sentry.ts`:
-
-```typescript
-import * as Sentry from '@sentry/node';
-import '@sentry/tracing';
-
-export function initSentry() {
-  Sentry.init({
-    dsn: process.env.SENTRY_DSN,
-    environment: process.env.NODE_ENV,
-    
-    integrations: [
-      new Sentry.Integrations.Http({ tracing: true }),
-      new Sentry.Integrations.Express({ app: undefined }),
-    ],
-    
-    tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,
-    
-    // Filter sensitive data
-    beforeSend(event) {
-      if (event.request?.data) {
-        const data = event.request.data;
-        if (typeof data === 'object') {
-          delete data.password;
-          delete data.token;
-          delete data.apiKey;
-        }
-      }
-      return event;
-    },
-  });
-}
-
-export function captureError(error: Error, context?: Record<string, any>) {
-  Sentry.captureException(error, { extra: context });
-}
-
-export function setUserContext(user: {
-  firebaseId: string;
-  email: string;
-  subscriptionType: string;
-}) {
-  Sentry.setUser({
-    id: user.firebaseId,
-    email: user.email,
-    subscription: user.subscriptionType,
-  });
-}
-```
-
-Update `server/index.ts`:
-
-```typescript
-import * as Sentry from '@sentry/node';
-import { initSentry } from './lib/sentry';
-
-// Initialize Sentry before importing anything else
-initSentry();
-
-import express from 'express';
-// ... other imports
-
-const app = express();
-
-// Sentry request handler must be the first middleware
-app.use(Sentry.Handlers.requestHandler());
-app.use(Sentry.Handlers.tracingHandler());
-
-// ... your existing middleware and routes
-
-// Sentry error handler must be before any other error middleware
-app.use(Sentry.Handlers.errorHandler());
-
-// Your error handler
-app.use((err: any, req: any, res: any, next: any) => {
-  console.error('Error:', err);
-  res.status(500).json({ error: 'Internal server error' });
-});
+**Server Integration:**
+- Update `server/index.ts` to initialize Sentry early in the application
+- Study the existing server setup and middleware patterns
+- Add Sentry middleware in the correct order (request handler first, error handler last)
+- Follow the existing error handling patterns in the server
+- Ensure Sentry initialization happens before other imports
+- Integrate with the existing Express middleware stack
 ```
 
 ## Step 7: Set Environment Variables
 
-Add to `.env`:
-
-```env
-# Sentry Configuration
-VITE_SENTRY_DSN="https://your-dsn@sentry.io/your-project-id"
-SENTRY_DSN="https://your-dsn@sentry.io/your-project-id"
-```
+**Environment Configuration:**
+- Add Sentry DSN variables to your `.env` file following existing patterns
+- Use separate DSNs for frontend (VITE_SENTRY_DSN) and backend (SENTRY_DSN)
+- Follow the existing environment variable naming conventions in the project
+- Ensure variables are properly referenced in your configuration files
 
 ## Step 8: Use Error Boundary in App
 
-Update `client/src/App.tsx` to wrap your app with the error boundary:
-
-```tsx
-import { SentryErrorBoundary } from './components/ErrorBoundary';
-
-function App() {
-  return (
-    <SentryErrorBoundary>
-      {/* Your existing app content */}
-    </SentryErrorBoundary>
-  );
-}
+**App Integration:**
+- Update `client/src/App.tsx` to wrap the application with the error boundary
+- Study the existing App.tsx structure and component wrapping patterns
+- Integrate the error boundary at the appropriate level in the component tree
+- Maintain the existing routing and layout structure
 ```
 
 ## Step 9: Add User Context
 
-In your authentication logic, add user context to Sentry:
-
-```tsx
-// In your login/auth component
-import { setUserContext } from '../lib/sentry';
-
-// After successful login
-const user = await signInWithEmailAndPassword(auth, email, password);
-setUserContext({
-  id: user.uid,
-  email: user.email || '',
-  subscriptionType: userData.subscriptionType || 'free'
-});
+**User Context Integration:**
+- Study the existing authentication flow in `client/src/hooks/use-auth.ts`
+- Add user context setting after successful login/authentication
+- Follow the existing Firebase auth patterns in the codebase
+- Integrate with the existing user data fetching from the database
+- Include relevant user information for debugging (ID, email, subscription type)
 ```
 
 1. **Test Frontend Error Reporting**
-   
-   Add a test button to trigger an error:
-   ```tsx
-   // Temporarily add this to any component for testing
-   <button onClick={() => { throw new Error('Test Sentry error!'); }}>
-     Test Sentry
-   </button>
-   ```
+   - Add a temporary test button to any existing component
+   - Trigger a test error to verify Sentry integration
+   - Remove test code after verification
 
 2. **Test Backend Error Reporting**
-   
-   Add a test route:
-   ```typescript
-   // Temporarily add to server/routes/
-   app.get('/test-sentry', (req, res) => {
-     throw new Error('Test backend error!');
-   });
-   ```
+   - Add a temporary test route to verify backend error capture
+   - Follow existing route patterns in `server/routes/`
+   - Test the error and remove the test route after verification
 
 3. **Check Sentry Dashboard**
    

@@ -11,6 +11,15 @@ Sets up your complete development environment with:
 - SendGrid email service
 - Local development server
 
+## Before You Begin
+
+**EXAMINE EXISTING PATTERNS FIRST**: Study the codebase to understand the established setup:
+- Review `package.json` for available scripts and dependencies
+- Check `server/index.ts` for server configuration requirements
+- Examine `client/src/lib/` for service configuration patterns
+- Study `shared/schema.ts` for database structure
+- Review existing environment variable usage throughout the codebase
+
 ## Step 1: Install Dependencies
 
 ```bash
@@ -21,169 +30,151 @@ npm install
 - Set up RenderMCP (check claude.md for steps). Use MCP to help user with render setup
 - Set up Context7 
 
+Close and reopen claude to activate MCPs
+Then, create a new project on the starter($7/mo) plan for hosting the application and use Neon for the database
+
 ## Step 3: Create Environment Variables
 
-Create a `.env` file in the root directory:
+Create a `.env` file in the root directory following the patterns established in the codebase:
 
-```env
-# Database (PostgreSQL)
-DATABASE_URL="postgresql://user:password@host:5432/database"
-PGDATABASE="your_database_name"
-PGHOST="your_db_host"
-PGUSER="your_db_user"
-PGPASSWORD="your_db_password"
-PGPORT="5432"
+**Study Existing Environment Usage**:
+- Examine how environment variables are used in `server/index.ts`
+- Check client-side environment variable patterns in `client/src/lib/`
+- Review database connection patterns in `server/db.ts`
+- Follow the same naming conventions and structure as existing code
 
-# Session Management
-SESSION_SECRET="your-super-secret-session-key-min-32-chars"
+**Required Environment Variables** (follow existing patterns):
+- Database configuration (PostgreSQL connection details)
+- Session management (strong secret key)
+- Stripe payment processing (test keys for development)
+- Firebase services (project configuration)
+- Email service (SendGrid API key)
+- Any additional services referenced in the existing code
 
-# Stripe (Payment Processing)
-STRIPE_SECRET_KEY="sk_test_..."
-STRIPE_WEBHOOK_SECRET="whsec_..."
-STRIPE_PRICE_ID_PRO="price_..."
-VITE_STRIPE_PUBLIC_KEY="pk_test_..."
-
-# Firebase (Authentication & Storage)
-VITE_FIREBASE_PROJECT_ID="your-project-id"
-VITE_FIREBASE_API_KEY="your-api-key"
-VITE_FIREBASE_APP_ID="your-app-id"
-VITE_FIREBASE_AUTH_DOMAIN="your-project.firebaseapp.com"
-VITE_FIREBASE_MESSAGING_SENDER_ID="your-sender-id"
-
-# Email Service
-SENDGRID_API_KEY="SG.your-sendgrid-api-key"
-```
 
 ## Step 4: Set Up PostgreSQL Database
 
-### Option A: Use Render PostgreSQL (Recommended)
+**Study Existing Database Patterns**:
+- Review `server/db.ts` for connection configuration
+- Examine `shared/schema.ts` for database structure
+- Check existing migration patterns in `server/migrations/`
 
-1. Go to [render.com](https://render.com) and create an account
-2. Create a new PostgreSQL database
-3. Copy the connection details to your `.env` file
+### Option A: Use Neon PostgreSQL (Recommended)
+- Follow the database configuration patterns established in the codebase
+- Use connection details that match the existing database setup patterns
 
 ### Option B: Local PostgreSQL
-
-1. Install PostgreSQL locally
-2. Create a database: `createdb your_database_name`
-3. Update `.env` with local connection details
+- Configure local database to match existing connection patterns
+- Use the same database naming and configuration conventions
 
 ## Step 5: Set Up Firebase
 
-### Create Firebase Project
+**Study Existing Firebase Integration**:
+- Examine `client/src/lib/firebase.ts` for configuration patterns
+- Review `firebase-storage.rules` for security rule patterns
+- Check existing authentication patterns in `client/src/hooks/use-auth.ts`
+- Study file storage patterns in `client/src/hooks/useFiles.ts`
 
-1. Go to [Firebase Console](https://console.firebase.google.com)
-2. Create a new project
-3. Enable Authentication and Storage
+### Create Firebase Project
+- Configure project to match existing Firebase integration patterns
+- Enable services that match existing codebase usage
 
 ### Configure Authentication
-
-1. In Firebase Console → Authentication → Sign-in method
-2. Enable these providers:
-   - Email/Password
-   - Google (optional)
-   - GitHub (optional)
-3. Add your domain to authorized domains: `localhost`
+- Follow authentication provider patterns from existing code
+- Set up authorized domains to match development configuration
 
 ### Configure Storage
-
-1. In Firebase Console → Storage → Get started
-2. Use test mode rules initially
-3. Deploy security rules later: `firebase deploy --only storage`
+- Follow storage configuration patterns from existing code
+- Use security rules that match `firebase-storage.rules`
 
 ### Get Firebase Config
-
-1. In Firebase Console → Project settings → General
-2. Scroll to "Your apps" → Web app
-3. Copy the config values to your `.env` file
+- Configure environment variables to match existing patterns
+- Follow the same naming conventions as existing Firebase configuration
 
 ## Step 6: Set Up Stripe
 
-### Create Stripe Account
+**Study Existing Stripe Integration**:
+- Examine payment patterns in `server/routes/paymentRoutes.ts`
+- Review webhook handling in `server/routes/webhookRoutes.ts`
+- Check client-side Stripe usage in `client/src/lib/stripe.ts`
+- Study existing pricing and subscription patterns
 
-1. Go to [stripe.com](https://stripe.com) and create an account
-2. Switch to "Test mode" (toggle in sidebar)
+### Create Stripe Account
+- Configure account to match existing Stripe integration patterns
+- Use test mode for development following existing patterns
 
 ### Get API Keys
-
-1. Dashboard → Developers → API keys
-2. Copy "Publishable key" → `VITE_STRIPE_PUBLIC_KEY`
-3. Copy "Secret key" → `STRIPE_SECRET_KEY`
+- Configure API keys to match existing environment variable patterns
+- Follow the same naming conventions as existing Stripe configuration
 
 ### Create Product and Price
+- Set up products that match existing pricing structure
+- Follow the same subscription model patterns from existing code
 
-1. Dashboard → Products → Add product
-2. Create a "Pro Plan" with recurring billing
-3. Copy the Price ID → `STRIPE_PRICE_ID_PRO`
-
-### Set Up Webhooks (for later)
-
-1. Dashboard → Developers → Webhooks
-2. Add endpoint: `https://yourdomain.com/api/webhook`
-3. Select events: `checkout.session.completed`, `customer.subscription.updated`
-4. Copy webhook secret → `STRIPE_WEBHOOK_SECRET`
+### Set Up Webhooks
+- Configure webhooks to match existing webhook handling patterns
+- Use the same webhook events as implemented in existing code
 
 ## Step 7: Set Up SendGrid
 
-1. Go to [sendgrid.com](https://sendgrid.com) and create an account
-2. Settings → API Keys → Create API Key
-3. Choose "Restricted Access" and enable Mail Send
-4. Copy the API key → `SENDGRID_API_KEY`
+**Study Existing Email Integration**:
+- Examine email patterns in `server/lib/sendgrid.ts`
+- Review existing email template and sending patterns
+- Check environment variable usage for email configuration
+
+### Configure SendGrid
+- Set up SendGrid account to match existing email integration patterns
+- Configure API key following existing environment variable patterns
+- Follow the same email service configuration as established in the codebase
 
 ## Step 8: Initialize Database
 
-Push the database schema:
+**Follow Existing Database Setup Patterns**:
+- Review available database scripts in `package.json`
+- Study existing schema in `shared/schema.ts`
+- Check migration patterns in `server/migrations/`
 
-```bash
-npm run db:push
-```
-
-This creates all necessary tables in your PostgreSQL database.
+Push the database schema using established patterns:
+- Use the same database initialization commands as configured in the project
+- Follow existing migration and schema update procedures
 
 ## Step 9: Start Development Server
 
-```bash
-npm run dev
-```
+**Follow Existing Development Patterns**:
+- Use development scripts as defined in `package.json`
+- Check server configuration in `server/index.ts` for port and setup
+- Follow existing development workflow patterns
 
-Your app will be running at: http://localhost:5000
+Start the development server using established commands and check the configured port
 
 ## Step 10: Test Your Setup
 
-### Test Authentication
+**Follow Existing Testing Patterns**:
+- Study existing authentication flow in the application
+- Check file upload functionality as implemented
+- Review payment flow implementation
+- Test features according to existing user workflows
 
-1. Go to http://localhost:5000/login
-2. Create an account with email/password
-3. Verify you can sign in and out
+### Test Authentication
+- Test the authentication system as implemented in the existing code
+- Follow the same login/logout flow patterns
 
 ### Test File Upload
-
-1. Sign in to your account
-2. Go to the Files page
-3. Try uploading a small file
-4. Check that it appears in your file list
+- Test file upload functionality following existing implementation
+- Check file management features as designed
 
 ### Test Payments (Optional)
-
-1. Go to the Pricing page
-2. Click "Upgrade to Pro"
-3. Use Stripe test card: `4242 4242 4242 4242`
-4. Complete the checkout flow
+- Test payment flow using existing Stripe test configuration
+- Follow the subscription upgrade patterns implemented in the code
 
 ## Step 11: Firebase Storage Rules (Optional)
 
-Deploy secure storage rules:
+**Follow Existing Firebase Deployment Patterns**:
+- Study existing Firebase configuration and rules
+- Review `firebase-storage.rules` for security rule patterns
+- Follow established Firebase deployment procedures
 
-```bash
-# Install Firebase CLI
-npm install -g firebase-tools
-
-# Login to Firebase
-firebase login
-
-# Deploy storage rules
-firebase deploy --only storage
-```
+Deploy storage rules using the same patterns and tools as configured in the project
 
 ## Troubleshooting
 

@@ -8,6 +8,9 @@ import { FcGoogle } from "react-icons/fc";
 import { FaGithub } from "react-icons/fa";
 import { toast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { UserProfileForm } from "@/components/UserProfileForm";
+import { apiRequest } from "@/lib/queryClient";
+import type { User } from "@shared/schema";
 
 export default function Login() {
   const [, setLocation] = useLocation();
@@ -68,19 +71,13 @@ export default function Login() {
         const userCredential = await signUpWithEmail(email, password);
         console.log("[Auth] Email signup successful", { uid: userCredential.user.uid });
 
-        // Create Stripe customer for new user
-        console.log("[Stripe] Creating customer for new user");
-        await fetch('/api/users/ensure-stripe', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            firebaseId: userCredential.user.uid,
-            email: userCredential.user.email,
-          }),
+        // Create user in database
+        console.log("[Auth] Creating user in database");
+        await apiRequest('POST', '/api/login', {
+          firebaseId: userCredential.user.uid,
+          email: userCredential.user.email,
         });
-        console.log("[Stripe] Customer created successfully");
+        console.log("[Auth] User created in database successfully");
 
         toast({
           title: "Success",
@@ -93,19 +90,13 @@ export default function Login() {
         const userCredential = await signInWithEmail(email, password);
         console.log("[Auth] Email signin successful", { uid: userCredential.user.uid });
 
-        console.log("[Stripe] Ensuring customer exists for signin");
-        // Ensure Stripe customer exists
-        await fetch('/api/users/ensure-stripe', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            firebaseId: userCredential.user.uid,
-            email: userCredential.user.email,
-          }),
+        console.log("[Auth] Ensuring user exists in database");
+        // Ensure user exists in database
+        await apiRequest('POST', '/api/login', {
+          firebaseId: userCredential.user.uid,
+          email: userCredential.user.email,
         });
-        console.log("[Stripe] Customer created successfully");
+        console.log("[Auth] User login processed successfully");
 
         toast({
           title: "Success",
@@ -209,19 +200,13 @@ export default function Login() {
                     });
 
                     // Ensure user exists in database
-                    await fetch('/api/users/ensure-stripe', {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json',
-                      },
-                      body: JSON.stringify({
-                        firebaseId: userCredential.user.uid,
-                        email: userCredential.user.email,
-                        displayName: userCredential.user.displayName
-                      }),
+                    await apiRequest('POST', '/api/login', {
+                      firebaseId: userCredential.user.uid,
+                      email: userCredential.user.email,
+                      displayName: userCredential.user.displayName
                     });
 
-                    // Ensure Stripe customer exists
+                    console.log("[Auth] Google sign-in database setup complete");
                     } catch (error: any) {
                     setError(error.message);
                     toast({
@@ -239,7 +224,21 @@ export default function Login() {
               <Button
                 onClick={async () => {
                   try {
-                    await signInWithGithub();
+                    console.log("[Auth] Starting GitHub sign-in flow");
+                    const userCredential = await signInWithGithub();
+                    console.log("[Auth] GitHub sign-in successful", {
+                      uid: userCredential.user.uid,
+                      email: userCredential.user.email
+                    });
+
+                    // Ensure user exists in database
+                    await apiRequest('POST', '/api/login', {
+                      firebaseId: userCredential.user.uid,
+                      email: userCredential.user.email,
+                      displayName: userCredential.user.displayName
+                    });
+
+                    console.log("[Auth] GitHub sign-in database setup complete");
                   } catch (error: any) {
                     setError(error.message);
                     toast({

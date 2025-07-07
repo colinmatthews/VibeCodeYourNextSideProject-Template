@@ -1,27 +1,38 @@
 # Repository Issue Scanner Prompt
 
-You are an expert code auditor specializing in React, Node.js, and PostgreSQL full-stack applications. Please perform a comprehensive scan of this repository to identify issues that need to be resolved based on the following preferred stack and conventions:
+You are an expert code auditor specializing in React, Node.js, and PostgreSQL full-stack applications. Please perform a comprehensive scan of this repository to identify issues that need to be resolved based on the following preferred stack and conventions.
 
 ## Technology Stack
 - **Frontend**: React, TypeScript, React Query
 - **Backend**: Node.js, Express, TypeScript  
 - **Database**: PostgreSQL
 
+## Before You Begin
+
+**EXAMINE EXISTING PATTERNS FIRST**: Study the codebase thoroughly to understand established patterns:
+- Review existing components in `client/src/components/`
+- Study API routes in `server/routes/`
+- Examine database schema in `shared/schema.ts`
+- Check authentication patterns in `server/middleware/`
+- Review storage layer implementations in `server/storage/`
+- Study existing hooks in `client/src/hooks/`
+- Examine build and deployment configuration
+
 ## Critical Anti-Patterns to Identify
 
 ### 1. Data Fetching Violations
-- [ ] **Direct fetch() usage in components** - Should use queryClient instead
-- [ ] **Manual state management for API data** - Should use React Query
-- [ ] **Inconsistent query key patterns** - Should follow ['entityName', id] format
-- [ ] **Missing error/loading state handling** - Should use React Query's built-in states
-- [ ] **Manual refetching instead of cache invalidation** - Should use queryClient.invalidateQueries()
+- [ ] **Direct fetch() usage in components** - Should follow patterns established in existing hooks
+- [ ] **Manual state management for API data** - Should use patterns from `client/src/hooks/`
+- [ ] **Inconsistent query key patterns** - Should follow existing hook patterns
+- [ ] **Missing error/loading state handling** - Should match existing error handling patterns
+- [ ] **Manual refetching instead of cache invalidation** - Should use established data refresh patterns
 
 ### 2. Database Access Anti-Patterns
-- [ ] **Direct database access in API routes** - Should use storage methods
-- [ ] **Missing storage modules** - Database logic should be centralized
-- [ ] **SQL injection vulnerabilities** - Should use parameterized queries
-- [ ] **Inconsistent error handling patterns** - Should follow established patterns
-- [ ] **Missing database connection pooling** - Should use proper connection management
+- [ ] **Direct database access in API routes** - Should follow storage patterns in `server/storage/`
+- [ ] **Missing storage modules** - Should follow patterns from existing storage implementations
+- [ ] **SQL injection vulnerabilities** - Should use Drizzle ORM patterns like existing code
+- [ ] **Inconsistent error handling patterns** - Should match patterns in existing route handlers
+- [ ] **Missing database connection pooling** - Should follow connection patterns in `server/db.ts`
 
 ### 3. TypeScript Issues
 - [ ] **Usage of 'any' type** - Should use precise types
@@ -31,12 +42,12 @@ You are an expert code auditor specializing in React, Node.js, and PostgreSQL fu
 - [ ] **Missing return type annotations** - Should be explicit about function returns
 
 ### 4. File Structure Violations
-- [ ] **Components not in src/components/{feature}/Component.tsx**
-- [ ] **API routes not in src/api/{feature}.ts**
-- [ ] **Storage not in src/storage/{entity}.ts**
-- [ ] **Hooks not in src/hooks/use{Feature}.ts**
-- [ ] **Utils not in src/utils/{function}.ts**
-- [ ] **AI Agents not in src/agents/{agentName}.ts**
+- [ ] **Components not following established patterns in `client/src/components/`**
+- [ ] **API routes not following patterns in `server/routes/`**
+- [ ] **Storage not following patterns in `server/storage/`**
+- [ ] **Hooks not following patterns in `client/src/hooks/`**
+- [ ] **Utils not following patterns in `client/src/lib/`**
+- [ ] **Pages not following patterns in `client/src/pages/`**
 
 ### 5. Naming Convention Issues
 - [ ] **Non-PascalCase component names**
@@ -48,40 +59,40 @@ You are an expert code auditor specializing in React, Node.js, and PostgreSQL fu
 ### 6. Security Vulnerabilities
 
 #### 6.1 Authentication & Authorization
-- [ ] **Missing Firebase token verification** - All protected routes should use `verifyFirebaseToken` middleware
-- [ ] **Missing ownership validation** - Use `requiresOwnership`, `requiresFileOwnership`, `requiresItemOwnership` middleware
-- [ ] **Unprotected API endpoints** - All `/api/*` routes except `/api/login` should require authentication
-- [ ] **Missing user existence checks** - Use `requiresUserExists` middleware where appropriate
-- [ ] **Client-side auth state persistence** - Should properly handle auth state changes
-- [ ] **Session configuration vulnerabilities** - Session secret should be strong, secure flags enabled
-- [ ] **Missing auth error handling** - Should handle expired/revoked tokens gracefully
+- [ ] **Missing Firebase token verification** - Should follow patterns in `server/middleware/auth.ts`
+- [ ] **Missing ownership validation** - Should follow patterns in `server/middleware/authHelpers.ts`
+- [ ] **Unprotected API endpoints** - Should follow authentication patterns from existing routes
+- [ ] **Missing user existence checks** - Should follow user validation patterns from existing middleware
+- [ ] **Client-side auth state persistence** - Should follow patterns in `client/src/hooks/use-auth.ts`
+- [ ] **Session configuration vulnerabilities** - Should follow session patterns in `server/index.ts`
+- [ ] **Missing auth error handling** - Should follow error handling patterns from existing auth code
 
 #### 6.2 Payment Security (Stripe)
-- [ ] **Missing webhook signature verification** - Must verify `stripe-signature` header
-- [ ] **Raw body parsing vulnerabilities** - Webhook endpoint should receive raw body for signature verification
-- [ ] **Missing Stripe metadata validation** - Verify subscription data matches expected format
-- [ ] **Hardcoded Stripe keys** - Should use environment variables for all Stripe configurations
-- [ ] **Missing customer ID validation** - Verify Stripe customer belongs to authenticated user
-- [ ] **Test mode in production** - Should use live Stripe keys in production
-- [ ] **Missing payment intent validation** - Verify payment amounts and currency
+- [ ] **Missing webhook signature verification** - Should follow patterns in `server/routes/webhookRoutes.ts`
+- [ ] **Raw body parsing vulnerabilities** - Should follow webhook handling patterns from existing code
+- [ ] **Missing Stripe metadata validation** - Should follow validation patterns in payment routes
+- [ ] **Hardcoded Stripe keys** - Should follow environment variable patterns in existing code
+- [ ] **Missing customer ID validation** - Should follow customer validation patterns in payment routes
+- [ ] **Test mode in production** - Should follow environment configuration patterns
+- [ ] **Missing payment intent validation** - Should follow payment validation patterns from existing code
 
 #### 6.3 File Storage Security (Firebase)
-- [ ] **Missing Firebase Storage security rules** - Rules should enforce user-scoped access
-- [ ] **File type validation bypass** - Should validate file types on both client and server
-- [ ] **Missing file size limits** - Should enforce 50MB max for pro, 10MB for free users
-- [ ] **Path traversal vulnerabilities** - File paths should be validated and sanitized
-- [ ] **Missing file ownership checks** - Files should only be accessible by their owners
-- [ ] **Public file access** - Files should not be publicly accessible without authentication
-- [ ] **Missing virus scanning** - Large file uploads should be scanned for malware
+- [ ] **Missing Firebase Storage security rules** - Should follow patterns in `firebase-storage.rules`
+- [ ] **File type validation bypass** - Should follow validation patterns in `server/routes/fileRoutes.ts`
+- [ ] **Missing file size limits** - Should follow limits implemented in existing file handling code
+- [ ] **Path traversal vulnerabilities** - Should follow path validation patterns in existing file routes
+- [ ] **Missing file ownership checks** - Should follow ownership patterns in file storage implementation
+- [ ] **Public file access** - Should follow access control patterns in existing file handling
+- [ ] **Missing virus scanning** - Should follow security patterns established in file upload code
 
 #### 6.4 Database Security
-- [ ] **SQL injection vulnerabilities** - Should use Drizzle ORM parameterized queries only
-- [ ] **Missing input validation** - All database inputs should be validated with Zod schemas
-- [ ] **Database connection security** - Should use connection pooling and encrypted connections
-- [ ] **Missing database credentials protection** - Should use environment variables for all DB config
-- [ ] **Insufficient data sanitization** - User inputs should be sanitized before database storage
-- [ ] **Missing query optimization** - Should use indexes for frequently queried fields
-- [ ] **Database backup security** - Should encrypt backups and secure backup credentials
+- [ ] **SQL injection vulnerabilities** - Should follow Drizzle ORM patterns in `server/storage/`
+- [ ] **Missing input validation** - Should follow Zod validation patterns from existing routes
+- [ ] **Database connection security** - Should follow connection patterns in `server/db.ts`
+- [ ] **Missing database credentials protection** - Should follow environment variable patterns
+- [ ] **Insufficient data sanitization** - Should follow sanitization patterns in existing storage code
+- [ ] **Missing query optimization** - Should follow indexing patterns in `shared/schema.ts`
+- [ ] **Database backup security** - Should follow backup patterns established in the project
 
 #### 6.5 API Security
 - [ ] **Missing security headers** - Should implement Helmet.js for security headers

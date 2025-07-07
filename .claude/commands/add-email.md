@@ -43,195 +43,47 @@ Ask these focused questions to minimize scope:
 If user wants welcome emails on signup:
 
 1. **Create Email Template**
-   ```typescript
-   // server/emails/welcome.ts
-   export const welcomeEmailTemplate = {
-     subject: 'Welcome to [Your App Name]!',
-     html: `
-       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-         <h1>Welcome to [Your App Name]!</h1>
-         <p>Hi {{firstName}},</p>
-         <p>Thanks for joining us! We're excited to have you on board.</p>
-         <p>Here's what you can do next:</p>
-         <ul>
-           <li>Complete your profile</li>
-           <li>Explore our features</li>
-           <li>Check out our getting started guide</li>
-         </ul>
-         <p>If you have any questions, just reply to this email.</p>
-         <p>Best regards,<br>The [Your App Name] Team</p>
-       </div>
-     `,
-     text: `
-       Welcome to [Your App Name]!
-       
-       Hi {{firstName}},
-       
-       Thanks for joining us! We're excited to have you on board.
-       
-       Here's what you can do next:
-       - Complete your profile
-       - Explore our features
-       - Check out our getting started guide
-       
-       If you have any questions, just reply to this email.
-       
-       Best regards,
-       The [Your App Name] Team
-     `
-   };
-   ```
+   - Create a new email template file following the existing project structure
+   - Define subject line and HTML/text content with placeholder variables
+   - Use template variables like `{{firstName}}` for personalization
+   - Style emails using inline CSS for better email client compatibility
 
 2. **Create Email Service**
-   ```typescript
-   // server/services/emailService.ts
-   import sgMail from '@sendgrid/mail';
-   import { welcomeEmailTemplate } from '../emails/welcome';
-   
-   sgMail.setApiKey(process.env.SENDGRID_API_KEY!);
-   
-   export async function sendWelcomeEmail(userEmail: string, firstName: string) {
-     const msg = {
-       to: userEmail,
-       from: 'hello@yourdomain.com', // Replace with your verified sender
-       subject: welcomeEmailTemplate.subject,
-       html: welcomeEmailTemplate.html.replace('{{firstName}}', firstName),
-       text: welcomeEmailTemplate.text.replace('{{firstName}}', firstName),
-     };
-     
-     try {
-       await sgMail.send(msg);
-       console.log('Welcome email sent to:', userEmail);
-     } catch (error) {
-       console.error('Error sending welcome email:', error);
-     }
-   }
-   ```
+   - Examine `server/lib/sendgrid.ts` for the existing SendGrid setup pattern
+   - Create a service that uses the existing SendGrid configuration
+   - Follow the error handling patterns found in other server services
+   - Look at `server/storage/` files for examples of service layer patterns
+   - Implement proper logging using the existing console.log patterns
 
 3. **Add to User Registration**
-   ```typescript
-   // Update server/routes/userRoutes.ts
-   import { sendWelcomeEmail } from '../services/emailService';
-   
-   // In your user creation/signup route:
-   router.post('/signup', async (req, res) => {
-     // ... existing signup logic
-     
-     // After user is created successfully:
-     await sendWelcomeEmail(user.email, user.firstName);
-     
-     res.json({ success: true });
-   });
-   ```
+   - Study `server/routes/userRoutes.ts` to understand the existing user creation flow
+   - Add email sending after successful user creation in the database
+   - Follow the existing async/await and error handling patterns
+   - Ensure email sending doesn't block the user registration response
 
 ### Option B: Notification Emails
 
 If user wants notification emails:
 
 1. **Create Notification Service**
-   ```typescript
-   // server/services/notificationService.ts
-   import sgMail from '@sendgrid/mail';
-   
-   export async function sendNotificationEmail(
-     userEmail: string,
-     subject: string,
-     message: string,
-     actionUrl?: string
-   ) {
-     const html = `
-       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-         <h2>${subject}</h2>
-         <p>${message}</p>
-         ${actionUrl ? `<a href="${actionUrl}" style="background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Take Action</a>` : ''}
-       </div>
-     `;
-     
-     const msg = {
-       to: userEmail,
-       from: 'notifications@yourdomain.com',
-       subject: subject,
-       html: html,
-       text: message,
-     };
-     
-     try {
-       await sgMail.send(msg);
-       console.log('Notification email sent to:', userEmail);
-     } catch (error) {
-       console.error('Error sending notification email:', error);
-     }
-   }
-   ```
+   - Build a flexible notification service that can handle different email types
+   - Reference the existing SendGrid setup in `server/lib/sendgrid.ts`
+   - Create reusable HTML email templates with action buttons
+   - Follow the async/await patterns used throughout the server code
+   - Implement proper error logging following existing patterns
 
 2. **Add Email Preferences to User Schema**
-   ```typescript
-   // Update shared/schema.ts
-   export const users = pgTable('users', {
-     // ... existing fields
-     emailNotifications: boolean('email_notifications').default(true),
-     marketingEmails: boolean('marketing_emails').default(false),
-   });
-   ```
+   - Study the existing user schema in `shared/schema.ts`
+   - Add boolean fields for different email preference categories
+   - Follow the existing column naming conventions (snake_case)
+   - Run `npm run db:push` after schema changes
 
 3. **Create Email Preferences Page**
-   ```tsx
-   // client/src/pages/EmailPreferences.tsx
-   import { useState } from 'react';
-   
-   export function EmailPreferences() {
-     const [preferences, setPreferences] = useState({
-       emailNotifications: true,
-       marketingEmails: false,
-     });
-     
-     const handleSave = async () => {
-       await fetch('/api/user/email-preferences', {
-         method: 'PUT',
-         headers: { 'Content-Type': 'application/json' },
-         body: JSON.stringify(preferences),
-       });
-     };
-     
-     return (
-       <div className="max-w-md mx-auto p-6">
-         <h2 className="text-2xl font-bold mb-4">Email Preferences</h2>
-         <div className="space-y-4">
-           <label className="flex items-center">
-             <input
-               type="checkbox"
-               checked={preferences.emailNotifications}
-               onChange={(e) => setPreferences({
-                 ...preferences,
-                 emailNotifications: e.target.checked
-               })}
-               className="mr-2"
-             />
-             Account notifications
-           </label>
-           <label className="flex items-center">
-             <input
-               type="checkbox"
-               checked={preferences.marketingEmails}
-               onChange={(e) => setPreferences({
-                 ...preferences,
-                 marketingEmails: e.target.checked
-               })}
-               className="mr-2"
-             />
-             Marketing emails
-           </label>
-           <button
-             onClick={handleSave}
-             className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-           >
-             Save Preferences
-           </button>
-         </div>
-       </div>
-     );
-   }
-   ```
+   - Look at existing pages in `client/src/pages/` for component structure
+   - Use existing UI components from `client/src/components/ui/`
+   - Follow the existing form patterns (see `UserProfileForm.tsx` for reference)
+   - Use the existing fetch patterns for API calls
+   - Apply consistent styling using Tailwind classes as seen in other components
 
 
 ## Step 3: Email Setup Requirements
@@ -247,19 +99,11 @@ If user wants notification emails:
    - Monitor bounce rates in SendGrid
 
 3. **Set Up Unsubscribe Handling**
-   ```typescript
-   // server/routes/unsubscribe.ts
-   router.get('/unsubscribe', async (req, res) => {
-     const { email } = req.query;
-     
-     // Update user preferences
-     await db.update(users)
-       .set({ marketingEmails: false })
-       .where(eq(users.email, email));
-     
-     res.send('You have been unsubscribed successfully.');
-   });
-   ```
+   - Create an unsubscribe route following patterns in `server/routes/`
+   - Use the existing database update patterns from `server/storage/UserStorage.ts`
+   - Implement proper query parameter validation
+   - Return appropriate success messages following existing API response patterns
+   - Consider adding a simple unsubscribe confirmation page
 
 ## Step 4: Testing Instructions
 

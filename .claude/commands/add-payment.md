@@ -39,75 +39,47 @@ Ask these focused questions to minimize scope:
 If user wants to add another subscription tier:
 
 1. **Update Stripe Dashboard**
-   - Create new Price ID in Stripe
+   - Create new Price ID in Stripe Dashboard
    - Note the price ID (starts with `price_`)
+   - Configure recurring billing settings
 
 2. **Update Environment Variables**
-   ```env
-   STRIPE_PRICE_ID_PREMIUM="price_your_new_price_id"
-   ```
+   - Add new price ID to your `.env` file following existing patterns
+   - Use the same naming convention as existing Stripe variables
 
 3. **Update Database Schema** (if needed)
-   Add new subscription type to `shared/schema.ts`:
-   ```typescript
-   subscriptionType: text("subscription_type").$type<"free" | "pro" | "premium">().default("free"),
-   ```
+   - Study the existing user schema in `shared/schema.ts`
+   - Add new subscription types following the existing enum pattern
+   - Run `npm run db:push` after schema changes
 
 4. **Update Pricing Page**
-   Add new pricing tier to `client/src/pages/pricing.tsx`
+   - Examine `client/src/pages/pricing.tsx` for existing tier structure
+   - Add new tier following the existing component patterns
+   - Use existing UI components and styling patterns
 
 5. **Update Checkout Logic**
-   Modify `server/routes/paymentRoutes.ts` to handle new tier
+   - Study `server/routes/paymentRoutes.ts` for existing checkout session creation
+   - Add handling for new tier following existing patterns
+   - Maintain the existing webhook integration
 
 ### Option B: One-Time Purchase
 
 If user wants one-time payments:
 
 1. **Create One-Time Payment Route**
-   ```typescript
-   // Add to server/routes/paymentRoutes.ts
-   router.post('/create-one-time-session', async (req, res) => {
-     const { priceId, successUrl, cancelUrl } = req.body;
-     
-     const session = await stripe.checkout.sessions.create({
-       payment_method_types: ['card'],
-       line_items: [{
-         price: priceId,
-         quantity: 1,
-       }],
-       mode: 'payment', // One-time payment
-       success_url: successUrl,
-       cancel_url: cancelUrl,
-       customer_email: req.user.email,
-     });
-     
-     res.json({ sessionId: session.id });
-   });
-   ```
+   - Add new route to `server/routes/paymentRoutes.ts` following existing patterns
+   - Use existing Stripe initialization and error handling patterns
+   - Set mode to 'payment' instead of 'subscription'
+   - Follow existing request validation and response patterns
+   - Use existing authentication middleware patterns
 
 2. **Update Webhook Handler**
-   Add one-time payment handling to `server/routes/paymentRoutes.ts`:
-   ```typescript
-   // Add to existing webhook handler
-   if (event.type === 'payment_intent.succeeded') {
-     const paymentIntent = event.data.object;
-     const customerId = paymentIntent.customer;
-     
-     // Find user by Stripe customer ID
-     const user = await db.select().from(users).where(eq(users.stripeCustomerId, customerId));
-     
-     if (user.length > 0) {
-       // Grant access to purchased product/service
-       await db.update(users)
-         .set({ 
-           // Update relevant fields based on what was purchased
-           // For example, if it's a feature unlock:
-           // hasFeatureX: true,
-           // purchasedAt: new Date()
-         })
-         .where(eq(users.firebaseId, user[0].firebaseId));
-     }
-   }
+   - Study the existing webhook handler in `server/routes/paymentRoutes.ts`
+   - Add handling for `payment_intent.succeeded` event
+   - Follow existing database query patterns with Drizzle ORM
+   - Use existing user update patterns from `server/storage/UserStorage.ts`
+   - Implement proper error handling following existing webhook patterns
+   - Update user fields based on purchased product/service
    ```
 
 ### Option C: Usage-Based Pricing
@@ -115,76 +87,24 @@ If user wants one-time payments:
 If user wants pay-per-use:
 
 1. **Track Usage in Database**
-   Add usage tracking table to `shared/schema.ts`:
-   ```typescript
-   export const usage = pgTable('usage', {
-     id: serial('id').primaryKey(),
-     userId: text('user_id').references(() => users.firebaseId),
-     action: text('action'), // e.g., 'api_call', 'generation'
-     cost: integer('cost'), // in cents
-     createdAt: timestamp('created_at').defaultNow(),
-   });
-   ```
+   - Add usage table to `shared/schema.ts` following existing table patterns
+   - Include userId reference following existing foreign key patterns
+   - Track action type, cost in cents, and timestamps
+   - Run `npm run db:push` after schema changes
 
 2. **Create Usage Tracking Function**
-   ```typescript
-   // server/storage/usage.ts
-   export async function trackUsage(userId: string, action: string, cost: number) {
-     await db.insert(usage).values({
-       userId,
-       action,
-       cost,
-       createdAt: new Date(),
-     });
-   }
-   ```
+   - Create usage storage service in `server/storage/` following existing patterns
+   - Study `server/storage/UserStorage.ts` for service layer patterns
+   - Implement tracking function with proper error handling
+   - Use existing database connection and query patterns
 
 3. **Create Billing Route**
-   Add monthly billing logic to charge accumulated usage:
-   ```typescript
-   // server/routes/paymentRoutes.ts
-   router.post('/create-usage-invoice', async (req, res) => {
-     try {
-       const userId = req.user.firebaseId;
-       const user = await db.select().from(users).where(eq(users.firebaseId, userId));
-       
-       if (!user[0]?.stripeCustomerId) {
-         return res.status(400).json({ error: 'No Stripe customer found' });
-       }
-       
-       // Get usage for billing period
-       const usageRecords = await db.select().from(usage)
-         .where(eq(usage.userId, userId))
-         // Add date filter for billing period
-         
-       const totalCost = usageRecords.reduce((sum, record) => sum + record.cost, 0);
-       
-       if (totalCost > 0) {
-         // Create invoice item
-         await stripe.invoiceItems.create({
-           customer: user[0].stripeCustomerId,
-           amount: totalCost,
-           currency: 'usd',
-           description: 'Usage charges',
-         });
-         
-         // Create and send invoice
-         const invoice = await stripe.invoices.create({
-           customer: user[0].stripeCustomerId,
-           auto_advance: true,
-         });
-         
-         await stripe.invoices.finalizeInvoice(invoice.id);
-         
-         res.json({ invoiceId: invoice.id, amount: totalCost });
-       } else {
-         res.json({ message: 'No usage to bill' });
-       }
-     } catch (error) {
-       console.error('Billing error:', error);
-       res.status(500).json({ error: 'Failed to create invoice' });
-     }
-   });
+   - Add billing route to `server/routes/paymentRoutes.ts`
+   - Follow existing authentication and error handling patterns
+   - Query usage records using existing Drizzle ORM patterns
+   - Use Stripe invoice API following existing Stripe integration patterns
+   - Implement proper date filtering for billing periods
+   - Follow existing response patterns for success and error cases
    ```
 
 ## Step 3: Webhook Integration Setup
@@ -201,117 +121,60 @@ The template already handles these webhook events in `server/routes/paymentRoute
 ### Adding New Webhook Events
 
 1. **Extend Webhook Handler**
-   ```typescript
-   // Add to existing webhook handler in server/routes/paymentRoutes.ts
-   
-   // Handle additional events based on your payment type
-   switch (event.type) {
-     case 'payment_intent.succeeded':
-       // Handle one-time payments
-       await handleOneTimePayment(event.data.object);
-       break;
-       
-     case 'invoice.created':
-       // Handle usage-based billing
-       await handleUsageInvoice(event.data.object);
-       break;
-       
-     case 'customer.subscription.trial_will_end':
-       // Send trial ending notification
-       await handleTrialEnding(event.data.object);
-       break;
-       
-     case 'payment_method.attached':
-       // Handle new payment method
-       await handleNewPaymentMethod(event.data.object);
-       break;
-   }
-   ```
+   - Study the existing webhook handler in `server/routes/paymentRoutes.ts`
+   - Add new event types to the existing switch statement
+   - Follow the existing event handling structure and patterns
+   - Maintain the existing error handling and logging patterns
+   - Add handlers for: payment_intent.succeeded, invoice.created, subscription events
 
 2. **Create Event Handlers**
-   ```typescript
-   // Add these functions to server/routes/paymentRoutes.ts
-   
-   async function handleOneTimePayment(paymentIntent: any) {
-     try {
-       const customerId = paymentIntent.customer;
-       const user = await db.select().from(users)
-         .where(eq(users.stripeCustomerId, customerId));
-       
-       if (user.length > 0) {
-         // Update user with purchased features
-         await db.update(users)
-           .set({ 
-             // Add purchased features based on payment metadata
-             isPremium: true,
-             purchasedAt: new Date()
-           })
-           .where(eq(users.firebaseId, user[0].firebaseId));
-       }
-     } catch (error) {
-       console.error('Error handling one-time payment:', error);
-     }
-   }
-   
-   async function handleUsageInvoice(invoice: any) {
-     try {
-       const customerId = invoice.customer;
-       const user = await db.select().from(users)
-         .where(eq(users.stripeCustomerId, customerId));
-       
-       if (user.length > 0) {
-         // Mark usage as billed
-         await db.update(usage)
-           .set({ billed: true })
-           .where(eq(usage.userId, user[0].firebaseId));
-       }
-     } catch (error) {
-       console.error('Error handling usage invoice:', error);
-     }
-   }
+   - Create handler functions following existing patterns in the file
+   - Use existing database query patterns with Drizzle ORM
+   - Follow existing user lookup and update patterns
+   - Implement proper error handling and logging
+   - Use existing async/await patterns
+   - Update user records following patterns in `server/storage/UserStorage.ts`
+   - Mark usage as billed following existing data update patterns
    ```
 
 3. **Configure Webhook Endpoint in Stripe**
-   - Go to Stripe Dashboard → Webhooks
-   - Add endpoint: `https://yourdomain.com/api/webhook`
-   - Select events you want to listen to
-   - Copy webhook secret to environment variables
+   - Set up webhook endpoint in Stripe Dashboard
+   - Use the existing webhook URL pattern (`/api/webhook`)
+   - Select appropriate events for your payment type
+   - Add webhook secret to environment variables following existing patterns
 
 4. **Test Webhook Locally**
-   ```bash
-   # Install Stripe CLI
-   stripe listen --forward-to localhost:5000/api/webhook
-   
-   # Test webhook events
-   stripe trigger checkout.session.completed
-   stripe trigger payment_intent.succeeded
+   - Use Stripe CLI for local webhook testing
+   - Forward webhooks to the existing local webhook endpoint
+   - Test with relevant event types for your implementation
+   - Verify webhook signature validation is working
    ```
 
 ## Step 4: Testing Instructions
 
 1. **Test Webhook Integration**
-   - [ ] Webhook endpoint receives events
-   - [ ] Events are properly verified (signature check)
-   - [ ] Database updates correctly on events
-   - [ ] Error handling works for failed webhooks
+   - Verify webhook endpoint receives events using existing webhook handler
+   - Test signature verification using existing security patterns
+   - Check database updates follow existing transaction patterns
+   - Ensure error handling matches existing webhook error patterns
 
 2. **Test Payment Flows**
-   - [ ] Use test card: 4242 4242 4242 4242
-   - [ ] Check webhook delivery in Stripe Dashboard
-   - [ ] Verify customer is created/updated
-   - [ ] Confirm user permissions are updated
+   - Use Stripe test cards with existing checkout flow
+   - Monitor webhook delivery in Stripe Dashboard
+   - Verify customer creation follows existing patterns
+   - Confirm user permission updates work with existing user management
 
 3. **Test User Experience**
-   - [ ] Payment flow works smoothly
-   - [ ] User gets access to paid features immediately
-   - [ ] Billing portal works for management
-   - [ ] Email confirmations are sent
+   - Test payment flow integration with existing UI components
+   - Verify feature access using existing authentication patterns
+   - Check billing portal integration with existing user routes
+   - Test email notifications using existing email system
 
 4. **Test Edge Cases**
-   - [ ] Payment failures are handled gracefully
-   - [ ] Subscription cancellations work
-   - [ ] User permissions are updated correctly
-   - [ ] Failed webhook retries work
+   - Test payment failures with existing error handling
+   - Verify cancellation flow with existing subscription management
+   - Check permission updates with existing user storage patterns
+   - Test webhook retry handling with existing error logging
 
 ## Step 5: Next Steps
 

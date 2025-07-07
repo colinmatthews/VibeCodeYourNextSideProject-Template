@@ -1,14 +1,15 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "./use-auth";
+import { getQueryFn } from "../lib/queryClient";
 import type { User } from "@shared/schema";
 
 export function useUser() {
   const { user: firebaseUser } = useAuth();
   
   const { data: user } = useQuery<User>({
-    queryKey: ['user', firebaseUser?.uid],
-    queryFn: () => fetch(`/api/users/${firebaseUser?.uid}`).then(res => res.json()),
+    queryKey: [`/api/users/${firebaseUser?.uid}`],
+    queryFn: getQueryFn({ on401: "returnNull" }),
     enabled: !!firebaseUser?.uid,
   });
 

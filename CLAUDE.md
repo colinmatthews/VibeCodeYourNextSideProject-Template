@@ -7,7 +7,7 @@ This document provides comprehensive information for Claude AI when working on t
 This is a **full-stack web application template** designed for rapid side project development with:
 - **Frontend**: React + TypeScript + Vite + TailwindCSS + shadcn/ui
 - **Backend**: Node.js + Express + TypeScript
-- **Database**: PostgreSQL (via Render) + Drizzle ORM
+- **Database**: PostgreSQL (via Neon) + Drizzle ORM
 - **Authentication**: Firebase Auth
 - **File Storage**: Firebase Storage with secure file management
 - **Payments**: Stripe Checkout (simplified payment flow)
@@ -51,7 +51,7 @@ This is a **full-stack web application template** designed for rapid side projec
 ### Backend
 - **Express** server with TypeScript
 - **Drizzle ORM** for database operations
-- **PostgreSQL** (Render hosted) database
+- **PostgreSQL** (Neon hosted) database
 - **Stripe** for payments and subscriptions
 - **SendGrid** for email
 - **Express Session** for session management
@@ -61,12 +61,12 @@ This is a **full-stack web application template** designed for rapid side projec
 Required environment variables (found in `.env`):
 
 ```env
-# Database (Render PostgreSQL)
-DATABASE_URL="postgresql://..."  # Automatically provided by Render
+# Database (Neon PostgreSQL)
+DATABASE_URL="postgresql://..."  # Automatically provided by Neon
 PGDATABASE="your_database_name"
-PGHOST="..."  # Provided by Render
-PGUSER="..."  # Provided by Render
-PGPASSWORD="..."  # Provided by Render
+PGHOST="..."  # Provided by Neon
+PGUSER="..."  # Provided by Neon
+PGPASSWORD="..."  # Provided by Neon
 PGPORT="5432"
 
 # Session
@@ -293,10 +293,10 @@ stripe listen --forward-to localhost:5000/api/webhook
 ```
 
 ### Database Testing
-- Database is hosted on Render (PostgreSQL)
-- Connection string automatically provided by Render in DATABASE_URL
+- Database is hosted on Neon (PostgreSQL)
+- Connection string automatically provided by Neon in DATABASE_URL
 - Use `npm run db:push` for schema updates
-- Access database via Render dashboard or connect with external tools
+- Access database via Neon dashboard or connect with external tools
 
 ### Firebase Storage Testing
 - Test file uploads with various file types and sizes
@@ -308,7 +308,7 @@ stripe listen --forward-to localhost:5000/api/webhook
 ## Deployment Considerations
 
 1. **Environment Variables**: Set all required env vars
-2. **Database**: Render PostgreSQL database will be automatically created and connected
+2. **Database**: Neon PostgreSQL database will be automatically created and connected
 3. **Stripe Webhooks**: Configure webhook endpoint in Stripe Dashboard
 4. **Firebase**: Ensure Firebase project is properly configured
 5. **Firebase Storage**: Deploy security rules from `firebase-storage.rules`

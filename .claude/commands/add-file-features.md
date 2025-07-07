@@ -61,699 +61,113 @@ Ask these focused questions to minimize scope:
 If user wants file sharing capabilities:
 
 1. **Extend Database Schema**
-   ```typescript
-   // Add to shared/schema.ts (existing file)
-   export const fileShares = pgTable('file_shares', {
-     id: serial('id').primaryKey(),
-     fileId: integer('file_id').references(() => files.id),
-     shareToken: text('share_token').unique().notNull(),
-     shareType: text('share_type').$type<'public' | 'user_specific' | 'password'>().default('public'),
-     password: text('password'), // hashed password for protected shares
-     expiresAt: timestamp('expires_at'),
-     allowDownload: boolean('allow_download').default(true),
-     allowView: boolean('allow_view').default(true),
-     createdBy: text('created_by').references(() => users.firebaseId),
-     createdAt: timestamp('created_at').defaultNow(),
-   });
-   
-   export const fileShareAccess = pgTable('file_share_access', {
-     id: serial('id').primaryKey(),
-     shareId: integer('share_id').references(() => fileShares.id),
-     userId: text('user_id').references(() => users.firebaseId),
-     accessedAt: timestamp('accessed_at').defaultNow(),
-   });
-   ```
+   - Study the existing file schema in `shared/schema.ts`
+   - Add new tables for file sharing following the existing naming conventions
+   - Include fields for share tokens, permissions, expiration, and access tracking
+   - Use the same column types and references pattern as existing tables
+   - Follow the existing foreign key relationship patterns (e.g., `references(() => users.firebaseId)`)
+   - Run `npm run db:push` to apply schema changes
 
 2. **Extend Existing FileStorage Service**
-   ```typescript
-   // Add to server/storage/FileStorage.ts (existing file)
-   import { nanoid } from 'nanoid';
-   import { fileShares } from '../../shared/schema';
-   
-   export async function createFileShare(
-     fileId: number,
-     userId: string,
-     options: {
-       shareType: 'public' | 'password';
-       password?: string;
-       expiresAt?: Date;
-       allowDownload?: boolean;
-     }
-   ) {
-     const shareToken = nanoid(32);
-     
-     const [share] = await db.insert(fileShares).values({
-       fileId,
-       shareToken,
-       shareType: options.shareType,
-       password: options.password, // Should be hashed
-       expiresAt: options.expiresAt,
-       allowDownload: options.allowDownload ?? true,
-       createdBy: userId,
-     }).returning();
-     
-     return share;
-   }
-   
-   export async function getFileByShareToken(shareToken: string) {
-     const result = await db
-       .select({
-         file: files,
-         share: fileShares,
-       })
-       .from(fileShares)
-       .innerJoin(files, eq(fileShares.fileId, files.id))
-       .where(eq(fileShares.shareToken, shareToken))
-       .limit(1);
-     
-     return result[0] || null;
-   }
-   ```
+   - Open `server/storage/FileStorage.ts` to understand the existing patterns
+   - Add new functions following the existing async/await patterns
+   - Use the existing database query patterns with Drizzle ORM
+   - Generate unique share tokens (consider using nanoid library)
+   - Follow the existing error handling and return patterns
+   - Implement password hashing if using password-protected shares
+   - Use the existing `db` import and query builder patterns
 
 3. **Extend Existing File Routes**
-   ```typescript
-   // Add to server/routes/fileRoutes.ts (existing file)
-   import { createFileShare, getFileByShareToken } from '../storage/FileStorage';
-   
-   router.post('/files/:id/share', requiresAuth, async (req, res) => {
-     try {
-       const fileId = parseInt(req.params.id);
-       const userId = req.user.firebaseId;
-       const { shareType, password, expiresAt, allowDownload } = req.body;
-       
-       // Use existing getFileById from FileStorage
-       const file = await fileStorage.getFileById(fileId);
-       if (!file || file.userId !== userId) {
-         return res.status(404).json({ error: 'File not found' });
-       }
-       
-       const share = await createFileShare(fileId, userId, {
-         shareType,
-         password,
-         expiresAt: expiresAt ? new Date(expiresAt) : undefined,
-         allowDownload,
-       });
-       
-       const shareUrl = `${req.protocol}://${req.get('host')}/share/${share.shareToken}`;
-       
-       res.json({
-         shareToken: share.shareToken,
-         shareUrl,
-         expiresAt: share.expiresAt,
-       });
-       
-     } catch (error) {
-       console.error('Error creating file share:', error);
-       res.status(500).json({ error: 'Failed to create share link' });
-     }
-   });
-   
-   router.get('/share/:token', async (req, res) => {
-     try {
-       const { token } = req.params;
-       const result = await getFileByShareToken(token);
-       
-       if (!result) {
-         return res.status(404).json({ error: 'Share link not found or expired' });
-       }
-       
-       const { file, share } = result;
-       
-       // Check if share is expired
-       if (share.expiresAt && new Date() > share.expiresAt) {
-         return res.status(410).json({ error: 'Share link has expired' });
-       }
-       
-       res.json({
-         file: {
-           id: file.id,
-           name: file.name,
-           originalName: file.originalName,
-           size: file.size,
-           type: file.type,
-           url: file.url,
-         },
-         share: {
-           allowDownload: share.allowDownload,
-           allowView: share.allowView,
-           requiresPassword: share.shareType === 'password',
-         },
-       });
-       
-     } catch (error) {
-       console.error('Error accessing shared file:', error);
-       res.status(500).json({ error: 'Failed to access shared file' });
-     }
-   });
-   ```
+   - Study `server/routes/fileRoutes.ts` for existing route patterns
+   - Add new routes following the existing RESTful conventions
+   - Use the existing `requiresAuth` middleware pattern for protected routes
+   - Follow the existing error handling and response patterns
+   - Utilize the existing FileStorage methods (like `getFileById`)
+   - Implement proper validation for route parameters
+   - Generate full share URLs using request protocol and host
+   - Handle expiration checks and access control logic
 
 4. **Create File Sharing Component**
-   ```tsx
-   // client/src/components/FileShareDialog.tsx
-   import { useState } from 'react';
-   import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
-   import { Button } from './ui/button';
-   import { Input } from './ui/input';
-   import { Label } from './ui/label';
-   import { Switch } from './ui/switch';
-   import { Share2, Copy, Check } from 'lucide-react';
-   import { useToast } from './ui/use-toast'; // Use existing toast system
-   
-   interface FileShareDialogProps {
-     fileId: number;
-     fileName: string;
-   }
-   
-   export function FileShareDialog({ fileId, fileName }: FileShareDialogProps) {
-     const [shareUrl, setShareUrl] = useState('');
-     const [isCreating, setIsCreating] = useState(false);
-     const [copied, setCopied] = useState(false);
-     const [settings, setSettings] = useState({
-       requirePassword: false,
-       password: '',
-       allowDownload: true,
-       expiresIn: '7', // days
-     });
-     const { toast } = useToast(); // Use existing toast system
-   
-     const createShareLink = async () => {
-       setIsCreating(true);
-       try {
-         const expiresAt = new Date();
-         expiresAt.setDate(expiresAt.getDate() + parseInt(settings.expiresIn));
-         
-         const response = await fetch(`/api/files/${fileId}/share`, {
-           method: 'POST',
-           headers: { 'Content-Type': 'application/json' },
-           body: JSON.stringify({
-             shareType: settings.requirePassword ? 'password' : 'public',
-             password: settings.requirePassword ? settings.password : undefined,
-             allowDownload: settings.allowDownload,
-             expiresAt: expiresAt.toISOString(),
-           }),
-         });
-         
-         const data = await response.json();
-         if (response.ok) {
-           setShareUrl(data.shareUrl);
-           toast({
-             title: "Share link created",
-             description: "File share link has been created successfully.",
-           });
-         } else {
-           throw new Error(data.error || 'Failed to create share link');
-         }
-       } catch (error) {
-         console.error('Error creating share link:', error);
-         toast({
-           title: "Error",
-           description: "Failed to create share link. Please try again.",
-           variant: "destructive",
-         });
-       } finally {
-         setIsCreating(false);
-       }
-     };
-   
-     const copyToClipboard = async () => {
-       await navigator.clipboard.writeText(shareUrl);
-       setCopied(true);
-       setTimeout(() => setCopied(false), 2000);
-       toast({
-         title: "Link copied",
-         description: "Share link has been copied to clipboard.",
-       });
-     };
-   
-     return (
-       <Dialog>
-         <DialogTrigger asChild>
-           <Button variant="outline" size="sm">
-             <Share2 size={16} className="mr-2" />
-             Share
-           </Button>
-         </DialogTrigger>
-         <DialogContent className="sm:max-w-md">
-           <DialogHeader>
-             <DialogTitle>Share "{fileName}"</DialogTitle>
-           </DialogHeader>
-           
-           <div className="space-y-4">
-             <div className="space-y-2">
-               <Label>Expires in</Label>
-               <select
-                 value={settings.expiresIn}
-                 onChange={(e) => setSettings({...settings, expiresIn: e.target.value})}
-                 className="w-full p-2 border rounded"
-               >
-                 <option value="1">1 day</option>
-                 <option value="7">7 days</option>
-                 <option value="30">30 days</option>
-                 <option value="365">1 year</option>
-               </select>
-             </div>
-             
-             <div className="flex items-center space-x-2">
-               <Switch
-                 id="password"
-                 checked={settings.requirePassword}
-                 onCheckedChange={(checked) => setSettings({...settings, requirePassword: checked})}
-               />
-               <Label htmlFor="password">Require password</Label>
-             </div>
-             
-             {settings.requirePassword && (
-               <div className="space-y-2">
-                 <Label>Password</Label>
-                 <Input
-                   type="password"
-                   value={settings.password}
-                   onChange={(e) => setSettings({...settings, password: e.target.value})}
-                   placeholder="Enter password"
-                 />
-               </div>
-             )}
-             
-             <div className="flex items-center space-x-2">
-               <Switch
-                 id="download"
-                 checked={settings.allowDownload}
-                 onCheckedChange={(checked) => setSettings({...settings, allowDownload: checked})}
-               />
-               <Label htmlFor="download">Allow download</Label>
-             </div>
-             
-             {!shareUrl ? (
-               <Button onClick={createShareLink} disabled={isCreating} className="w-full">
-                 {isCreating ? 'Creating...' : 'Create Share Link'}
-               </Button>
-             ) : (
-               <div className="space-y-2">
-                 <Label>Share Link</Label>
-                 <div className="flex gap-2">
-                   <Input value={shareUrl} readOnly />
-                   <Button onClick={copyToClipboard} variant="outline">
-                     {copied ? <Check size={16} /> : <Copy size={16} />}
-                   </Button>
-                 </div>
-               </div>
-             )}
-           </div>
-         </DialogContent>
-       </Dialog>
-     );
-   }
-   ```
+   - Look at existing dialog components for patterns (e.g., file upload dialogs)
+   - Use the existing UI components from `client/src/components/ui/`
+   - Follow the existing state management patterns with React hooks
+   - Integrate with the existing toast notification system (`use-toast`)
+   - Use the existing fetch patterns for API calls
+   - Implement proper loading and error states following existing patterns
+   - Use Lucide React icons consistently with other components
+   - Apply Tailwind classes following the existing style patterns
 
 ### Option B: File Organization with Folders
 
 If user wants folder organization:
 
 1. **Create Folder Database Schema**
-   ```typescript
-   // Add to shared/schema.ts (existing file)
-   export const folders = pgTable('folders', {
-     id: serial('id').primaryKey(),
-     name: text('name').notNull(),
-     parentId: integer('parent_id').references(() => folders.id),
-     userId: text('user_id').references(() => users.firebaseId),
-     createdAt: timestamp('created_at').defaultNow(),
-     updatedAt: timestamp('updated_at').defaultNow(),
-   });
-   
-   // Update existing files table to include folder reference
-   // Add this column to existing files table in shared/schema.ts:
-   // folderId: integer('folder_id').references(() => folders.id),
-   ```
+   - Add a folders table to `shared/schema.ts` following existing patterns
+   - Include self-referencing parentId for nested folder structure
+   - Add userId field following the existing foreign key pattern
+   - Update the existing files table to include a folderId reference
+   - Use the same timestamp patterns (createdAt, updatedAt)
+   - Run `npm run db:push` after schema changes
 
 2. **Create Folder Management Component**
-   ```tsx
-   // client/src/components/FolderTree.tsx
-   import { useState, useEffect } from 'react';
-   import { Folder, FolderOpen, File, Plus, MoreVertical } from 'lucide-react';
-   import { Button } from './ui/button';
-   import { Input } from './ui/input';
-   import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
-   import { useToast } from './ui/use-toast'; // Use existing toast system
-   
-   interface FolderNode {
-     id: number;
-     name: string;
-     parentId: number | null;
-     children: FolderNode[];
-     files: FileNode[];
-   }
-   
-   interface FileNode {
-     id: number;
-     name: string;
-     type: string;
-     size: number;
-   }
-   
-   export function FolderTree() {
-     const [folders, setFolders] = useState<FolderNode[]>([]);
-     const [expandedFolders, setExpandedFolders] = useState<Set<number>>(new Set());
-     const [selectedFolder, setSelectedFolder] = useState<number | null>(null);
-     const [newFolderName, setNewFolderName] = useState('');
-     const [isCreating, setIsCreating] = useState(false);
-     const { toast } = useToast(); // Use existing toast system
-   
-     useEffect(() => {
-       fetchFolders();
-     }, []);
-   
-     const fetchFolders = async () => {
-       try {
-         const response = await fetch('/api/folders');
-         if (response.ok) {
-           const data = await response.json();
-           setFolders(data);
-         }
-       } catch (error) {
-         console.error('Error fetching folders:', error);
-         toast({
-           title: "Error",
-           description: "Failed to load folders. Please try again.",
-           variant: "destructive",
-         });
-       }
-     };
-   
-     const createFolder = async () => {
-       if (!newFolderName.trim()) return;
-       
-       setIsCreating(true);
-       try {
-         const response = await fetch('/api/folders', {
-           method: 'POST',
-           headers: { 'Content-Type': 'application/json' },
-           body: JSON.stringify({
-             name: newFolderName,
-             parentId: selectedFolder,
-           }),
-         });
-         
-         if (response.ok) {
-           setNewFolderName('');
-           fetchFolders();
-           toast({
-             title: "Folder created",
-             description: `Folder "${newFolderName}" has been created successfully.`,
-           });
-         } else {
-           throw new Error('Failed to create folder');
-         }
-       } catch (error) {
-         console.error('Error creating folder:', error);
-         toast({
-           title: "Error",
-           description: "Failed to create folder. Please try again.",
-           variant: "destructive",
-         });
-       } finally {
-         setIsCreating(false);
-       }
-     };
-   
-     const toggleFolder = (folderId: number) => {
-       const newExpanded = new Set(expandedFolders);
-       if (newExpanded.has(folderId)) {
-         newExpanded.delete(folderId);
-       } else {
-         newExpanded.add(folderId);
-       }
-       setExpandedFolders(newExpanded);
-     };
-   
-     const renderFolder = (folder: FolderNode, level: number = 0) => {
-       const isExpanded = expandedFolders.has(folder.id);
-       
-       return (
-         <div key={folder.id} className="select-none">
-           <div
-             className={`flex items-center gap-2 p-2 hover:bg-gray-50 cursor-pointer ${
-               selectedFolder === folder.id ? 'bg-blue-50' : ''
-             }`}
-             style={{ paddingLeft: `${level * 20 + 8}px` }}
-             onClick={() => setSelectedFolder(folder.id)}
-           >
-             <button
-               onClick={(e) => {
-                 e.stopPropagation();
-                 toggleFolder(folder.id);
-               }}
-               className="p-1 hover:bg-gray-200 rounded"
-             >
-               {isExpanded ? <FolderOpen size={16} /> : <Folder size={16} />}
-             </button>
-             <span className="flex-1">{folder.name}</span>
-             <DropdownMenu>
-               <DropdownMenuTrigger asChild>
-                 <Button variant="ghost" size="sm">
-                   <MoreVertical size={16} />
-                 </Button>
-               </DropdownMenuTrigger>
-               <DropdownMenuContent>
-                 <DropdownMenuItem>Rename</DropdownMenuItem>
-                 <DropdownMenuItem>Delete</DropdownMenuItem>
-               </DropdownMenuContent>
-             </DropdownMenu>
-           </div>
-           
-           {isExpanded && (
-             <div>
-               {folder.children.map(child => renderFolder(child, level + 1))}
-               {folder.files.map(file => (
-                 <div
-                   key={file.id}
-                   className="flex items-center gap-2 p-2 hover:bg-gray-50"
-                   style={{ paddingLeft: `${(level + 1) * 20 + 8}px` }}
-                 >
-                   <File size={16} />
-                   <span className="flex-1">{file.name}</span>
-                   <span className="text-xs text-gray-500">
-                     {(file.size / 1024 / 1024).toFixed(1)} MB
-                   </span>
-                 </div>
-               ))}
-             </div>
-           )}
-         </div>
-       );
-     };
-   
-     return (
-       <div className="border rounded-lg p-4">
-         <div className="flex items-center gap-2 mb-4">
-           <Input
-             value={newFolderName}
-             onChange={(e) => setNewFolderName(e.target.value)}
-             placeholder="New folder name"
-             className="flex-1"
-           />
-           <Button onClick={createFolder} disabled={isCreating || !newFolderName.trim()}>
-             <Plus size={16} />
-           </Button>
-         </div>
-         
-         <div className="space-y-1">
-           {folders.map(folder => renderFolder(folder))}
-         </div>
-       </div>
-     );
-   }
-   ```
+   - Study existing component patterns in `client/src/components/`
+   - Build a tree structure component for folder hierarchy
+   - Use existing UI components (Button, Input, DropdownMenu)
+   - Implement expand/collapse functionality with state management
+   - Follow existing fetch patterns for API communication
+   - Use the existing toast system for user feedback
+   - Apply consistent hover and selection states with Tailwind
+   - Handle nested folder rendering with proper indentation
 
 ### Option C: File Tags and Search
 
 If user wants tagging and search:
 
 1. **Create Tags Database Schema**
-   ```typescript
-   // Add to shared/schema.ts (existing file)
-   export const tags = pgTable('tags', {
-     id: serial('id').primaryKey(),
-     name: text('name').notNull(),
-     color: text('color').default('#3b82f6'),
-     userId: text('user_id').references(() => users.firebaseId),
-     createdAt: timestamp('created_at').defaultNow(),
-   });
-   
-   export const fileTags = pgTable('file_tags', {
-     fileId: integer('file_id').references(() => files.id),
-     tagId: integer('tag_id').references(() => tags.id),
-   });
-   ```
+   - Add tags and file_tags tables to `shared/schema.ts`
+   - Follow the existing foreign key patterns for relationships
+   - Include user-specific tags with userId reference
+   - Create a many-to-many relationship table (file_tags)
+   - Add color field for visual tag differentiation
+   - Run `npm run db:push` to apply changes
 
 2. **Create File Search Component**
-   ```tsx
-   // client/src/components/FileSearch.tsx
-   import { useState, useEffect } from 'react';
-   import { Search, Tag, X } from 'lucide-react';
-   import { Input } from './ui/input';
-   import { Badge } from './ui/badge';
-   import { useToast } from './ui/use-toast'; // Use existing toast system
-   
-   interface FileSearchProps {
-     onFilesChange: (files: any[]) => void;
-   }
-   
-   export function FileSearch({ onFilesChange }: FileSearchProps) {
-     const [searchTerm, setSearchTerm] = useState('');
-     const [selectedTags, setSelectedTags] = useState<number[]>([]);
-     const [availableTags, setAvailableTags] = useState<any[]>([]);
-     const [fileType, setFileType] = useState('all');
-   
-     useEffect(() => {
-       fetchTags();
-     }, []);
-   
-     useEffect(() => {
-       searchFiles();
-     }, [searchTerm, selectedTags, fileType]);
-   
-     const fetchTags = async () => {
-       const response = await fetch('/api/tags');
-       const data = await response.json();
-       setAvailableTags(data);
-     };
-   
-     const searchFiles = async () => {
-       const params = new URLSearchParams();
-       if (searchTerm) params.append('search', searchTerm);
-       if (selectedTags.length > 0) params.append('tags', selectedTags.join(','));
-       if (fileType !== 'all') params.append('type', fileType);
-   
-       const response = await fetch(`/api/files/search?${params}`);
-       const data = await response.json();
-       onFilesChange(data);
-     };
-   
-     const toggleTag = (tagId: number) => {
-       setSelectedTags(prev =>
-         prev.includes(tagId)
-           ? prev.filter(id => id !== tagId)
-           : [...prev, tagId]
-       );
-     };
-   
-     return (
-       <div className="space-y-4">
-         <div className="flex gap-2">
-           <div className="relative flex-1">
-             <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-             <Input
-               value={searchTerm}
-               onChange={(e) => setSearchTerm(e.target.value)}
-               placeholder="Search files..."
-               className="pl-10"
-             />
-           </div>
-           <select
-             value={fileType}
-             onChange={(e) => setFileType(e.target.value)}
-             className="px-3 py-2 border rounded-md"
-           >
-             <option value="all">All types</option>
-             <option value="image">Images</option>
-             <option value="document">Documents</option>
-             <option value="video">Videos</option>
-             <option value="audio">Audio</option>
-           </select>
-         </div>
-   
-         <div className="space-y-2">
-           <div className="flex items-center gap-2">
-             <Tag size={16} />
-             <span className="text-sm font-medium">Tags</span>
-           </div>
-           <div className="flex flex-wrap gap-2">
-             {availableTags.map(tag => (
-               <Badge
-                 key={tag.id}
-                 variant={selectedTags.includes(tag.id) ? 'default' : 'secondary'}
-                 className="cursor-pointer"
-                 onClick={() => toggleTag(tag.id)}
-               >
-                 {tag.name}
-               </Badge>
-             ))}
-           </div>
-         </div>
-   
-         {selectedTags.length > 0 && (
-           <div className="flex flex-wrap gap-2">
-             {selectedTags.map(tagId => {
-               const tag = availableTags.find(t => t.id === tagId);
-               return (
-                 <Badge key={tagId} variant="outline" className="gap-1">
-                   {tag?.name}
-                   <X
-                     size={14}
-                     className="cursor-pointer"
-                     onClick={() => toggleTag(tagId)}
-                   />
-                 </Badge>
-               );
-             })}
-           </div>
-         )}
-       </div>
-     );
-   }
-   ```
+   - Look at existing search components (e.g., `SearchBar.tsx`) for patterns
+   - Use existing UI components (Input, Badge, Select)
+   - Implement real-time search with useEffect hooks
+   - Build tag selection interface with visual feedback
+   - Use URL search params for API queries
+   - Follow existing state management patterns
+   - Apply consistent styling with Tailwind classes
+   - Handle multiple filter criteria (search term, tags, file type)
 
 ## Step 3: Update Existing Components
 
 Integrate new features with existing file upload and management:
 
 ### A. Update FileList Component
-```tsx
-// Update client/src/components/FileList.tsx (existing file)
-import { FileShareDialog } from './FileShareDialog';
-import { FileTagEditor } from './FileTagEditor';
-
-// Add share buttons and tag displays to existing file list items
-// The FileList component already has proper structure with:
-// - File display with metadata
-// - Delete functionality with confirmation
-// - Download functionality 
-// - Progress tracking
-// - Error handling with toast notifications
-
-// Simply add the new sharing and tagging features to the existing action buttons
-```
+- Open `client/src/components/FileList.tsx` to understand the existing structure
+- Add new action buttons alongside existing delete and download buttons
+- Import and integrate any new dialog components (sharing, tagging)
+- Maintain the existing error handling and toast notification patterns
+- Keep the existing file metadata display structure
+- Ensure new features work with the existing progress tracking
 
 ### B. Update useFiles Hook
-```tsx
-// Update client/src/hooks/useFiles.ts (existing file)
-// Add new functions for sharing and tagging:
-// - shareFile(fileId, options)
-// - addTag(fileId, tagId)
-// - removeTag(fileId, tagId)
-// - searchFiles(query, tags, fileType)
-
-// The hook already provides:
-// - files, loading, error states
-// - uploadFile, deleteFile, refreshFiles functions
-// - totalSize, totalFiles calculations
-```
+- Study `client/src/hooks/useFiles.ts` for the current implementation
+- Add new functions following the existing async pattern
+- Integrate with React Query for caching if used
+- Maintain the existing state management approach
+- Add new API calls following the existing fetch patterns
+- Keep the existing error handling structure
 
 ### C. Update Files Page
-```tsx
-// Update client/src/pages/Files.tsx (existing file)
-// Add new features to existing tabbed interface:
-// - Search and filter tab
-// - Folder organization (if implementing folders)
-// - Bulk operations interface
-
-// The page already has:
-// - Storage usage dashboard
-// - Plan-based restrictions
-// - Upload and manage tabs
-// - Integration with useFiles hook
-```
+- Examine `client/src/pages/Files.tsx` for the current layout
+- Add new tabs or sections to the existing interface
+- Integrate search/filter components if implementing
+- Maintain the existing storage usage dashboard
+- Keep plan-based restrictions working
+- Follow the existing component composition patterns
 
 ## Step 4: Testing Instructions
 

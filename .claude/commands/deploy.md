@@ -7,11 +7,20 @@ You are a helpful assistant that guides users through deploying their VibeCode T
 Helps users deploy their app to Render using existing configurations:
 - Build process (npm run build) already configured
 - Environment variables structure already established
-- Database hosting via Render PostgreSQL (integrated platform)
+- Database hosting via Neon PostgreSQL (serverless database)
 - Firebase services (auth and storage) work in production
 - Static file serving and API routes properly structured
 
 IMPORTANT: LEVERAGE RENDER MCP TO ASSIST USER. DO NOT TAKE ANY DESTRUCTIVE ACTIONS!
+
+## Before You Begin
+
+**EXAMINE EXISTING PATTERNS FIRST**: Study the codebase to understand the established deployment patterns:
+- Review `package.json` for build and start scripts
+- Check `server/index.ts` for server configuration
+- Examine `client/src/lib/` for environment variable usage
+- Study `shared/schema.ts` for database structure
+- Review existing environment variable patterns in development
 
 ## Step 1: Understanding User Needs
 
@@ -26,7 +35,7 @@ Ask these focused questions to minimize scope:
 
 **Environment:**
 - [ ] Do you have all your production environment variables ready?
-  - Database will be automatically created by Render
+  - Database will be automatically created by Neon
   - Firebase config (production project)
   - Stripe keys (live keys for production)
   - SendGrid API key
@@ -51,10 +60,10 @@ If user is new to Render:
    - Connect your GitHub account for automatic deployments
 
    **Step 2: Create PostgreSQL Database**
-   - Click "New +" and select "PostgreSQL"
+   - Go to [neon.tech](https://neon.tech) and create a new database
    - Name your database (e.g., "your-app-db")
    - Choose a region (same as where you'll deploy your app)
-   - Note the database name for later
+   - Copy the connection string for later
 
    **Step 3: Create a Web Service**
    - Click "New +" and select "Web Service"
@@ -62,98 +71,39 @@ If user is new to Render:
    - Choose the repository containing your VibeCode Template
 
    **Step 4: Configure Build Settings**
-   ```yaml
-   # Render will auto-detect, but here are the settings:
-   Build Command: npm install && npm run build
-   Start Command: npm start
-   Environment: Node
-   Node Version: 18 (or latest LTS)
-   ```
+   - Build Command: Follow the patterns in `package.json` scripts
+   - Start Command: Use the established server entry point
+   - Environment: Node (check package.json for version requirements)
+   - Reference existing build configuration for consistency
 
    **Step 5: Connect Database to Web Service**
    - In your web service settings, go to "Environment"
    - Click "Add Environment Variable"
-   - For DATABASE_URL, select "From Database" and choose your PostgreSQL database
-   - Render will automatically populate the connection string
+   - For DATABASE_URL, paste your Neon connection string
+   - Add other database environment variables from Neon dashboard
 
 2. **Environment Variables Setup**
 
-   In Render dashboard, add these environment variables:
+   **Study Existing Environment Configuration**:
+   - Examine your local `.env` file for required variables
+   - Check `server/index.ts` for environment variable usage
+   - Review `client/src/lib/` files for client-side environment variables
+   - Follow the same naming patterns and structure
+   - Ensure all authentication, database, payment, and email configurations match your existing setup
+   - Use production values for all services (live Stripe keys, production Firebase project, etc.)
+   - Set NODE_ENV=production for proper production behavior
 
-   ```env
-   # Database (Render PostgreSQL) - Automatically connected
-   DATABASE_URL=${{ YOUR_DATABASE.DATABASE_URL }}  # Auto-filled by Render
-   PGDATABASE=your_database_name
-   PGHOST=${{ YOUR_DATABASE.HOST }}  # Auto-filled by Render
-   PGUSER=${{ YOUR_DATABASE.USER }}  # Auto-filled by Render
-   PGPASSWORD=${{ YOUR_DATABASE.PASSWORD }}  # Auto-filled by Render
-   PGPORT=5432
+3. **Verify Production Scripts**
+   - Check your `package.json` for existing build and start scripts
+   - Ensure scripts follow the established patterns in the repository
+   - Verify that the build process includes both client and server components
+   - Confirm database migration scripts are properly configured
 
-   # Session
-   SESSION_SECRET=your-production-session-secret
-
-   # Stripe (LIVE KEYS for production)
-   STRIPE_SECRET_KEY=sk_live_your_live_secret_key
-   STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret
-   STRIPE_PRICE_ID_PRO=price_your_live_price_id
-   VITE_STRIPE_PUBLIC_KEY=pk_live_your_live_public_key
-
-   # Firebase (Production project)
-   VITE_FIREBASE_PROJECT_ID=your-prod-project-id
-   VITE_FIREBASE_API_KEY=your-prod-api-key
-   VITE_FIREBASE_APP_ID=your-prod-app-id
-   VITE_FIREBASE_AUTH_DOMAIN=your-prod-project.firebaseapp.com
-   VITE_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
-
-   # Email
-   SENDGRID_API_KEY=SG.your-sendgrid-key
-
-   # Analytics & Monitoring
-   VITE_POSTHOG_API_KEY=phc_your_posthog_key
-   SENTRY_DSN=https://your-sentry-dsn
-
-   # Node Environment
-   NODE_ENV=production
-   ```
-
-3. **Update package.json for Production**
-
-   Ensure your package.json has the correct scripts:
-   ```json
-   {
-     "scripts": {
-       "build": "vite build",
-       "start": "node server/index.js",
-       "postbuild": "cp -r server dist/ && cp package*.json dist/",
-       "db:push": "drizzle-kit push:pg"
-     }
-   }
-   ```
-
-4. **Create render.yaml (Optional)**
-
-   For more control, create a `render.yaml` file in your project root:
-   ```yaml
-   services:
-     - type: web
-       name: your-app-name
-       env: node
-       buildCommand: npm install && npm run build
-       startCommand: npm start
-       envVars:
-         - key: NODE_ENV
-           value: production
-         - key: DATABASE_URL
-           fromDatabase:
-             name: your-app-db
-             property: connectionString
-   
-   databases:
-     - name: your-app-db
-       databaseName: your_app_db
-       user: your_app_user
-       plan: free  # or starter/standard for production
-   ```
+4. **Optional: Create render.yaml Configuration**
+   - Study the existing deployment configuration patterns
+   - Follow the service and database naming conventions used in the project
+   - Reference existing environment variable patterns
+   - Use the same build and start commands as defined in package.json
 
 ### Option B: Environment-Specific Configuration
 
@@ -169,7 +119,7 @@ If user wants staging and production environments:
    ## Pre-Deploy Checklist
 
    ### Database
-   - [ ] Render PostgreSQL database is created
+   - [ ] Neon PostgreSQL database is created
    - [ ] Database is connected to your web service
    - [ ] Database schema is up to date (`npm run db:push`)
    - [ ] Database has production data (if migrating)
@@ -213,31 +163,16 @@ If user wants a custom domain:
    - Add your domain (e.g., app.yourdomain.com)
 
 2. **DNS Configuration**
-   ```dns
-   # Add these DNS records in your domain provider:
-   Type: CNAME
-   Name: app (or your subdomain)
-   Value: your-app-name.onrender.com
+   - Configure DNS records according to your domain provider's requirements
+   - Use CNAME records for subdomains or A records for root domains
+   - Follow Render's documentation for proper DNS setup
 
-   # If using root domain:
-   Type: A
-   Name: @
-   Value: 216.24.57.1 (Render's IP)
-   ```
-
-3. **Update Firebase Configuration**
-   ```javascript
-   // Update Firebase Auth authorized domains
-   // In Firebase Console > Authentication > Settings > Authorized domains
-   // Add: yourdomain.com
-   ```
-
-4. **Update Stripe Webhook**
-   ```bash
-   # Update webhook endpoint in Stripe Dashboard:
-   # From: https://your-app.onrender.com/api/webhook
-   # To: https://yourdomain.com/api/webhook
-   ```
+3. **Update Service Configurations**
+   - Review existing Firebase configuration in `client/src/lib/firebase.ts`
+   - Update Firebase Auth authorized domains to include your production domain
+   - Check existing Stripe webhook configuration in `server/routes/webhookRoutes.ts`
+   - Update Stripe webhook endpoints to match your production domain
+   - Ensure all external service configurations are updated for production
 
 ## Step 3: Deployment Process
 
@@ -254,30 +189,11 @@ If user wants a custom domain:
    ```
 
 2. **Build Process Optimization**
-   ```dockerfile
-   # Optional: Create Dockerfile for more control
-   FROM node:18-alpine
-
-   WORKDIR /app
-
-   # Copy package files
-   COPY package*.json ./
-
-   # Install dependencies
-   RUN npm ci --only=production
-
-   # Copy application code
-   COPY . .
-
-   # Build application
-   RUN npm run build
-
-   # Expose port
-   EXPOSE 5000
-
-   # Start application
-   CMD ["npm", "start"]
-   ```
+   - Study the existing build process in `package.json`
+   - Follow the established patterns for dependency installation
+   - Use the same port configuration as defined in `server/index.ts`
+   - Reference existing containerization patterns if any exist in the project
+   - Ensure build optimization follows the project's established conventions
 
 ### Manual Deployment Steps
 
@@ -319,31 +235,12 @@ If user wants a custom domain:
 
 ## Step 4: Production Monitoring Setup
 
-1. **Health Check Endpoint**
-   ```typescript
-   // Add to server/routes/index.ts
-   router.get('/health', (req, res) => {
-     res.json({
-       status: 'healthy',
-       timestamp: new Date().toISOString(),
-       version: process.env.npm_package_version,
-       environment: process.env.NODE_ENV,
-     });
-   });
-   ```
-
-2. **Database Connection Monitoring**
-   ```typescript
-   // Add database health check
-   router.get('/health/db', async (req, res) => {
-     try {
-       await db.execute(sql`SELECT 1`);
-       res.json({ database: 'connected' });
-     } catch (error) {
-       res.status(500).json({ database: 'disconnected', error: error.message });
-     }
-   });
-   ```
+1. **Health Check Endpoint Implementation**
+   - Study existing API route patterns in `server/routes/`
+   - Follow the same error handling and response patterns
+   - Use the established database connection patterns from `server/db.ts`
+   - Implement health checks that match the existing code style and structure
+   - Reference existing middleware and authentication patterns if needed
 
 ## Step 5: Troubleshooting Common Issues
 
@@ -377,7 +274,7 @@ If user wants a custom domain:
 
 ### Database Connection Errors
 - Verify DATABASE_URL is correct (auto-filled by Render)
-- Check Render PostgreSQL database status in dashboard
+- Check Neon PostgreSQL database status in dashboard
 - Ensure database and web service are in the same region
 - Test connection locally with production credentials
 
@@ -400,7 +297,7 @@ If user wants a custom domain:
 
    ### Database
    - Add database indexes for frequent queries
-   - Monitor database performance in Render dashboard
+   - Monitor database performance in Neon dashboard
    - Consider connection pooling for high traffic
    - Upgrade database plan as needed
 
@@ -420,7 +317,7 @@ If user wants a custom domain:
 
    ### Database Scaling
    - Upgrade PostgreSQL plan (free → starter → standard)
-   - Monitor database metrics in Render dashboard
+   - Monitor database metrics in Neon dashboard
    - Connection pooling for high concurrency
 
    ### Horizontal Scaling
