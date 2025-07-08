@@ -26,7 +26,7 @@ export default function Login() {
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
       if (user && !showProfileForm) {
-        setLocation("/dashboard");
+        setLocation("/");
       }
     });
 
@@ -46,7 +46,7 @@ export default function Login() {
             <CardTitle className="text-2xl font-bold">Complete Your Profile</CardTitle>
           </CardHeader>
           <CardContent>
-            <UserProfileForm onComplete={() => setLocation("/dashboard")} />
+            <UserProfileForm onComplete={() => setLocation("/")} />
           </CardContent>
         </Card>
       </div>
@@ -84,7 +84,7 @@ export default function Login() {
           description: "Account created successfully"
         });
         console.log("[Auth] Redirecting to dashboard after signup");
-        setLocation("/dashboard");
+        setLocation("/");
       } else {
         console.log("[Auth] Attempting email signin");
         const userCredential = await signInWithEmail(email, password);
@@ -103,7 +103,7 @@ export default function Login() {
           description: "Account created successfully"
         });
         console.log("[Auth] Redirecting to dashboard after signin");
-        setLocation("/dashboard");
+        setLocation("/");
       }
     } catch (error: any) {
       setError(error.message);

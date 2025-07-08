@@ -18,7 +18,7 @@ export default function Navbar() {
 
   const handleSignOut = () => {
     auth.signOut();
-    setLocation("/");
+    setLocation("/login");
   };
 
   return (
@@ -39,7 +39,7 @@ export default function Navbar() {
           </Link>
           {user ? (
             <>
-              <Link href="/dashboard">
+              <Link href="/">
                 <Button variant="ghost">Dashboard</Button>
               </Link>
               <Link href="/settings">
