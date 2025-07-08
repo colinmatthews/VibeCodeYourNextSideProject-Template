@@ -30,7 +30,28 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      if (user) {
+        try {
+          // Get the ID token to send to backend
+          const idToken = await user.getIdToken();
+          
+          // Login to backend to ensure user exists in database
+          const response = await fetch('/api/login', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${idToken}`,
+            },
+          });
+
+          if (!response.ok) {
+            console.error('Failed to sync user with backend');
+          }
+        } catch (error) {
+          console.error('Error syncing user with backend:', error);
+        }
+      }
       setUser(user);
       setLoading(false);
     });
@@ -45,16 +66,16 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       const credential = GoogleAuthProvider.credentialFromResult(result);
       const user = result.user;
       
-      // Check if user exists and create if not
-      const response = await fetch('/api/users', {
+      // Get the ID token to send to backend
+      const idToken = await user.getIdToken();
+      
+      // Login to backend to ensure user exists in database
+      const response = await fetch('/api/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,
         },
-        body: JSON.stringify({
-          firebaseId: user.uid,
-          email: user.email,
-        }),
       });
 
       if (!response.ok) {

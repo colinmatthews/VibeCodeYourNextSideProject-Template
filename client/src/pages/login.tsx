@@ -6,7 +6,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { signInWithGoogle, signInWithGithub, signInWithEmail, signUpWithEmail, auth, sendPasswordResetEmail } from "@/lib/firebase";
 import { FcGoogle } from "react-icons/fc";
 import { FaGithub } from "react-icons/fa";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "@/hooks/useToast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { UserProfileForm } from "@/components/UserProfileForm";
 import { apiRequest } from "@/lib/queryClient";

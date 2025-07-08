@@ -1,24 +1,55 @@
-import { useQuery } from "@tanstack/react-query";
-import { useAuth } from "@/hooks/use-auth";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useAuth } from "@/lib/auth";
 import { useLocation } from "wouter";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/useToast";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent, CardTitle, CardFooter } from "@/components/ui/card";
 import { Check, Loader2 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
+
+async function createCheckoutSession(firebaseId: string): Promise<{ url: string }> {
+  const response = await fetch('/api/create-checkout-session', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      firebaseId,
+      mode: 'subscription',
+    })
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || 'Failed to create checkout session');
+  }
+
+  return response.json();
+}
+
+async function createPortalSession(firebaseId: string): Promise<{ url: string }> {
+  const response = await fetch('/api/create-portal-session', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ firebaseId })
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || 'Failed to create portal session');
+  }
+
+  return response.json();
+}
 
 function Pricing() {
   const { toast } = useToast();
   const { user } = useAuth();
   const [, setLocation] = useLocation();
-  const [isCreatingCheckout, setIsCreatingCheckout] = useState(false);
 
   // Get URL params to handle success/cancel states
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const success = urlParams.get('success');
     const canceled = urlParams.get('canceled');
-    const sessionId = urlParams.get('session_id');
 
     if (success === 'true') {
       toast({
@@ -49,225 +80,175 @@ function Pricing() {
     enabled: !!user?.uid
   });
 
+  // Checkout session mutation
+  const checkoutMutation = useMutation({
+    mutationFn: createCheckoutSession,
+    onSuccess: (data) => {
+      console.log('[Pricing] Redirecting to checkout:', data.url);
+      window.location.href = data.url;
+    },
+    onError: (error: Error) => {
+      console.error('[Pricing] Error creating checkout session:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to start checkout process",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Portal session mutation
+  const portalMutation = useMutation({
+    mutationFn: createPortalSession,
+    onSuccess: (data) => {
+      console.log('[Pricing] Redirecting to portal:', data.url);
+      window.location.href = data.url;
+    },
+    onError: (error: Error) => {
+      console.error('[Pricing] Error creating portal session:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to open billing portal",
+        variant: "destructive",
+      });
+    }
+  });
+
   const isPro = userData?.subscriptionType === 'pro';
 
-  const handleUpgrade = async () => {
+  const handleUpgrade = () => {
     if (!user?.uid) {
       setLocation("/login");
       return;
     }
 
-    setIsCreatingCheckout(true);
-    try {
-      console.log('[Pricing] Creating checkout session for user:', user.uid);
-      
-      const response = await fetch('/api/create-checkout-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          firebaseId: user.uid,
-          mode: 'subscription',
-          // successUrl and cancelUrl will use defaults from the server
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create checkout session');
-      }
-
-      const { url } = await response.json();
-      console.log('[Pricing] Redirecting to checkout:', url);
-      
-      // Redirect to Stripe Checkout
-      window.location.href = url;
-    } catch (error) {
-      console.error('[Pricing] Error creating checkout session:', error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to start checkout process",
-        variant: "destructive",
-      });
-    } finally {
-      setIsCreatingCheckout(false);
-    }
+    console.log('[Pricing] Creating checkout session for user:', user.uid);
+    checkoutMutation.mutate(user.uid);
   };
 
-  const handleManageSubscription = async () => {
+  const handleManageSubscription = () => {
     if (!user?.uid) return;
 
-    try {
-      const response = await fetch('/api/create-portal-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          firebaseId: user.uid
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        
-        // Handle specific Stripe portal configuration error
-        if (errorData.error && errorData.error.includes('configuration')) {
-          toast({
-            title: "Portal Not Configured",
-            description: "The billing portal needs to be configured in Stripe Dashboard.",
-            variant: "destructive",
-          });
-          return;
-        }
-        
-        throw new Error(errorData.error || 'Failed to create portal session');
-      }
-
-      const { url } = await response.json();
-      
-      // Redirect to Stripe billing portal
-      window.location.href = url;
-    } catch (error) {
-      console.error('[Pricing] Error opening billing portal:', error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to open billing portal",
-        variant: "destructive",
-      });
-    }
+    console.log('[Pricing] Creating portal session for user:', user.uid);
+    portalMutation.mutate(user.uid);
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-4">
-      <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
-            Choose Your Plan
-          </h1>
-          <p className="text-xl text-gray-600 dark:text-gray-300">
-            Unlock powerful features with our Pro subscription
-          </p>
-        </div>
+  const plans = [
+    {
+      name: "Free",
+      price: "$0",
+      period: "/forever",
+      description: "Perfect for getting started",
+      features: [
+        "10 files maximum",
+        "100MB total storage",
+        "10MB per file limit",
+        "Basic file management",
+        "Secure cloud storage"
+      ],
+      buttonText: isPro ? "Current Plan" : "Current Plan",
+      isCurrentPlan: !isPro,
+      onClick: () => {},
+      disabled: true
+    },
+    {
+      name: "Pro",
+      price: "$9.99",
+      period: "/month",
+      description: "Everything you need for professional use",
+      features: [
+        "100 files maximum",
+        "1GB total storage",
+        "50MB per file limit",
+        "Advanced file management",
+        "Priority support",
+        "Secure cloud storage"
+      ],
+      buttonText: isPro ? "Manage Subscription" : "Upgrade to Pro",
+      isCurrentPlan: isPro,
+      onClick: isPro ? handleManageSubscription : handleUpgrade,
+      disabled: false
+    }
+  ];
 
-        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-          {/* Free Plan */}
-          <Card className="relative">
-            <CardHeader>
-              <CardTitle className="text-2xl">Free</CardTitle>
-              <div className="text-3xl font-bold">$0<span className="text-lg font-normal">/month</span></div>
+  if (userLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <div className="text-center mb-12">
+        <h1 className="text-4xl font-bold mb-4">Choose Your Plan</h1>
+        <p className="text-xl text-muted-foreground">
+          Select the perfect plan for your file storage needs
+        </p>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+        {plans.map((plan, index) => (
+          <Card key={index} className={`relative ${plan.isCurrentPlan ? 'ring-2 ring-primary' : ''}`}>
+            {plan.isCurrentPlan && (
+              <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                <span className="bg-primary text-primary-foreground px-3 py-1 rounded-full text-sm font-medium">
+                  Current Plan
+                </span>
+              </div>
+            )}
+            
+            <CardHeader className="text-center pb-2">
+              <CardTitle className="text-2xl">{plan.name}</CardTitle>
+              <div className="text-3xl font-bold">
+                {plan.price}
+                <span className="text-base font-normal text-muted-foreground">
+                  {plan.period}
+                </span>
+              </div>
+              <p className="text-muted-foreground">{plan.description}</p>
             </CardHeader>
-            <CardContent className="space-y-4">
+            
+            <CardContent>
               <ul className="space-y-3">
-                <li className="flex items-center">
-                  <Check className="h-5 w-5 text-green-500 mr-3" />
-                  Basic features
-                </li>
-                <li className="flex items-center">
-                  <Check className="h-5 w-5 text-green-500 mr-3" />
-                  Limited usage
-                </li>
-                <li className="flex items-center">
-                  <Check className="h-5 w-5 text-green-500 mr-3" />
-                  Community support
-                </li>
+                {plan.features.map((feature, featureIndex) => (
+                  <li key={featureIndex} className="flex items-center gap-2">
+                    <Check className="h-4 w-4 text-green-500 flex-shrink-0" />
+                    <span className="text-sm">{feature}</span>
+                  </li>
+                ))}
               </ul>
             </CardContent>
+            
             <CardFooter>
-              <Button 
-                className="w-full" 
-                variant="outline"
-                disabled
+              <Button
+                className="w-full"
+                onClick={plan.onClick}
+                disabled={plan.disabled || checkoutMutation.isPending || portalMutation.isPending}
+                variant={plan.isCurrentPlan ? "outline" : "default"}
               >
-                Current Plan
+                {(checkoutMutation.isPending && !isPro) || (portalMutation.isPending && isPro) ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {isPro ? "Opening Portal..." : "Starting Checkout..."}
+                  </>
+                ) : (
+                  plan.buttonText
+                )}
               </Button>
             </CardFooter>
           </Card>
+        ))}
+      </div>
 
-          {/* Pro Plan */}
-          <Card className="relative border-primary">
-            <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-              <span className="bg-primary text-primary-foreground px-4 py-1 rounded-full text-sm font-medium">
-                Most Popular
-              </span>
-            </div>
-            <CardHeader>
-              <CardTitle className="text-2xl">Pro</CardTitle>
-              <div className="text-3xl font-bold">$29<span className="text-lg font-normal">/month</span></div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <ul className="space-y-3">
-                <li className="flex items-center">
-                  <Check className="h-5 w-5 text-green-500 mr-3" />
-                  All features included
-                </li>
-                <li className="flex items-center">
-                  <Check className="h-5 w-5 text-green-500 mr-3" />
-                  Unlimited usage
-                </li>
-                <li className="flex items-center">
-                  <Check className="h-5 w-5 text-green-500 mr-3" />
-                  Priority support
-                </li>
-                <li className="flex items-center">
-                  <Check className="h-5 w-5 text-green-500 mr-3" />
-                  Advanced analytics
-                </li>
-                <li className="flex items-center">
-                  <Check className="h-5 w-5 text-green-500 mr-3" />
-                  API access
-                </li>
-              </ul>
-            </CardContent>
-            <CardFooter className="flex flex-col gap-2">
-              {userLoading ? (
-                <Button className="w-full" disabled>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  Loading...
-                </Button>
-              ) : isPro ? (
-                <>
-                  <p className="text-sm text-muted-foreground mb-2">You're using this plan</p>
-                  <Button
-                    className="w-full"
-                    variant="secondary"
-                    disabled
-                  >
-                    Current Plan
-                  </Button>
-                  <Button
-                    className="w-full mt-2"
-                    variant="outline"
-                    onClick={handleManageSubscription}
-                  >
-                    Manage Subscription
-                  </Button>
-                </>
-              ) : (
-                <Button
-                  className="w-full"
-                  onClick={handleUpgrade}
-                  disabled={isCreatingCheckout}
-                >
-                  {isCreatingCheckout ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      Redirecting to checkout...
-                    </>
-                  ) : (
-                    "Upgrade to Pro"
-                  )}
-                </Button>
-              )}
-            </CardFooter>
-          </Card>
-        </div>
-
-        <div className="text-center mt-12">
-          <p className="text-gray-600 dark:text-gray-400">
-            All plans include a 14-day free trial. Cancel anytime.
-          </p>
-          <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">
-            Secure payments powered by Stripe
-          </p>
-        </div>
+      <div className="text-center mt-12">
+        <p className="text-muted-foreground">
+          All plans include secure cloud storage and basic support. 
+          Pro plan includes priority support and advanced features.
+        </p>
       </div>
     </div>
   );

@@ -2,7 +2,7 @@ import { useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { ContactForm } from "@/components/ContactForm";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/useToast";
 import { apiRequest } from "@/lib/queryClient";
 import type { InsertContact } from "@shared/schema";
 

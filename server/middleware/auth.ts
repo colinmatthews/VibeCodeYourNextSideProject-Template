@@ -10,12 +10,14 @@ if (getApps().length === 0) {
     const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
     initializeApp({
       credential: cert(serviceAccount),
-      projectId: process.env.VITE_FIREBASE_PROJECT_ID
+      projectId: process.env.VITE_FIREBASE_PROJECT_ID,
+      storageBucket: process.env.FIREBASE_STORAGE_BUCKET || `${process.env.VITE_FIREBASE_PROJECT_ID}.firebasestorage.app`
     });
   } else {
     // For development, you can use the Firebase project ID
     initializeApp({
-      projectId: process.env.VITE_FIREBASE_PROJECT_ID
+      projectId: process.env.VITE_FIREBASE_PROJECT_ID,
+      storageBucket: process.env.FIREBASE_STORAGE_BUCKET || `${process.env.VITE_FIREBASE_PROJECT_ID}.firebasestorage.app`
     });
   }
 }

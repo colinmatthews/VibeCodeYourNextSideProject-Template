@@ -15,6 +15,7 @@ import Profile from "@/pages/profile";
 import Pricing from "@/pages/pricing";
 import Footer from "@/components/Footer";
 import Settings from "@/pages/settings";
+import Files from "@/pages/files";
 
 class ErrorBoundary extends Component<
   { children: ReactNode },
@@ -68,6 +69,7 @@ function Router() {
           <Route path="/contacts/edit/:id" component={EditContact} />
           <Route path="/profile" component={Profile} />
           <Route path="/settings" component={Settings} />
+          <Route path="/files" component={Files} />
           <Route component={NotFound} />
         </Switch>
       </div>

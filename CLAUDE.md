@@ -85,6 +85,10 @@ VITE_FIREBASE_APP_ID="..."
 VITE_FIREBASE_AUTH_DOMAIN="..."
 VITE_FIREBASE_MESSAGING_SENDER_ID="..."
 
+# Firebase (Server-side)
+FIREBASE_STORAGE_BUCKET="..." # Optional: defaults to {PROJECT_ID}.firebasestorage.app
+FIREBASE_SERVICE_ACCOUNT_KEY='{"type":"service_account","project_id":"...","private_key_id":"...","private_key":"...","client_email":"...","client_id":"...","auth_uri":"...","token_uri":"...","auth_provider_x509_cert_url":"...","client_x509_cert_url":"..."}'
+
 # Email
 SENDGRID_API_KEY="SG...."
 ```
@@ -305,6 +309,20 @@ stripe listen --forward-to localhost:5000/api/webhook
 - Test file deletion (both Storage and database cleanup)
 - Security rules file: `firebase-storage.rules`
 
+### Firebase Service Account Setup (Required for Storage)
+To use Firebase Storage from the backend, you need a service account key:
+
+1. Go to Firebase Console → Project Settings → Service Accounts
+2. Click "Generate new private key"
+3. Download the JSON file
+4. Set the entire JSON as the `FIREBASE_SERVICE_ACCOUNT_KEY` environment variable
+5. Make sure to wrap the JSON in single quotes in your .env file
+
+Example:
+```bash
+FIREBASE_SERVICE_ACCOUNT_KEY='{"type":"service_account","project_id":"your-project",...}'
+```
+
 ## Deployment Considerations
 
 1. **Environment Variables**: Set all required env vars
@@ -498,3 +516,7 @@ Add "use context7" to any prompt that involves external libraries:
 - "Take a screenshot of the login page"
 - "Navigate to the pricing page and extract all plan details"
 - "Test the complete signup flow and take screenshots"
+
+## Client-Side Data Fetching Best Practices
+
+- **Always use React Query for client side requests**

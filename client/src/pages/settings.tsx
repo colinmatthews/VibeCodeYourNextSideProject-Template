@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/useToast";
 import { useLocation } from "wouter";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth } from "@/lib/auth";
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,27 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
+
+async function createPortalSession(firebaseId: string): Promise<{ url: string }> {
+  const response = await fetch('/api/create-portal-session', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ firebaseId })
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    
+    // Handle specific Stripe portal configuration error
+    if (errorData.error && errorData.error.includes('configuration')) {
+      throw new Error('Portal Not Configured: The billing portal needs to be configured in Stripe Dashboard. Please configure it at: Settings > Billing > Customer portal');
+    }
+    
+    throw new Error(errorData.error || 'Failed to create portal session');
+  }
+
+  return response.json();
+}
 
 export default function Settings() {
   const [, setLocation] = useLocation();
@@ -52,6 +73,32 @@ export default function Settings() {
         description: error instanceof Error ? error.message : "Failed to update email preferences",
         variant: "destructive"
       });
+    }
+  });
+
+  // Portal session mutation
+  const portalMutation = useMutation({
+    mutationFn: createPortalSession,
+    onSuccess: (data) => {
+      console.log('[Settings] Redirecting to portal:', data.url);
+      window.location.href = data.url;
+    },
+    onError: (error: Error) => {
+      console.error('[Settings] Error opening billing portal:', error);
+      
+      if (error.message.includes('Portal Not Configured')) {
+        toast({
+          title: "Portal Not Configured",
+          description: "The billing portal needs to be configured in Stripe Dashboard. Please configure it at: Settings > Billing > Customer portal",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to open billing portal",
+          variant: "destructive",
+        });
+      }
     }
   });
 
@@ -118,46 +165,9 @@ export default function Settings() {
     }
   };
 
-  const handleOpenBillingPortal = async () => {
+  const handleOpenBillingPortal = () => {
     if (!firebaseUser?.uid) return;
-
-    try {
-      const response = await fetch('/api/create-portal-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          firebaseId: firebaseUser.uid
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        
-        // Handle specific Stripe portal configuration error
-        if (errorData.error && errorData.error.includes('configuration')) {
-          toast({
-            title: "Portal Not Configured",
-            description: "The billing portal needs to be configured in Stripe Dashboard. Please configure it at: Settings > Billing > Customer portal",
-            variant: "destructive",
-          });
-          return;
-        }
-        
-        throw new Error(errorData.error || 'Failed to create portal session');
-      }
-
-      const { url } = await response.json();
-      
-      // Redirect to Stripe billing portal
-      window.location.href = url;
-    } catch (error) {
-      console.error('[Settings] Error opening billing portal:', error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to open billing portal",
-        variant: "destructive",
-      });
-    }
+    portalMutation.mutate(firebaseUser.uid);
   };
 
   return (
@@ -259,8 +269,16 @@ export default function Settings() {
                 <Button
                   variant="outline"
                   onClick={handleOpenBillingPortal}
+                  disabled={portalMutation.isPending}
                 >
-                  Manage Subscription
+                  {portalMutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Opening Portal...
+                    </>
+                  ) : (
+                    'Manage Subscription'
+                  )}
                 </Button>
               ) : (
                 <Button
@@ -284,9 +302,17 @@ export default function Settings() {
               <Button 
                 variant="outline" 
                 onClick={handleOpenBillingPortal}
+                disabled={portalMutation.isPending}
                 className="w-full sm:w-auto"
               >
-                Open Billing Portal
+                {portalMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Opening Portal...
+                  </>
+                ) : (
+                  'Open Billing Portal'
+                )}
               </Button>
               <p className="text-xs text-muted-foreground">
                 💡 All payment methods and billing are securely handled by Stripe.

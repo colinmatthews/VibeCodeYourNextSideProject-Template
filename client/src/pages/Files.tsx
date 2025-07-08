@@ -1,10 +1,9 @@
-import { useState } from 'react';
 import { FileUpload } from '@/components/FileUpload';
 import { FileList } from '@/components/FileList';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/lib/auth';
 import { useFiles } from '@/hooks/useFiles';
 import { HardDrive, Upload, List, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -12,7 +11,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 export default function Files() {
   const { user } = useAuth();
   const { files, loading, totalSize, totalFiles } = useFiles();
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 B';
@@ -134,7 +132,6 @@ export default function Files() {
                 </Alert>
               ) : (
                 <FileUpload
-                  onUploadComplete={() => setRefreshTrigger(prev => prev + 1)}
                   maxSize={isPro ? 50 * 1024 * 1024 : 10 * 1024 * 1024} // 50MB pro, 10MB free per file
                   multiple={true}
                 />
@@ -144,10 +141,7 @@ export default function Files() {
         </TabsContent>
 
         <TabsContent value="manage" className="space-y-4">
-          <FileList 
-            refreshTrigger={refreshTrigger}
-            onFileDeleted={() => setRefreshTrigger(prev => prev + 1)}
-          />
+          <FileList />
         </TabsContent>
       </Tabs>
     </div>

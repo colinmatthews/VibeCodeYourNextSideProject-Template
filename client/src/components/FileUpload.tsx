@@ -1,15 +1,15 @@
 import React, { useState, useRef } from 'react';
-import { uploadFile, type FileUploadProgress, type FileUploadResult } from '@/lib/firebase';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/useToast';
+import { useFiles } from '@/hooks/useFiles';
 import { Upload, X, File, Image, FileText, Video, Music } from 'lucide-react';
 
 interface FileUploadProps {
-  onUploadComplete?: (result: FileUploadResult) => void;
+  onUploadComplete?: (result: any) => void;
   accept?: string;
   maxSize?: number; // in bytes
   multiple?: boolean;
@@ -18,7 +18,7 @@ interface FileUploadProps {
 
 interface UploadingFile {
   file: File;
-  progress: FileUploadProgress;
+  progress: { percentage: number };
   error?: string;
 }
 
@@ -31,6 +31,7 @@ export function FileUpload({
 }: FileUploadProps) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { uploadFile } = useFiles();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
   const [dragActive, setDragActive] = useState(false);
@@ -96,57 +97,29 @@ export function FileUpload({
     // Initialize uploading files
     const newUploadingFiles = validFiles.map(file => ({
       file,
-      progress: { bytesTransferred: 0, totalBytes: file.size, percentage: 0 }
+      progress: { percentage: 0 }
     }));
 
     setUploadingFiles(prev => [...prev, ...newUploadingFiles]);
 
-    // Upload files
+    // Upload files using the shared hook
     for (let i = 0; i < validFiles.length; i++) {
       const file = validFiles[i];
       try {
-        const result = await uploadFile(
-          file,
-          user.uid,
-          (progress) => {
-            setUploadingFiles(prev => 
-              prev.map(uf => 
-                uf.file === file ? { ...uf, progress } : uf
-              )
-            );
-          }
+        // Update progress to show uploading
+        setUploadingFiles(prev => 
+          prev.map(uf => 
+            uf.file === file ? { ...uf, progress: { percentage: 50 } } : uf
+          )
         );
 
-        // Save file metadata to database
-        const response = await fetch('/api/files', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            userId: user.uid,
-            name: result.name,
-            originalName: result.name,
-            path: result.path,
-            url: result.url,
-            size: result.size,
-            type: result.type,
-          }),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to save file metadata');
-        }
+        // Use the shared uploadFile function from useFiles hook
+        const result = await uploadFile(file);
 
         // Remove from uploading files
         setUploadingFiles(prev => prev.filter(uf => uf.file !== file));
 
-        toast({
-          title: "Upload successful",
-          description: `${file.name} uploaded successfully`,
-        });
-
+        // Call the callback if provided
         onUploadComplete?.(result);
 
       } catch (error) {
@@ -158,12 +131,6 @@ export function FileUpload({
               : uf
           )
         );
-        
-        toast({
-          title: "Upload failed",
-          description: `${file.name}: ${error instanceof Error ? error.message : 'Upload failed'}`,
-          variant: "destructive"
-        });
       }
     }
   };
@@ -200,15 +167,15 @@ export function FileUpload({
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    
+
     const files = Array.from(e.dataTransfer.files);
     if (files.length > 0) {
-      handleFileUpload(files);
+      handleFileUpload(multiple ? files : [files[0]]);
     }
   };
 
-  const removeUploadingFile = (fileToRemove: File) => {
-    setUploadingFiles(prev => prev.filter(uf => uf.file !== fileToRemove));
+  const removeFile = (file: File) => {
+    setUploadingFiles(prev => prev.filter(uf => uf.file !== file));
   };
 
   const formatFileSize = (bytes: number): string => {
@@ -221,83 +188,79 @@ export function FileUpload({
 
   return (
     <div className={className}>
-      <Card 
-        className={`border-2 border-dashed transition-colors ${
-          dragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/25'
+      <div
+        className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+          dragActive 
+            ? 'border-primary bg-primary/5' 
+            : 'border-muted-foreground/25 hover:border-muted-foreground/50'
         }`}
         onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
       >
-        <CardHeader className="text-center">
-          <CardTitle className="flex items-center justify-center gap-2">
-            <Upload className="h-6 w-6" />
-            Upload Files
-          </CardTitle>
-          <CardDescription>
-            Drag and drop files here or click to browse
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="text-center">
-          <Button
-            onClick={() => fileInputRef.current?.click()}
-            variant="outline"
-            className="mb-4"
-          >
-            Choose Files
-          </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept={accept}
-            multiple={multiple}
-            onChange={handleFileInput}
-            className="hidden"
-          />
-          <p className="text-sm text-muted-foreground">
-            Maximum file size: {formatFileSize(maxSize)}
-          </p>
-        </CardContent>
-      </Card>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={accept}
+          multiple={multiple}
+          onChange={handleFileInput}
+          className="hidden"
+        />
+
+        <Upload className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+        
+        <p className="text-lg font-medium mb-1">
+          Drop {multiple ? 'files' : 'a file'} here or click to browse
+        </p>
+        
+        <p className="text-sm text-muted-foreground mb-4">
+          Maximum file size: {Math.round(maxSize / (1024 * 1024))}MB
+        </p>
+
+        <Button
+          onClick={() => fileInputRef.current?.click()}
+          variant="outline"
+        >
+          Choose {multiple ? 'Files' : 'File'}
+        </Button>
+      </div>
 
       {uploadingFiles.length > 0 && (
         <div className="mt-4 space-y-2">
           {uploadingFiles.map((uploadingFile, index) => (
-            <Card key={index} className="p-4">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  {getFileIcon(uploadingFile.file.type)}
-                  <span className="font-medium">{uploadingFile.file.name}</span>
-                  <span className="text-sm text-muted-foreground">
-                    {formatFileSize(uploadingFile.file.size)}
-                  </span>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => removeUploadingFile(uploadingFile.file)}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
+            <div
+              key={`${uploadingFile.file.name}-${index}`}
+              className="flex items-center gap-3 p-3 border rounded-lg"
+            >
+              {getFileIcon(uploadingFile.file.type)}
               
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">
+                  {uploadingFile.file.name}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {formatFileSize(uploadingFile.file.size)}
+                </p>
+              </div>
+
               {uploadingFile.error ? (
-                <Alert variant="destructive">
-                  <AlertDescription>{uploadingFile.error}</AlertDescription>
-                </Alert>
+                <div className="flex items-center gap-2">
+                  <p className="text-xs text-destructive">{uploadingFile.error}</p>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => removeFile(uploadingFile.file)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
               ) : (
-                <div className="space-y-2">
-                  <Progress value={uploadingFile.progress.percentage} />
-                  <div className="flex justify-between text-sm text-muted-foreground">
-                    <span>
-                      {formatFileSize(uploadingFile.progress.bytesTransferred)} / {formatFileSize(uploadingFile.progress.totalBytes)}
-                    </span>
-                    <span>{Math.round(uploadingFile.progress.percentage)}%</span>
-                  </div>
+                <div className="w-20">
+                  <Progress value={uploadingFile.progress.percentage} className="h-2" />
                 </div>
               )}
-            </Card>
+            </div>
           ))}
         </div>
       )}

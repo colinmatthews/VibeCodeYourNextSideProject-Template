@@ -1,7 +1,6 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from './useAuth';
-import { uploadFile, deleteFile, type FileUploadResult, type FileUploadProgress } from '@/lib/firebase';
-import { useToast } from './use-toast';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/lib/auth';
+import { useToast } from './useToast';
 
 export interface FileItem {
   id: number;
@@ -16,164 +15,173 @@ export interface FileItem {
   updatedAt: string;
 }
 
-export interface UseFilesResult {
-  files: FileItem[];
-  loading: boolean;
-  error: string | null;
-  uploadFile: (file: File, onProgress?: (progress: FileUploadProgress) => void) => Promise<FileUploadResult>;
-  deleteFile: (fileId: number) => Promise<void>;
-  refreshFiles: () => Promise<void>;
-  totalSize: number;
-  totalFiles: number;
+export interface FileUploadResult {
+  id: number;
+  name: string;
+  originalName: string;
+  path: string;
+  url: string;
+  size: number;
+  type: string;
 }
 
-export function useFiles(): UseFilesResult {
+async function fetchFiles(token: string): Promise<FileItem[]> {
+  const response = await fetch('/api/files', {
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
+  
+  if (!response.ok) {
+    throw new Error('Failed to fetch files');
+  }
+  
+  return response.json();
+}
+
+async function uploadFileToServer(file: File, token: string): Promise<FileUploadResult> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await fetch('/api/files/upload', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || 'Failed to upload file');
+  }
+
+  return response.json();
+}
+
+async function deleteFileFromServer(fileId: number, token: string): Promise<void> {
+  const response = await fetch(`/api/files/${fileId}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to delete file');
+  }
+}
+
+export function useFiles() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [files, setFiles] = useState<FileItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  const fetchFiles = async () => {
-    if (!user) {
-      setFiles([]);
-      setLoading(false);
-      return;
-    }
-    
-    try {
-      setLoading(true);
-      setError(null);
+  // Fetch files query
+  const {
+    data: files = [],
+    isLoading: loading,
+    error: queryError,
+    refetch: refreshFiles
+  } = useQuery({
+    queryKey: ['files', user?.uid],
+    queryFn: async () => {
+      if (!user) return [];
+      const token = await user.getIdToken();
+      return fetchFiles(token);
+    },
+    enabled: !!user,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    cacheTime: 1000 * 60 * 10, // 10 minutes
+  });
+
+  // Upload file mutation
+  const uploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      if (!user) throw new Error('User not authenticated');
+      const token = await user.getIdToken();
+      return uploadFileToServer(file, token);
+    },
+    onSuccess: (data) => {
+      // Optimistically update the cache
+      queryClient.setQueryData(['files', user?.uid], (oldFiles: FileItem[] = []) => [
+        data,
+        ...oldFiles
+      ]);
       
-      const response = await fetch(`/api/files?userId=${user.uid}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch files');
-      }
-      
-      const data = await response.json();
-      setFiles(data);
-    } catch (err) {
-      console.error('Error fetching files:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch files');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleUploadFile = async (
-    file: File, 
-    onProgress?: (progress: FileUploadProgress) => void
-  ): Promise<FileUploadResult> => {
-    if (!user) {
-      throw new Error('User not authenticated');
-    }
-
-    try {
-      // Upload to Firebase Storage
-      const result = await uploadFile(file, user.uid, onProgress);
-
-      // Save metadata to database
-      const response = await fetch('/api/files', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: user.uid,
-          name: result.name,
-          originalName: result.name,
-          path: result.path,
-          url: result.url,
-          size: result.size,
-          type: result.type,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to save file metadata');
-      }
-
-      const fileRecord = await response.json();
-      
-      // Add to local state
-      setFiles(prev => [fileRecord, ...prev]);
-
       toast({
         title: "Upload successful",
-        description: `${file.name} uploaded successfully`,
+        description: `${data.originalName} uploaded successfully`,
       });
-
-      return result;
-    } catch (error) {
+    },
+    onError: (error: Error) => {
       console.error('Upload error:', error);
       toast({
         title: "Upload failed",
-        description: error instanceof Error ? error.message : 'Upload failed',
+        description: error.message || 'Upload failed',
         variant: "destructive"
       });
-      throw error;
     }
-  };
+  });
 
-  const handleDeleteFile = async (fileId: number): Promise<void> => {
-    if (!user) {
-      throw new Error('User not authenticated');
-    }
+  // Delete file mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (fileId: number) => {
+      if (!user) throw new Error('User not authenticated');
+      const token = await user.getIdToken();
+      return deleteFileFromServer(fileId, token);
+    },
+    onMutate: async (fileId) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['files', user?.uid] });
 
-    try {
-      const file = files.find(f => f.id === fileId);
-      if (!file) {
-        throw new Error('File not found');
-      }
+      // Snapshot the previous value
+      const previousFiles = queryClient.getQueryData<FileItem[]>(['files', user?.uid]);
 
-      // Delete from Firebase Storage
-      await deleteFile(file.path);
+      // Optimistically update to the new value
+      queryClient.setQueryData(['files', user?.uid], (old: FileItem[] = []) =>
+        old.filter(f => f.id !== fileId)
+      );
 
-      // Delete from database
-      const response = await fetch(`/api/files/${fileId}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete file from database');
-      }
-
-      // Remove from local state
-      setFiles(prev => prev.filter(f => f.id !== fileId));
-
+      // Return a context object with the snapshotted value
+      return { previousFiles };
+    },
+    onSuccess: (_, fileId) => {
+      const deletedFile = files.find(f => f.id === fileId);
       toast({
         title: "File deleted",
-        description: `${file.originalName} has been deleted`,
+        description: deletedFile ? `${deletedFile.originalName} has been deleted` : 'File deleted successfully',
       });
-    } catch (error) {
+    },
+    onError: (error: Error, fileId, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousFiles) {
+        queryClient.setQueryData(['files', user?.uid], context.previousFiles);
+      }
+      
       console.error('Delete error:', error);
       toast({
         title: "Delete failed",
-        description: error instanceof Error ? error.message : 'Failed to delete file',
+        description: error.message || 'Failed to delete file',
         variant: "destructive"
       });
-      throw error;
+    },
+    onSettled: () => {
+      // Always refetch after error or success
+      queryClient.invalidateQueries({ queryKey: ['files', user?.uid] });
     }
-  };
-
-  const refreshFiles = async () => {
-    await fetchFiles();
-  };
-
-  useEffect(() => {
-    fetchFiles();
-  }, [user]);
+  });
 
   const totalSize = files.reduce((sum, file) => sum + file.size, 0);
   const totalFiles = files.length;
+  const error = queryError ? (queryError as Error).message : null;
 
   return {
     files,
     loading,
     error,
-    uploadFile: handleUploadFile,
-    deleteFile: handleDeleteFile,
+    uploadFile: uploadMutation.mutateAsync,
+    deleteFile: deleteMutation.mutateAsync,
     refreshFiles,
     totalSize,
     totalFiles,
