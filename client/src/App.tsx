@@ -12,7 +12,6 @@ import EditContact from "@/pages/contacts/edit";
 import NotFound from "@/pages/not-found";
 import Profile from "@/pages/profile";
 import Pricing from "@/pages/pricing";
-import Footer from "@/components/Footer";
 import Settings from "@/pages/settings";
 import Files from "@/pages/files";
 
@@ -71,7 +70,6 @@ function Router() {
           <Route component={NotFound} />
         </Switch>
       </div>
-      <Footer />
     </div>
   );
 }
