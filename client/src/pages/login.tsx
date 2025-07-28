@@ -73,10 +73,7 @@ export default function Login() {
 
         // Create user in database
         console.log("[Auth] Creating user in database");
-        await apiRequest('POST', '/api/login', {
-          firebaseId: userCredential.user.uid,
-          email: userCredential.user.email,
-        });
+        await apiRequest('POST', '/api/login', {});
         console.log("[Auth] User created in database successfully");
 
         toast({
@@ -92,10 +89,7 @@ export default function Login() {
 
         console.log("[Auth] Ensuring user exists in database");
         // Ensure user exists in database
-        await apiRequest('POST', '/api/login', {
-          firebaseId: userCredential.user.uid,
-          email: userCredential.user.email,
-        });
+        await apiRequest('POST', '/api/login', {});
         console.log("[Auth] User login processed successfully");
 
         toast({
@@ -200,11 +194,7 @@ export default function Login() {
                     });
 
                     // Ensure user exists in database
-                    await apiRequest('POST', '/api/login', {
-                      firebaseId: userCredential.user.uid,
-                      email: userCredential.user.email,
-                      displayName: userCredential.user.displayName
-                    });
+                    await apiRequest('POST', '/api/login', {});
 
                     console.log("[Auth] Google sign-in database setup complete");
                     } catch (error: any) {
@@ -232,11 +222,7 @@ export default function Login() {
                     });
 
                     // Ensure user exists in database
-                    await apiRequest('POST', '/api/login', {
-                      firebaseId: userCredential.user.uid,
-                      email: userCredential.user.email,
-                      displayName: userCredential.user.displayName
-                    });
+                    await apiRequest('POST', '/api/login', {});
 
                     console.log("[Auth] GitHub sign-in database setup complete");
                   } catch (error: any) {

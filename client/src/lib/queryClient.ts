@@ -29,23 +29,46 @@ export async function getAuthHeaders(): Promise<Record<string, string>> {
 export async function apiRequest(
   method: string,
   url: string,
-  data?: unknown | undefined,
+  data?: unknown | FormData | undefined,
 ): Promise<Response> {
   const authHeaders = await getAuthHeaders();
   const headers = {
     ...authHeaders,
-    ...(data ? { "Content-Type": "application/json" } : {}),
+    // Don't set Content-Type for FormData - browser will set it with boundary
+    ...(data && !(data instanceof FormData) ? { "Content-Type": "application/json" } : {}),
   };
   
   const res = await fetch(url, {
     method,
     headers,
-    body: data ? JSON.stringify(data) : undefined,
+    body: data instanceof FormData ? data : (data ? JSON.stringify(data) : undefined),
     credentials: "include",
   });
 
   await throwIfResNotOk(res);
   return res;
+}
+
+// Convenience methods
+export async function apiGet(url: string): Promise<Response> {
+  return apiRequest('GET', url);
+}
+
+export async function apiPost(url: string, data?: unknown | FormData): Promise<Response> {
+  return apiRequest('POST', url, data);
+}
+
+export async function apiPut(url: string, data?: unknown): Promise<Response> {
+  return apiRequest('PUT', url, data);
+}
+
+export async function apiDelete(url: string): Promise<Response> {
+  return apiRequest('DELETE', url);
+}
+
+// Helper to get JSON response
+export async function apiJson<T>(response: Response): Promise<T> {
+  return response.json();
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";

@@ -50,22 +50,22 @@ export class FirebaseStorageService {
 
       stream.on('finish', async () => {
         try {
-          // Make the file publicly accessible
-          await fileRef.makePublic();
-          
-          // Get the public URL
-          const publicUrl = `https://storage.googleapis.com/${bucket.name}/${filePath}`;
+          // Generate a signed URL instead of making file public
+          const [signedUrl] = await fileRef.getSignedUrl({
+            action: 'read',
+            expires: Date.now() + (7 * 24 * 60 * 60 * 1000) // 7 days
+          });
 
           resolve({
             name: fileName,
             originalName: file.originalname,
             path: filePath,
-            url: publicUrl,
+            url: signedUrl,
             size: file.size,
             type: file.mimetype
           });
         } catch (error) {
-          console.error('Error getting public URL:', error);
+          console.error('Error getting signed URL:', error);
           reject(error);
         }
       });

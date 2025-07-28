@@ -1,9 +1,26 @@
 import type { Express } from "express";
 import multer from "multer";
+import path from "path";
+import { z } from "zod";
 import { storage } from "../storage/index";
 import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
 import { requiresOwnership, requiresFileOwnership } from "../middleware/authHelpers";
 import { firebaseStorage } from "../lib/firebaseStorage";
+import { handleError, errors } from "../lib/errors";
+
+// Validation schemas
+const fileIdSchema = z.object({
+  id: z.string().regex(/^\d+$/).transform(Number)
+});
+
+const createFileSchema = z.object({
+  name: z.string().min(1).max(255),
+  originalName: z.string().min(1).max(255),
+  path: z.string().min(1).max(1000),
+  url: z.string().url().max(2000),
+  size: z.number().int().min(1).max(50 * 1024 * 1024), // 50MB max
+  type: z.string().min(1).max(100)
+});
 
 // Configure multer for file uploads
 const upload = multer({
@@ -27,8 +44,12 @@ const upload = multer({
       'application/json',
       'text/csv'
     ];
+
+    // Add file extension validation
+    const allowedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.pdf', '.txt', '.doc', '.docx', '.xls', '.xlsx', '.json', '.csv'];
+    const fileExtension = path.extname(file.originalname).toLowerCase();
     
-    if (allowedTypes.includes(file.mimetype)) {
+    if (allowedTypes.includes(file.mimetype) && allowedExtensions.includes(fileExtension)) {
       cb(null, true);
     } else {
       cb(new Error('File type not allowed'), false);
@@ -43,19 +64,20 @@ export async function registerFileRoutes(app: Express) {
       const files = await storage.getFilesByUserId(userId);
       res.json(files || []);
     } catch (error) {
-      console.error("Error fetching files:", error);
-      res.status(500).json({ error: "Failed to fetch files" });
+      handleError(error, res);
     }
   });
 
   app.get("/api/files/:id", requireAuth, requiresFileOwnership, async (req: AuthenticatedRequest, res) => {
     try {
+      // Validate file ID parameter
+      const { id } = fileIdSchema.parse(req.params);
+      
       // File is already attached to request by requiresFileOwnership middleware
       const file = (req as any).file;
       res.json(file);
     } catch (error) {
-      console.error("Error fetching file:", error);
-      res.status(500).json({ error: "Failed to fetch file" });
+      handleError(error, res);
     }
   });
 
@@ -66,7 +88,7 @@ export async function registerFileRoutes(app: Express) {
       const file = req.file;
 
       if (!file) {
-        return res.status(400).json({ error: "No file provided" });
+        throw errors.validation("No file provided");
       }
 
       console.log("[Files] Received file upload:", { 
@@ -80,7 +102,7 @@ export async function registerFileRoutes(app: Express) {
       const user = await storage.getUserByFirebaseId(userId);
       if (!user) {
         console.error("[Files] User not found");
-        return res.status(404).json({ error: "User not found" });
+        throw errors.notFound("User");
       }
 
       // Check file limits
@@ -90,22 +112,16 @@ export async function registerFileRoutes(app: Express) {
       const maxTotalSize = user?.subscriptionType?.includes('pro') ? 1024 * 1024 * 1024 : 100 * 1024 * 1024; // 1GB pro, 100MB free
 
       if (userFiles.length >= maxFiles) {
-        return res.status(403).json({
-          error: `File limit reached. ${user?.subscriptionType?.includes('pro') ? 'Pro' : 'Free'} plan allows up to ${maxFiles} files.`,
-        });
+        throw errors.forbidden(`File limit reached. ${user?.subscriptionType?.includes('pro') ? 'Pro' : 'Free'} plan allows up to ${maxFiles} files.`);
       }
 
       if (file.size > maxFileSize) {
-        return res.status(413).json({
-          error: `File too large. ${user?.subscriptionType?.includes('pro') ? 'Pro' : 'Free'} plan allows up to ${Math.round(maxFileSize / (1024 * 1024))}MB per file.`,
-        });
+        throw errors.tooLarge(`File too large. ${user?.subscriptionType?.includes('pro') ? 'Pro' : 'Free'} plan allows up to ${Math.round(maxFileSize / (1024 * 1024))}MB per file.`);
       }
 
       const totalSize = userFiles.reduce((sum, f) => sum + f.size, 0);
       if (totalSize + file.size > maxTotalSize) {
-        return res.status(413).json({
-          error: `Storage limit reached. ${user?.subscriptionType?.includes('pro') ? 'Pro' : 'Free'} plan allows up to ${Math.round(maxTotalSize / (1024 * 1024))}MB total storage.`,
-        });
+        throw errors.tooLarge(`Storage limit reached. ${user?.subscriptionType?.includes('pro') ? 'Pro' : 'Free'} plan allows up to ${Math.round(maxTotalSize / (1024 * 1024))}MB total storage.`);
       }
 
       // Upload to Firebase Storage
@@ -126,30 +142,24 @@ export async function registerFileRoutes(app: Express) {
       res.json(fileRecord);
     } catch (error) {
       console.error("[Files] Error uploading file:", error);
-      res.status(500).json({
-        error: "Failed to upload file",
-        errorDetails: error instanceof Error ? error.message : "Unknown error",
-      });
+      handleError(error, res);
     }
   });
 
   // Legacy endpoint for metadata-only file creation (kept for compatibility)
   app.post("/api/files", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
-      const { name, originalName, path, url, size, type } = req.body;
+      // Validate request body
+      const validatedData = createFileSchema.parse(req.body);
+      const { name, originalName, path, url, size, type } = validatedData;
       const userId = req.user!.uid;
       
       console.log("[Files] Received file data:", { name, originalName, path, size, type, userId });
 
-      if (!name || !originalName || !path || !url || !size || !type) {
-        console.error("[Files] Missing required fields");
-        return res.status(400).json({ error: "Missing required fields" });
-      }
-
       const user = await storage.getUserByFirebaseId(userId);
       if (!user) {
         console.error("[Files] User not found");
-        return res.status(404).json({ error: "User not found" });
+        throw errors.notFound("User");
       }
 
       console.log("[Files] User data:", {
@@ -163,18 +173,14 @@ export async function registerFileRoutes(app: Express) {
       const maxFiles = user?.subscriptionType?.includes('pro') ? 100 : 10;
       if (userFiles.length >= maxFiles) {
         console.log("[Files] File limit reached");
-        return res.status(403).json({
-          error: `File limit reached. ${user?.subscriptionType?.includes('pro') ? 'Pro' : 'Free'} plan allows up to ${maxFiles} files.`,
-        });
+        throw errors.forbidden(`File limit reached. ${user?.subscriptionType?.includes('pro') ? 'Pro' : 'Free'} plan allows up to ${maxFiles} files.`);
       }
 
       const totalSize = userFiles.reduce((sum, file) => sum + file.size, 0);
       const maxSize = user?.subscriptionType?.includes('pro') ? 1024 * 1024 * 1024 : 100 * 1024 * 1024; // 1GB pro, 100MB free
       if (totalSize + size > maxSize) {
         console.log("[Files] Storage limit reached");
-        return res.status(403).json({
-          error: `Storage limit reached. ${user?.subscriptionType?.includes('pro') ? 'Pro' : 'Free'} plan allows up to ${Math.round(maxSize / (1024 * 1024))}MB total storage.`,
-        });
+        throw errors.forbidden(`Storage limit reached. ${user?.subscriptionType?.includes('pro') ? 'Pro' : 'Free'} plan allows up to ${Math.round(maxSize / (1024 * 1024))}MB total storage.`);
       }
 
       const fileRecord = await storage.createFile({
@@ -191,22 +197,21 @@ export async function registerFileRoutes(app: Express) {
       res.json(fileRecord);
     } catch (error) {
       console.error("[Files] Error creating file record:", error);
-      res.status(400).json({
-        error: "Invalid file data",
-        errorDetails: error instanceof Error ? error.message : "Unknown error",
-      });
+      handleError(error, res);
     }
   });
 
   // Download endpoint - streams file from Firebase Storage
   app.get("/api/files/:id/download", requireAuth, requiresFileOwnership, async (req: AuthenticatedRequest, res) => {
     try {
+      // Validate file ID parameter
+      const { id } = fileIdSchema.parse(req.params);
       const file = (req as any).file;
       
       // Check if file exists in Firebase Storage
       const fileExists = await firebaseStorage.fileExists(file.path);
       if (!fileExists) {
-        return res.status(404).json({ error: "File not found in storage" });
+        throw errors.notFound("File in storage");
       }
 
       // Set appropriate headers for download
@@ -219,23 +224,21 @@ export async function registerFileRoutes(app: Express) {
       downloadStream.on('error', (error) => {
         console.error('Download stream error:', error);
         if (!res.headersSent) {
-          res.status(500).json({ error: "Failed to download file" });
+          handleError(error, res);
         }
       });
 
       downloadStream.pipe(res);
     } catch (error) {
       console.error("Error downloading file:", error);
-      res.status(500).json({ error: "Failed to download file" });
+      handleError(error, res);
     }
   });
 
   app.delete("/api/files/:id", requireAuth, requiresFileOwnership, async (req: AuthenticatedRequest, res) => {
     try {
-      const id = Number(req.params.id);
-      if (isNaN(id)) {
-        return res.status(400).json({ error: "Invalid file ID" });
-      }
+      // Validate file ID parameter
+      const { id } = fileIdSchema.parse(req.params);
       
       // File is already verified to exist and be owned by user via middleware
       const file = (req as any).file;
@@ -256,7 +259,7 @@ export async function registerFileRoutes(app: Express) {
       res.json({ message: "File deleted successfully", filePath: file.path });
     } catch (error) {
       console.error("Error deleting file:", error);
-      res.status(500).json({ error: "Failed to delete file" });
+      handleError(error, res);
     }
   });
 }

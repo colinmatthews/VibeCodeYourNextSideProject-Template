@@ -11,29 +11,21 @@ import { useState } from "react";
 import { updateUserPassword } from "@/lib/firebase";
 import { useUser } from "@/hooks/useUser";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, apiPost, apiJson } from "@/lib/queryClient";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 
-async function createPortalSession(firebaseId: string): Promise<{ url: string }> {
-  const response = await fetch('/api/create-portal-session', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ firebaseId })
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json();
-    
+async function createPortalSession(): Promise<{ url: string }> {
+  try {
+    const response = await apiPost('/api/create-portal-session', {});
+    return apiJson<{ url: string }>(response);
+  } catch (error: any) {
     // Handle specific Stripe portal configuration error
-    if (errorData.error && errorData.error.includes('configuration')) {
+    if (error.message && error.message.includes('configuration')) {
       throw new Error('Portal Not Configured: The billing portal needs to be configured in Stripe Dashboard. Please configure it at: Settings > Billing > Customer portal');
     }
-    
-    throw new Error(errorData.error || 'Failed to create portal session');
+    throw error;
   }
-
-  return response.json();
 }
 
 export default function Settings() {
@@ -56,12 +48,12 @@ export default function Settings() {
   const updateEmailPreferences = useMutation({
     mutationFn: async (enabled: boolean) => {
       if (!firebaseUser?.uid) throw new Error("User not authenticated");
-      return apiRequest("PATCH", `/api/users/${firebaseUser.uid}`, {
+      return apiRequest("PATCH", `/api/users/profile`, {
         emailNotifications: enabled
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user', firebaseUser?.uid] });
+      queryClient.invalidateQueries({ queryKey: ['/api/users/profile'] });
       toast({
         title: "Success",
         description: "Email preferences updated successfully",
@@ -167,7 +159,7 @@ export default function Settings() {
 
   const handleOpenBillingPortal = () => {
     if (!firebaseUser?.uid) return;
-    portalMutation.mutate(firebaseUser.uid);
+    portalMutation.mutate();
   };
 
   return (

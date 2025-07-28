@@ -4,9 +4,17 @@ import { insertUserSchema } from "@shared/schema";
 import Stripe from "stripe";
 import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
 import { requiresOwnership, requiresUserExists } from "../middleware/authHelpers";
+import { z } from "zod";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
   apiVersion: "2025-01-27.acacia",
+});
+
+// Validation schema for profile updates
+const updateProfileSchema = z.object({
+  firstName: z.string().min(1).max(50).optional(),
+  lastName: z.string().min(1).max(50).optional(),
+  emailNotifications: z.boolean().optional()
 });
 
 export async function registerUserRoutes(app: Express) {
@@ -188,9 +196,11 @@ export async function registerUserRoutes(app: Express) {
     }
   });
 
-  app.patch("/api/users/:firebaseId", requireAuth, requiresOwnership, async (req: AuthenticatedRequest, res) => {
+  app.patch("/api/users/profile", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
-      const { firstName, lastName, emailNotifications } = req.body;
+      // Validate request body
+      const validatedData = updateProfileSchema.parse(req.body);
+      const { firstName, lastName, emailNotifications } = validatedData;
       const firebaseId = req.user!.uid;
 
       const user = await storage.getUserByFirebaseId(firebaseId);
@@ -212,7 +222,7 @@ export async function registerUserRoutes(app: Express) {
     }
   });
 
-  app.get("/api/users/:firebaseId", requireAuth, requiresOwnership, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/users/profile", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const firebaseId = req.user!.uid;
       const user = await storage.getUserByFirebaseId(firebaseId);

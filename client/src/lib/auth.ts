@@ -6,6 +6,7 @@ import {
   signOut as firebaseSignOut
 } from 'firebase/auth';
 import { auth } from './firebase';
+import { apiPost } from './queryClient';
 
 interface AuthContextType {
   user: User | null;
@@ -37,16 +38,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           const idToken = await user.getIdToken();
           
           // Login to backend to ensure user exists in database
-          const response = await fetch('/api/login', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${idToken}`,
-            },
-          });
-
-          if (!response.ok) {
-            console.error('Failed to sync user with backend');
+          try {
+            await apiPost('/api/login', {});
+          } catch (error) {
+            console.error('Failed to sync user with backend:', error);
           }
         } catch (error) {
           console.error('Error syncing user with backend:', error);
@@ -70,17 +65,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       const idToken = await user.getIdToken();
       
       // Login to backend to ensure user exists in database
-      const response = await fetch('/api/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create/verify user');
-      }
+      await apiPost('/api/login', {});
       
       setUser(user);
       setLoading(false);

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/lib/auth';
 import { useToast } from './useToast';
+import { apiPost, apiDelete, apiJson, getQueryFn } from '@/lib/queryClient';
 
 export interface FileItem {
   id: number;
@@ -25,51 +26,16 @@ export interface FileUploadResult {
   type: string;
 }
 
-async function fetchFiles(token: string): Promise<FileItem[]> {
-  const response = await fetch('/api/files', {
-    headers: {
-      'Authorization': `Bearer ${token}`
-    }
-  });
-  
-  if (!response.ok) {
-    throw new Error('Failed to fetch files');
-  }
-  
-  return response.json();
-}
-
-async function uploadFileToServer(file: File, token: string): Promise<FileUploadResult> {
+// Mutation functions for file operations
+async function uploadFileToServer(file: File): Promise<FileUploadResult> {
   const formData = new FormData();
   formData.append('file', file);
-
-  const response = await fetch('/api/files/upload', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
-    body: formData,
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Failed to upload file');
-  }
-
-  return response.json();
+  const response = await apiPost('/api/files/upload', formData);
+  return apiJson<FileUploadResult>(response);
 }
 
-async function deleteFileFromServer(fileId: number, token: string): Promise<void> {
-  const response = await fetch(`/api/files/${fileId}`, {
-    method: 'DELETE',
-    headers: {
-      'Authorization': `Bearer ${token}`
-    }
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to delete file');
-  }
+async function deleteFileFromServer(fileId: number): Promise<void> {
+  await apiDelete(`/api/files/${fileId}`);
 }
 
 export function useFiles() {
@@ -77,34 +43,29 @@ export function useFiles() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch files query
+  // Fetch files query using standard pattern
   const {
     data: files = [],
     isLoading: loading,
     error: queryError,
     refetch: refreshFiles
   } = useQuery({
-    queryKey: ['files', user?.uid],
-    queryFn: async () => {
-      if (!user) return [];
-      const token = await user.getIdToken();
-      return fetchFiles(token);
-    },
+    queryKey: ['/api/files'],
+    queryFn: getQueryFn<FileItem[]>({ on401: "throw" }),
     enabled: !!user,
     staleTime: 1000 * 60 * 5, // 5 minutes
-    cacheTime: 1000 * 60 * 10, // 10 minutes
+    gcTime: 1000 * 60 * 10, // 10 minutes (renamed from cacheTime)
   });
 
   // Upload file mutation
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
       if (!user) throw new Error('User not authenticated');
-      const token = await user.getIdToken();
-      return uploadFileToServer(file, token);
+      return uploadFileToServer(file);
     },
     onSuccess: (data) => {
       // Optimistically update the cache
-      queryClient.setQueryData(['files', user?.uid], (oldFiles: FileItem[] = []) => [
+      queryClient.setQueryData(['/api/files'], (oldFiles: FileItem[] = []) => [
         data,
         ...oldFiles
       ]);
@@ -128,18 +89,17 @@ export function useFiles() {
   const deleteMutation = useMutation({
     mutationFn: async (fileId: number) => {
       if (!user) throw new Error('User not authenticated');
-      const token = await user.getIdToken();
-      return deleteFileFromServer(fileId, token);
+      return deleteFileFromServer(fileId);
     },
     onMutate: async (fileId) => {
       // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ['files', user?.uid] });
+      await queryClient.cancelQueries({ queryKey: ['/api/files'] });
 
       // Snapshot the previous value
-      const previousFiles = queryClient.getQueryData<FileItem[]>(['files', user?.uid]);
+      const previousFiles = queryClient.getQueryData<FileItem[]>(['/api/files']);
 
       // Optimistically update to the new value
-      queryClient.setQueryData(['files', user?.uid], (old: FileItem[] = []) =>
+      queryClient.setQueryData(['/api/files'], (old: FileItem[] = []) =>
         old.filter(f => f.id !== fileId)
       );
 
@@ -156,7 +116,7 @@ export function useFiles() {
     onError: (error: Error, fileId, context) => {
       // If the mutation fails, use the context returned from onMutate to roll back
       if (context?.previousFiles) {
-        queryClient.setQueryData(['files', user?.uid], context.previousFiles);
+        queryClient.setQueryData(['/api/files'], context.previousFiles);
       }
       
       console.error('Delete error:', error);
@@ -168,7 +128,7 @@ export function useFiles() {
     },
     onSettled: () => {
       // Always refetch after error or success
-      queryClient.invalidateQueries({ queryKey: ['files', user?.uid] });
+      queryClient.invalidateQueries({ queryKey: ['/api/files'] });
     }
   });
 

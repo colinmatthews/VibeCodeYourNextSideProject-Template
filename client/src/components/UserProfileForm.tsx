@@ -15,7 +15,7 @@ export function UserProfileForm({ onComplete }: { onComplete: () => void }) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await apiRequest("PATCH", `/api/users/${user?.uid}`, {
+      await apiRequest("PATCH", "/api/users/profile", {
         firstName,
         lastName,
       });

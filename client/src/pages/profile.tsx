@@ -14,7 +14,7 @@ export default function Profile() {
   const queryClient = useQueryClient();
   
   const { data: userData } = useQuery({
-    queryKey: [`/api/users/${user?.uid}`],
+    queryKey: ['/api/users/profile'],
     enabled: !!user,
   });
 
@@ -29,10 +29,10 @@ export default function Profile() {
 
   const updateProfile = useMutation({
     mutationFn: async (data: typeof formData) => {
-      return apiRequest("PATCH", `/api/users/${user?.uid}`, data);
+      return apiRequest("PATCH", "/api/users/profile", data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/users/${user?.uid}`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/users/profile'] });
       toast({
         title: "Success",
         description: "Profile updated successfully",

@@ -1,8 +1,19 @@
 import type { Express } from "express";
+import { z } from "zod";
 import { storage } from "../storage/index";
 import { sendEmail } from "../mail";
 import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
 import { requiresOwnership, requiresItemOwnership } from "../middleware/authHelpers";
+import { handleError, errors } from "../lib/errors";
+
+// Validation schemas
+const itemIdSchema = z.object({
+  id: z.string().regex(/^\d+$/).transform(Number)
+});
+
+const createItemSchema = z.object({
+  item: z.string().min(1).max(1000).trim()
+});
 
 export async function registerItemRoutes(app: Express) {
   app.get("/api/items", requireAuth, requiresOwnership, async (req: AuthenticatedRequest, res) => {
@@ -12,20 +23,17 @@ export async function registerItemRoutes(app: Express) {
       res.json(items || []);
     } catch (error) {
       console.error("Error fetching items:", error);
-      res.status(500).json({ error: "Failed to fetch items" });
+      handleError(error, res);
     }
   });
 
   app.post("/api/items", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
-      const { item } = req.body;
+      // Validate request body
+      const { item } = createItemSchema.parse(req.body);
       const userId = req.user!.uid;
       
       console.log("[Items] Received item data:", { item, userId });
-
-      if (!item || typeof item !== 'string' || item.trim().length === 0) {
-        return res.status(400).json({ error: "Item text is required" });
-      }
 
       const user = await storage.getUserByFirebaseId(userId);
       console.log("[Items] User data:", {
@@ -39,9 +47,7 @@ export async function registerItemRoutes(app: Express) {
 
       if (!user?.subscriptionType?.includes('pro') && items.length >= 5) {
         console.log("[Items] Free user hit item limit");
-        return res.status(403).json({
-          error: "Item limit reached. Please upgrade to Pro plan.",
-        });
+        throw errors.forbidden("Item limit reached. Please upgrade to Pro plan.");
       }
 
       const created = await storage.createItem({ userId, item });
@@ -63,25 +69,20 @@ export async function registerItemRoutes(app: Express) {
       res.json(created);
     } catch (error) {
       console.error("[Items] Error creating item:", error);
-      res.status(400).json({
-        error: "Invalid item data",
-        errorDetails: error instanceof Error ? error.message : "Unknown error",
-      });
+      handleError(error, res);
     }
   });
 
   app.delete("/api/items/:id", requireAuth, requiresItemOwnership, async (req: AuthenticatedRequest, res) => {
     try {
-      const id = Number(req.params.id);
-      if (isNaN(id)) {
-        return res.status(400).json({ error: "Invalid item ID" });
-      }
+      // Validate item ID parameter
+      const { id } = itemIdSchema.parse(req.params);
       
       await storage.deleteItem(id);
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting item:", error);
-      res.status(500).json({ error: "Failed to delete item" });
+      handleError(error, res);
     }
   });
 }

@@ -6,38 +6,18 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent, CardTitle, CardFooter } from "@/components/ui/card";
 import { Check, Loader2 } from "lucide-react";
 import { useEffect } from "react";
+import { apiPost, apiJson, getQueryFn } from "@/lib/queryClient";
 
-async function createCheckoutSession(firebaseId: string): Promise<{ url: string }> {
-  const response = await fetch('/api/create-checkout-session', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      firebaseId,
-      mode: 'subscription',
-    })
+async function createCheckoutSession(): Promise<{ url: string }> {
+  const response = await apiPost('/api/create-checkout-session', {
+    mode: 'subscription',
   });
-
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Failed to create checkout session');
-  }
-
-  return response.json();
+  return apiJson<{ url: string }>(response);
 }
 
-async function createPortalSession(firebaseId: string): Promise<{ url: string }> {
-  const response = await fetch('/api/create-portal-session', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ firebaseId })
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Failed to create portal session');
-  }
-
-  return response.json();
+async function createPortalSession(): Promise<{ url: string }> {
+  const response = await apiPost('/api/create-portal-session', {});
+  return apiJson<{ url: string }>(response);
 }
 
 function Pricing() {
@@ -70,13 +50,8 @@ function Pricing() {
   }, [toast]);
 
   const { data: userData, isLoading: userLoading } = useQuery({
-    queryKey: ['user', user?.uid],
-    queryFn: async () => {
-      if (!user?.uid) return null;
-      const response = await fetch(`/api/users/${user.uid}`);
-      if (!response.ok) throw new Error('Failed to fetch user data');
-      return response.json();
-    },
+    queryKey: ['/api/users/profile'],
+    queryFn: getQueryFn<any>({ on401: "throw" }),
     enabled: !!user?.uid
   });
 
@@ -123,14 +98,14 @@ function Pricing() {
     }
 
     console.log('[Pricing] Creating checkout session for user:', user.uid);
-    checkoutMutation.mutate(user.uid);
+    checkoutMutation.mutate();
   };
 
   const handleManageSubscription = () => {
     if (!user?.uid) return;
 
     console.log('[Pricing] Creating portal session for user:', user.uid);
-    portalMutation.mutate(user.uid);
+    portalMutation.mutate();
   };
 
   const plans = [

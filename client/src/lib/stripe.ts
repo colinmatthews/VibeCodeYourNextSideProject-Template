@@ -1,4 +1,5 @@
 import { loadStripe, Stripe } from '@stripe/stripe-js';
+import { apiPost, apiJson } from './queryClient';
 
 // Initialize Stripe.js
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
@@ -10,7 +11,6 @@ export const getStripe = async (): Promise<Stripe | null> => {
 
 // Enhanced checkout session creation with better typing and options
 export async function createCheckoutSession(params: {
-  firebaseId: string;
   mode?: 'subscription' | 'payment';
   priceId?: string;
   successUrl?: string;
@@ -19,26 +19,13 @@ export async function createCheckoutSession(params: {
   billingAddressCollection?: 'auto' | 'required';
   automaticTax?: boolean;
   collectPhoneNumber?: boolean;
-}) {
-  const response = await fetch('/api/create-checkout-session', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(params),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Failed to create checkout session');
-  }
-
-  return response.json();
+} = {}) {
+  const response = await apiPost('/api/create-checkout-session', params);
+  return apiJson(response);
 }
 
 // Enhanced redirect to checkout with better error handling
 export async function redirectToCheckout(params: {
-  firebaseId: string;
   mode?: 'subscription' | 'payment';
   priceId?: string;
   successUrl?: string;
@@ -47,7 +34,7 @@ export async function redirectToCheckout(params: {
   billingAddressCollection?: 'auto' | 'required';
   automaticTax?: boolean;
   collectPhoneNumber?: boolean;
-}) {
+} = {}) {
   try {
     const { url } = await createCheckoutSession(params);
     window.location.href = url;
@@ -65,20 +52,8 @@ export async function createPaymentIntent(params: {
   automaticPaymentMethods?: boolean;
   metadata?: Record<string, string>;
 }) {
-  const response = await fetch('/api/create-payment-intent', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(params),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Failed to create payment intent');
-  }
-
-  return response.json();
+  const response = await apiPost('/api/create-payment-intent', params);
+  return apiJson(response);
 }
 
 // Confirm payment intent with payment method
@@ -104,27 +79,15 @@ export async function confirmPayment(
 }
 
 // Create billing portal session
-export async function createPortalSession(firebaseId: string) {
-  const response = await fetch('/api/create-portal-session', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ firebaseId }),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Failed to create portal session');
-  }
-
-  return response.json();
+export async function createPortalSession() {
+  const response = await apiPost('/api/create-portal-session', {});
+  return apiJson(response);
 }
 
 // Redirect to billing portal
-export async function redirectToPortal(firebaseId: string) {
+export async function redirectToPortal() {
   try {
-    const { url } = await createPortalSession(firebaseId);
+    const { url } = await createPortalSession();
     window.location.href = url;
   } catch (error) {
     console.error('Error redirecting to portal:', error);
