@@ -45,7 +45,8 @@ const posthog = new PostHog(
           "'unsafe-inline'", // Required for Vite development mode
           "https://js.stripe.com", // Required for Stripe.js
           "https://apis.google.com", // Required for Google Sign-in
-          "https://accounts.google.com" // Required for Google Sign-in
+          "https://accounts.google.com", // Required for Google Sign-in
+          "https://us-assets.i.posthog.com" // Required for PostHog scripts
         ],
         connectSrc: [
           "'self'",
@@ -56,7 +57,9 @@ const posthog = new PostHog(
           "https://accounts.google.com", // Required for Google Sign-in
           "https://www.googleapis.com", // Required for Google APIs
           "https://*.firebaseapp.com", // Required for Firebase Auth domain
-          "https://us.i.posthog.com", // Required for PostHog
+          "https://us.i.posthog.com", // Required for PostHog API
+          "https://us-assets.i.posthog.com", // Required for PostHog assets
+          "https://*.posthog.com", // Required for PostHog subdomains
         ],
         imgSrc: [
           "'self'", 
@@ -71,7 +74,7 @@ const posthog = new PostHog(
         ]
       }
     },
-    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" }, // Critical for popup auth
+    crossOriginOpenerPolicy: { policy: "unsafe-none" }, // Allow popups for Firebase auth
     crossOriginEmbedderPolicy: false, // Disabled to allow Firebase popup authentication
     hsts: {
       maxAge: 31536000, // 1 year

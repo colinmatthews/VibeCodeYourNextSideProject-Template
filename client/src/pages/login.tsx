@@ -71,33 +71,21 @@ export default function Login() {
         const userCredential = await signUpWithEmail(email, password);
         console.log("[Auth] Email signup successful", { uid: userCredential.user.uid });
 
-        // Create user in database
-        console.log("[Auth] Creating user in database");
-        await apiRequest('POST', '/api/login', {});
-        console.log("[Auth] User created in database successfully");
-
         toast({
           title: "Success",
           description: "Account created successfully"
         });
-        console.log("[Auth] Redirecting to dashboard after signup");
-        setLocation("/");
+        console.log("[Auth] AuthProvider will handle user creation and redirect");
       } else {
         console.log("[Auth] Attempting email signin");
         const userCredential = await signInWithEmail(email, password);
         console.log("[Auth] Email signin successful", { uid: userCredential.user.uid });
 
-        console.log("[Auth] Ensuring user exists in database");
-        // Ensure user exists in database
-        await apiRequest('POST', '/api/login', {});
-        console.log("[Auth] User login processed successfully");
-
         toast({
           title: "Success",
-          description: "Account created successfully"
+          description: "Signed in successfully"
         });
-        console.log("[Auth] Redirecting to dashboard after signin");
-        setLocation("/");
+        console.log("[Auth] AuthProvider will handle user sync and redirect");
       }
     } catch (error: any) {
       setError(error.message);
@@ -193,10 +181,7 @@ export default function Login() {
                       email: userCredential.user.email
                     });
 
-                    // Ensure user exists in database
-                    await apiRequest('POST', '/api/login', {});
-
-                    console.log("[Auth] Google sign-in database setup complete");
+                    console.log("[Auth] AuthProvider will handle user sync and redirect");
                     } catch (error: any) {
                     setError(error.message);
                     toast({
@@ -221,10 +206,7 @@ export default function Login() {
                       email: userCredential.user.email
                     });
 
-                    // Ensure user exists in database
-                    await apiRequest('POST', '/api/login', {});
-
-                    console.log("[Auth] GitHub sign-in database setup complete");
+                    console.log("[Auth] AuthProvider will handle user sync and redirect");
                   } catch (error: any) {
                     setError(error.message);
                     toast({

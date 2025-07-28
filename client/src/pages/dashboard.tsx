@@ -89,12 +89,18 @@ export default function Dashboard() {
   });
 
 
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!loading && !firebaseUser) {
+      setLocation("/login");
+    }
+  }, [loading, firebaseUser, setLocation]);
+
   if (loading) {
     return <div className="container mx-auto py-8">Loading...</div>;
   }
 
   if (!firebaseUser) {
-    setLocation("/login");
     return null;
   }
 

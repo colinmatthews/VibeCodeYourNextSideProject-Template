@@ -24,14 +24,12 @@ export default function Navbar() {
   return (
     <nav className="border-b bg-background">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-        <Link href="/">
-          <a className="flex items-center">
-            <img 
-              src="/placeholder-logo.svg" 
-              alt="Your Logo" 
-              className="h-8" 
-            />
-          </a>
+        <Link href="/" className="flex items-center">
+          <img 
+            src="/placeholder-logo.svg" 
+            alt="Your Logo" 
+            className="h-8" 
+          />
         </Link>
         <div className="flex items-center gap-4">
           <Link href="/pricing">
