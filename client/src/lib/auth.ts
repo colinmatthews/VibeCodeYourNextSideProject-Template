@@ -7,6 +7,7 @@ import {
 } from 'firebase/auth';
 import { auth } from './firebase';
 import { apiPost } from './queryClient';
+import posthog from 'posthog-js';
 
 interface AuthContextType {
   user: User | null;
@@ -40,12 +41,26 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           // Login to backend to ensure user exists in database
           try {
             await apiPost('/api/login', {});
+            
+            // Identify user in PostHog using email as distinct ID
+            if (user.email) {
+              posthog.identify(user.email, {
+                firebaseId: user.uid,
+                email: user.email,
+                displayName: user.displayName,
+                emailVerified: user.emailVerified,
+                photoURL: user.photoURL
+              });
+            }
           } catch (error) {
             console.error('Failed to sync user with backend:', error);
           }
         } catch (error) {
           console.error('Error syncing user with backend:', error);
         }
+      } else {
+        // Reset PostHog when user logs out
+        posthog.reset();
       }
       setUser(user);
       setLoading(false);
@@ -67,6 +82,17 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       // Login to backend to ensure user exists in database
       await apiPost('/api/login', {});
       
+      // Identify user in PostHog using email as distinct ID
+      if (user.email) {
+        posthog.identify(user.email, {
+          firebaseId: user.uid,
+          email: user.email,
+          displayName: user.displayName,
+          emailVerified: user.emailVerified,
+          photoURL: user.photoURL
+        });
+      }
+      
       setUser(user);
       setLoading(false);
     } catch (error) {
@@ -76,7 +102,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   };
 
-  const signOut = () => firebaseSignOut(auth);
+  const signOut = () => {
+    posthog.reset();
+    return firebaseSignOut(auth);
+  };
 
   return React.createElement(AuthContext.Provider, {
     value: {

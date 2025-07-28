@@ -5,10 +5,31 @@ import Stripe from "stripe";
 import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
 import { requiresOwnership, requiresUserExists } from "../middleware/authHelpers";
 import { z } from "zod";
+import { PostHog } from 'posthog-node';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
   apiVersion: "2025-01-27.acacia",
 });
+
+// Initialize PostHog for server-side events
+const posthog = new PostHog(
+  process.env.POSTHOG_API_KEY!,
+  { 
+    host: process.env.POSTHOG_HOST,
+  }
+);
+
+// Helper function to identify user in PostHog
+const identifyUserInPostHog = (email: string, firebaseId: string, additionalProperties?: Record<string, any>) => {
+  posthog.identify({
+    distinctId: email,
+    properties: {
+      firebaseId,
+      email,
+      ...additionalProperties
+    }
+  });
+};
 
 // Validation schema for profile updates
 const updateProfileSchema = z.object({
@@ -42,6 +63,46 @@ export async function registerUserRoutes(app: Express) {
           subscriptionType: 'free',
           emailNotifications: false
         });
+
+        // Identify new user in PostHog
+        if (email) {
+          identifyUserInPostHog(email, firebaseId, {
+            subscriptionType: 'free',
+            isPremium: false,
+            isNewUser: true
+          });
+          
+          // Track user registration event
+          posthog.capture({
+            distinctId: email,
+            event: 'user_registered',
+            properties: {
+              firebaseId,
+              subscriptionType: 'free',
+              method: 'firebase_auth'
+            }
+          });
+        }
+      } else {
+        // Identify returning user in PostHog
+        if (email) {
+          identifyUserInPostHog(email, firebaseId, {
+            subscriptionType: user.subscriptionType,
+            isPremium: user.isPremium,
+            firstName: user.firstName,
+            lastName: user.lastName
+          });
+          
+          // Track login event
+          posthog.capture({
+            distinctId: email,
+            event: 'user_logged_in',
+            properties: {
+              firebaseId,
+              subscriptionType: user.subscriptionType
+            }
+          });
+        }
       }
 
       // Return user info for client
