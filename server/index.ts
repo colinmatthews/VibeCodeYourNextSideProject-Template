@@ -3,11 +3,21 @@ import express, { type Request, Response, NextFunction } from "express";
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import cors from 'cors';
+import { PostHog, setupExpressErrorHandler } from 'posthog-node';
 import { registerRoutes } from "./routes";
 import { registerWebhookRoutes } from "./routes/webhookRoutes";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
+
+// Initialize PostHog
+const posthog = new PostHog(
+  process.env.POSTHOG_API_KEY!,
+  { 
+    host: process.env.POSTHOG_HOST,
+    enableExceptionAutocapture: true
+  }
+);
 
 (async () => {
   // Security headers with Helmet
@@ -46,6 +56,7 @@ const app = express();
           "https://accounts.google.com", // Required for Google Sign-in
           "https://www.googleapis.com", // Required for Google APIs
           "https://*.firebaseapp.com", // Required for Firebase Auth domain
+          "https://us.i.posthog.com", // Required for PostHog
         ],
         imgSrc: [
           "'self'", 
@@ -110,6 +121,9 @@ const app = express();
   // Now apply global JSON parsing middleware for all other routes
   app.use(express.json({ limit: '10mb' })); // Set body size limit
   app.use(express.urlencoded({ extended: false, limit: '10mb' }));
+
+  // Setup PostHog Express error handler
+  setupExpressErrorHandler(posthog, app);
 
   app.use((req, res, next) => {
     const start = Date.now();
@@ -217,13 +231,28 @@ function getProductionErrorMessage(status: number): string {
 }
 
   // Handle uncaught exceptions
-  process.on('uncaughtException', (error) => {
+  process.on('uncaughtException', async (error) => {
     console.error('Uncaught Exception:', error);
+    await posthog.shutdown();
   });
 
   // Handle unhandled promise rejections
-  process.on('unhandledRejection', (reason, promise) => {
+  process.on('unhandledRejection', async (reason, promise) => {
     console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+    await posthog.shutdown();
+  });
+
+  // Handle process termination
+  process.on('SIGTERM', async () => {
+    console.log('SIGTERM received, shutting down gracefully');
+    await posthog.shutdown();
+    process.exit(0);
+  });
+
+  process.on('SIGINT', async () => {
+    console.log('SIGINT received, shutting down gracefully');
+    await posthog.shutdown();
+    process.exit(0);
   });
 
   // importantly only setup vite in development and after
