@@ -44,7 +44,8 @@ const app = express();
           "https://identitytoolkit.googleapis.com", // Required for Firebase Auth
           "https://securetoken.googleapis.com", // Required for Firebase Auth
           "https://accounts.google.com", // Required for Google Sign-in
-          "https://www.googleapis.com" // Required for Google APIs
+          "https://www.googleapis.com", // Required for Google APIs
+          "https://*.firebaseapp.com", // Required for Firebase Auth domain
         ],
         imgSrc: [
           "'self'", 
@@ -60,7 +61,7 @@ const app = express();
       }
     },
     crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" }, // Critical for popup auth
-    crossOriginEmbedderPolicy: process.env.NODE_ENV === 'production' ? { policy: "require-corp" } : false, // Stricter in production
+    crossOriginEmbedderPolicy: false, // Disabled to allow Firebase popup authentication
     hsts: {
       maxAge: 31536000, // 1 year
       includeSubDomains: true,
@@ -149,7 +150,7 @@ const app = express();
     
     // Sanitize error message for production
     const message = process.env.NODE_ENV === 'production' 
-      ? getProductionErrorMessage(status, err)
+      ? getProductionErrorMessage(status)
       : err.message || "Internal Server Error";
 
     // Handle authentication errors specially
@@ -193,7 +194,7 @@ const app = express();
   });
 
 // Helper function to get sanitized error messages for production
-function getProductionErrorMessage(status: number, err: any): string {
+function getProductionErrorMessage(status: number): string {
   switch (status) {
     case 400:
       return 'Bad Request';
@@ -236,7 +237,7 @@ function getProductionErrorMessage(status: number, err: any): string {
 
   // ALWAYS serve the app on port 5000
   // this serves both the API and the client
-  const PORT = process.env.PORT || 5000;
+  const PORT = parseInt(process.env.PORT || '5000', 10);
 
   server.listen(PORT, "0.0.0.0", () => {
     log(`serving on port ${PORT}`);

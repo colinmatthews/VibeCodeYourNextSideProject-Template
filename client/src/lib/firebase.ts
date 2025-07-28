@@ -42,8 +42,23 @@ export async function signInWithGoogle() {
     const result = await signInWithPopup(auth, googleProvider);
     console.log("Google sign in successful in firebase", result)
     return result;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Google sign-in error:", error);
+    
+    // Handle popup closed by user error specifically
+    if (error.code === 'auth/popup-closed-by-user') {
+      const customError = new Error('Sign-in was cancelled. Please try again.');
+      customError.name = 'AuthCancelledError';
+      throw customError;
+    }
+    
+    // Handle popup blocked error
+    if (error.code === 'auth/popup-blocked') {
+      const customError = new Error('Popup was blocked by browser. Please allow popups and try again.');
+      customError.name = 'PopupBlockedError';
+      throw customError;
+    }
+    
     throw error;
   }
 }
