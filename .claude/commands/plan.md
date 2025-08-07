@@ -13,6 +13,29 @@ Helps users plan and build new features using the existing codebase architecture
 - Payment integration with Stripe (if needed)
 - Email notifications with SendGrid (if needed)
 
+## Step 0: Development Setup
+
+Before starting any feature development:
+
+### Create Feature Branch
+```bash
+# Check current status and ensure clean working directory  
+git status
+
+# Create and switch to feature branch
+git checkout -b feature/[feature-name]
+# Example: git checkout -b feature/user-notifications
+```
+
+### Run Initial Type Checks
+```bash
+# Ensure codebase is clean before starting
+npm run check
+
+# Fix any TypeScript errors before proceeding
+# This prevents accumulating technical debt
+```
+
 ## Step 1: Understanding the Feature Requirements
 
 Ask these focused questions to understand the scope:
@@ -82,30 +105,51 @@ Before implementing, analyze the existing codebase:
 
 ### Phase 1: Database Layer (if needed)
 
-1. **Schema Design**
+1. **Test-Driven Development Setup**
+   - Write failing tests first for new database operations
+   - Study existing test patterns in `server/__tests__/`
+   - Create test data fixtures following existing patterns
+   - Run tests to ensure they fail initially: `npm run test:single [test-file]`
+
+2. **Schema Design**
    - Study existing table definitions in `shared/schema.ts`
    - Follow the same naming conventions and field patterns
    - Use consistent foreign key relationships (reference `users.firebaseId`)
    - Include standard fields like `createdAt` and `updatedAt`
    - Follow the established patterns for primary keys and indexes
 
-2. **Database Migration**
+3. **Database Migration**
    - Use the same migration commands as established in `package.json`
    - Follow existing migration patterns in `server/migrations/`
    - Test schema changes using established development workflow
    - Ensure proper rollback capabilities
+   - **Commit after successful migration**: `git add . && git commit -m "Add [feature] database schema"`
 
 ### Phase 2: Server Layer
 
-1. **Storage Layer**
+1. **TDD for Storage Layer**
+   - Write failing tests for storage operations first
+   - Study test patterns in `server/__tests__/storage.test.ts`
+   - Test CRUD operations, error cases, and edge conditions
+   - Run: `npm run test:single storage.test.ts`
+
+2. **Storage Layer Implementation**
    - Study existing storage implementations in `server/storage/`
    - Follow the same patterns as `UserStorage.ts`, `ItemStorage.ts`, or `FileStorage.ts`
    - Use consistent database connection patterns from `server/db.ts`
    - Implement the same error handling and query patterns
    - Follow established naming conventions for storage methods
    - Use the same Drizzle ORM query patterns as existing storage files
+   - **Run TypeScript check**: `npm run check`
+   - **Commit storage layer**: `git add . && git commit -m "Add [feature] storage layer"`
 
-2. **API Routes with Security**
+3. **TDD for API Routes**
+   - Write failing tests for API endpoints first
+   - Study test patterns in `server/__tests__/*-workflow.test.ts`
+   - Test authentication, authorization, input validation, and responses
+   - Run: `npm run test:single [feature]-workflow.test.ts`
+
+4. **API Routes with Security**
    - Study existing route implementations in `server/routes/`
    - Follow the same authentication patterns as `userRoutes.ts`, `itemRoutes.ts`, or `fileRoutes.ts`
    - Use the same middleware patterns from `server/middleware/auth.ts` and `server/middleware/authHelpers.ts`
@@ -114,24 +158,29 @@ Before implementing, analyze the existing codebase:
    - Use consistent ownership verification patterns
    - Implement the same security checks and status codes
    - Register routes in `server/routes/index.ts` following existing patterns
+   - **Run TypeScript check**: `npm run check`
+   - **Test specific route**: `npm run test:single [feature]-workflow.test.ts`
+   - **Commit API routes**: `git add . && git commit -m "Add [feature] API routes with security"`
 
-3. **Register Routes**
-   - Study how existing routes are registered in `server/routes/index.ts`
-   - Follow the same import and registration patterns
-   - Use consistent route prefixes and organization
-   - Ensure proper middleware order and application
-
-4. **Custom Middleware (if needed)**
+5. **Custom Middleware (if needed)**
    - Study existing middleware patterns in `server/middleware/`
    - Follow the same patterns as `auth.ts` and `authHelpers.ts`
    - Use consistent error handling and response formats
    - Implement the same security checks and ownership verification patterns
    - Use the same TypeScript interfaces and naming conventions
    - Follow existing logging and error reporting patterns
+   - **Run TypeScript check**: `npm run check`
+   - **Test middleware**: `npm run test:single auth-workflow.test.ts`
+   - **Commit middleware**: `git add . && git commit -m "Add [feature] custom middleware"`
 
 ### Phase 3: Client Layer
 
-1. **Data Fetching Hook**
+1. **TDD for Frontend Components**
+   - Write component tests first (if using client testing)
+   - Test component rendering, user interactions, and error states
+   - Study any existing client test patterns
+
+2. **Data Fetching Hook**
    - Study existing hooks in `client/src/hooks/`
    - Follow the same patterns as `useFiles.ts`, `useUser.ts`, or `use-auth.ts`
    - Use consistent data fetching patterns and error handling
@@ -139,35 +188,45 @@ Before implementing, analyze the existing codebase:
    - Follow established TypeScript interface patterns
    - Use the same API communication patterns
    - Implement consistent CRUD operations following existing hook patterns
+   - **Run TypeScript check**: `npm run check`
+   - **Commit hook**: `git add . && git commit -m "Add [feature] data fetching hook"`
 
-2. **Main Feature Component**
+3. **Main Feature Component**
    - Study existing components in `client/src/components/`
-   - Follow the same UI patterns as `FileList.tsx`, `ContactList.tsx`, or `UserProfileForm.tsx`
+   - Follow the same UI patterns as `FileList.tsx` or similar components
    - Use consistent shadcn/ui components from `client/src/components/ui/`
    - Implement the same loading and error state patterns
    - Follow established component structure and naming conventions
    - Use the same icon patterns from lucide-react
    - Implement consistent user interaction patterns and confirmation dialogs
+   - **Run TypeScript check**: `npm run check`
+   - **Commit component**: `git add . && git commit -m "Add [feature] main component"`
 
-3. **Form Component**
-   - Study existing form components like `ContactForm.tsx` or `UserProfileForm.tsx`
+4. **Form Component**
+   - Study existing form components in similar features
    - Follow the same form handling patterns and validation approaches
    - Use consistent shadcn/ui form components
    - Implement the same loading states and button behaviors
    - Follow established form layout and styling patterns
    - Use the same error handling and user feedback patterns
+   - **Run TypeScript check**: `npm run check`
+   - **Commit form**: `git add . && git commit -m "Add [feature] form component"`
 
-4. **Page Component (if needed)**
+5. **Page Component (if needed)**
    - Study existing page components in `client/src/pages/`
    - Follow the same layout patterns as `Files.tsx`, `profile.tsx`, or `settings.tsx`
    - Use consistent container and spacing patterns
    - Implement the same navigation and routing patterns
+   - **Run TypeScript check**: `npm run check`
+   - **Commit page**: `git add . && git commit -m "Add [feature] page component"`
 
-5. **Add to Navigation**
+6. **Add to Navigation**
    - Study existing routing patterns in `client/src/App.tsx`
    - Follow the same route registration and navigation patterns
    - Update navigation components consistently
    - Ensure proper authentication guards if needed
+   - **Run TypeScript check**: `npm run check`
+   - **Commit navigation**: `git add . && git commit -m "Add [feature] to navigation"`
 
 ## Step 4: Integration Enhancements
 
@@ -217,9 +276,24 @@ Before implementing, analyze the existing codebase:
 
 ## Step 5: Testing and Validation
 
+### Complete Test Suite
+```bash
+# Run all backend tests
+npm test
+
+# Run specific feature tests
+npm run test:single [feature]-workflow.test.ts
+
+# Run TypeScript checks
+npm run check
+
+# Test build process
+npm run build
+```
+
 ### Backend Testing
 ```bash
-# Test API endpoints
+# Test API endpoints manually (if needed)
 curl -X GET http://localhost:5000/api/[feature] \
   -H "Authorization: Bearer [token]"
 
@@ -247,8 +321,27 @@ SELECT * FROM [table_name]
 JOIN users ON [table_name].user_id = users.firebase_id;
 ```
 
-## Step 6: Deployment Checklist
+### Final Integration Test
+```bash
+# Ensure all tests pass
+npm test
 
+# Ensure TypeScript is clean
+npm run check
+
+# Ensure build works
+npm run build
+
+# Commit final integration
+git add . && git commit -m "Complete [feature] integration with full test coverage"
+```
+
+## Step 6: Deployment and PR Checklist
+
+### Pre-Deployment Checklist
+- [ ] All tests passing: `npm test`
+- [ ] TypeScript clean: `npm run check`  
+- [ ] Build successful: `npm run build`
 - [ ] Database schema changes deployed
 - [ ] Environment variables configured
 - [ ] API routes tested in production
@@ -259,6 +352,23 @@ JOIN users ON [table_name].user_id = users.firebase_id;
 - [ ] Performance optimized
 - [ ] Analytics tracking added (if needed)
 - [ ] Documentation updated
+
+### Create Pull Request
+```bash
+# Push feature branch
+git push origin feature/[feature-name]
+
+# Create PR through GitHub UI or CLI
+gh pr create --title "Add [feature]" --body "Description of changes"
+```
+
+### Post-Merge Cleanup
+```bash
+# Switch back to main and clean up
+git checkout main
+git pull origin main
+git branch -d feature/[feature-name]
+```
 
 ## Common Patterns and Best Practices
 
@@ -339,11 +449,15 @@ import { Button, Card, Input } from './ui/[component]';
 
 ## Remember
 
+- **Start with a clean branch** - Always create a feature branch from main
+- **TDD approach** - Write failing tests first, then implement
+- **TypeScript first** - Run `npm run check` frequently during development
 - **Security First** - Always implement authentication and ownership verification
 - **Check existing code first** - Look for similar patterns and reuse them
 - **Follow established conventions** - Use the same middleware and error patterns
 - **Validate everything** - Use Zod schemas for all inputs
 - **Test thoroughly** - Verify all CRUD operations and security measures
+- **Commit frequently** - Make small, focused commits with clear messages
 - **Handle errors gracefully** - Provide good user feedback without exposing internals
 - **Mobile-first design** - Ensure components work on all screen sizes
 - **Performance matters** - Optimize database queries and API responses

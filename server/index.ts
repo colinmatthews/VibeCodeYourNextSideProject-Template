@@ -7,6 +7,7 @@ import { PostHog, setupExpressErrorHandler } from 'posthog-node';
 import { registerRoutes } from "./routes";
 import { registerWebhookRoutes } from "./routes/webhookRoutes";
 import { setupVite, serveStatic, log } from "./vite";
+import { sanitizeInputs } from './middleware/sanitize';
 
 const app = express();
 
@@ -28,6 +29,10 @@ const posthog = new PostHog(
       permittedCrossDomainPolicies: false,
       dnsPrefetchControl: { allow: false }
     }),
+    // XSS Protection headers
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    xXssProtection: true,
+    noSniff: true,
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
@@ -124,6 +129,15 @@ const posthog = new PostHog(
   // Now apply global JSON parsing middleware for all other routes
   app.use(express.json({ limit: '10mb' })); // Set body size limit
   app.use(express.urlencoded({ extended: false, limit: '10mb' }));
+
+  // Apply XSS sanitization to all API routes (except webhooks)
+  app.use('/api', (req, res, next) => {
+    // Skip sanitization for webhook endpoints as they need raw data for signature verification
+    if (req.path.startsWith('/webhook')) {
+      return next();
+    }
+    sanitizeInputs(req, res, next);
+  });
 
   // Setup PostHog Express error handler
   setupExpressErrorHandler(posthog, app);
