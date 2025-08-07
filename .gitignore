@@ -5,6 +5,7 @@ server/public
 vite.config.ts.*
 *.tar.gz
 .env
+coverage
 
 # Claude Code local config
 .mcp.json

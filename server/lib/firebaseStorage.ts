@@ -12,7 +12,14 @@ export interface UploadResult {
 }
 
 export class FirebaseStorageService {
-  private storage = getStorage();
+  private _storage?: ReturnType<typeof getStorage>;
+  
+  private get storage() {
+    if (!this._storage) {
+      this._storage = getStorage();
+    }
+    return this._storage;
+  }
 
   /**
    * Upload a file to Firebase Storage

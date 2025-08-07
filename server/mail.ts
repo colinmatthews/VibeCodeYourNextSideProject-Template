@@ -63,17 +63,22 @@ export async function sendEmail(params: EmailParams): Promise<boolean> {
     return true;
   } catch (error) {
     console.error("[SendGrid] Email sending failed:", error);
-    console.error("[SendGrid] Error details:", {
-      name: error.name,
-      message: error.message,
-      stack: error.stack
-    });
-    if (error.response) {
+    
+    if (error instanceof Error) {
+      console.error("[SendGrid] Error details:", {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
+    }
+    
+    if (error && typeof error === 'object' && 'response' in error) {
+      const errorWithResponse = error as { response: { status: number; statusText: string; body: any; headers: any } };
       console.error("[SendGrid] API error response:", {
-        status: error.response.status,
-        statusText: error.response.statusText,
-        body: error.response.body,
-        headers: error.response.headers
+        status: errorWithResponse.response.status,
+        statusText: errorWithResponse.response.statusText,
+        body: errorWithResponse.response.body,
+        headers: errorWithResponse.response.headers
       });
     }
     return false;

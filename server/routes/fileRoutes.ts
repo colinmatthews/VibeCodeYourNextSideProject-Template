@@ -52,7 +52,7 @@ const upload = multer({
     if (allowedTypes.includes(file.mimetype) && allowedExtensions.includes(fileExtension)) {
       cb(null, true);
     } else {
-      cb(new Error('File type not allowed'), false);
+      cb(null, false);
     }
   }
 });
@@ -211,7 +211,7 @@ export async function registerFileRoutes(app: Express) {
       // Check if file exists in Firebase Storage
       const fileExists = await firebaseStorage.fileExists(file.path);
       if (!fileExists) {
-        throw errors.notFound("File in storage");
+        throw errors.notFound("File");
       }
 
       // Set appropriate headers for download

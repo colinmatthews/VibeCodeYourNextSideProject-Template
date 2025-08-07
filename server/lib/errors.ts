@@ -32,26 +32,29 @@ export function handleError(error: unknown, res: Response): void {
 
   // Handle Zod validation errors
   if (error instanceof ZodError) {
-    return res.status(400).json({
+    res.status(400).json({
       error: 'Validation failed',
       details: error.errors.map(e => `${e.path.join('.')}: ${e.message}`)
     });
+    return;
   }
 
   // Handle our custom AppError
   if (error instanceof AppError) {
-    return res.status(error.status).json({
+    res.status(error.status).json({
       error: sanitizeErrorMessage(error.message, error.status),
       code: error.code
     });
+    return;
   }
 
   // Handle known errors
   if (error instanceof Error) {
     const status = getStatusFromError(error);
-    return res.status(status).json({
+    res.status(status).json({
       error: sanitizeErrorMessage(error.message, status)
     });
+    return;
   }
 
   // Handle unknown errors

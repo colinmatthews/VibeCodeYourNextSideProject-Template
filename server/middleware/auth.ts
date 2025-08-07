@@ -127,13 +127,34 @@ export async function optionalAuth(
   res: Response,
   next: NextFunction
 ) {
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    // No token provided, continue without authentication
+    return next();
+  }
+
+  const idToken = authHeader.split('Bearer ')[1];
+  
+  if (!idToken) {
+    // Empty token, continue without authentication  
+    return next();
+  }
+
   try {
-    await verifyFirebaseToken(req, res, () => {
-      // Continue regardless of auth success/failure
-      next();
-    });
+    // Try to verify the Firebase ID token
+    const decodedToken = await getAuth().verifyIdToken(idToken);
+    
+    // Add user information to request object
+    req.user = {
+      uid: decodedToken.uid,
+      email: decodedToken.email,
+      email_verified: decodedToken.email_verified
+    };
+
+    next();
   } catch (error) {
-    // Continue without authentication if token verification fails
+    // Token verification failed, continue without authentication
     next();
   }
 }

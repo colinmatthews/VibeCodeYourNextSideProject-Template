@@ -1,21 +1,42 @@
 
 module.exports = {
   preset: 'ts-jest',
-  testEnvironment: 'jsdom',
-  moduleNameMapper: {
-    '^@/(.*)$': '<rootDir>/client/src/$1',
-    '^@shared/(.*)$': '<rootDir>/shared/$1',
-    '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
-    '\\.(jpg|jpeg|png|gif|webp|svg)$': '<rootDir>/client/src/__mocks__/fileMock.js'
-  },
-  setupFilesAfterEnv: ['<rootDir>/client/src/setupTests.ts'],
-  testMatch: [
-    '<rootDir>/client/src/__tests__/**/*.test.(ts|tsx)',
-    '<rootDir>/server/__tests__/**/*.test.ts'
+  maxWorkers: 1,
+  projects: [
+    {
+      displayName: 'server',
+      preset: 'ts-jest',
+      testEnvironment: 'node',
+      testMatch: ['<rootDir>/server/__tests__/**/*.test.ts'],
+      setupFiles: ['<rootDir>/jest.setup.js'],
+      moduleNameMapper: {
+        '^@shared/(.*)$': '<rootDir>/shared/$1'
+      },
+      transform: {
+        '^.+\\.ts$': ['ts-jest', {
+          tsconfig: 'tsconfig.json'
+        }]
+      }
+    }
   ],
-  transform: {
-    '^.+\\.(ts|tsx)$': ['ts-jest', {
-      tsconfig: 'tsconfig.json'
-    }]
-  }
+  collectCoverageFrom: [
+    'server/**/*.{ts,tsx}',
+    'shared/**/*.{ts,tsx}',
+    '!**/*.d.ts',
+    '!**/node_modules/**',
+    '!**/__tests__/**',
+    '!**/__mocks__/**',
+    '!**/coverage/**'
+  ],
+  coverageThreshold: {
+    global: {
+      branches: 70,
+      functions: 75,
+      lines: 80,
+      statements: 80
+    }
+  },
+  testTimeout: 10000,
+  clearMocks: true,
+  restoreMocks: true
 }

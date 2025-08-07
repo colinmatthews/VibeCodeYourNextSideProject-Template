@@ -7,7 +7,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
   apiVersion: "2025-01-27.acacia",
 });
 
-const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+// Read endpoint secret at request time to allow for testing
 
 // Fulfillment helper function for checkout sessions
 async function fulfillCheckoutSession(session: Stripe.Checkout.Session) {
@@ -55,6 +55,7 @@ export async function registerWebhookRoutes(app: Express) {
     let event: Stripe.Event;
 
     try {
+      const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
       if (!endpointSecret) {
         console.error('[Webhook] STRIPE_WEBHOOK_SECRET not configured!');
         throw new Error('Webhook secret not configured');

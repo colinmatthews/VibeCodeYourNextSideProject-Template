@@ -16,6 +16,49 @@ This is a **full-stack web application template** designed for rapid side projec
 
 [... rest of the existing content ...]
 
+## Testing
+
+### Test Suite Organization
+
+The project focuses on backend business logic testing:
+- **Server tests**: Located in `server/__tests__/`
+- **Test configuration**: `jest.config.cjs` configured for server-side testing only
+- **Test environment**: `.env.test` file for test-specific environment variables
+
+### Running Tests
+
+**Available Test Commands:**
+- `npm test` - Run all backend tests sequentially (default, low CPU usage ~20%)
+- `npm run test:parallel` - Run tests with 2 parallel workers (faster but more CPU)
+- `npm run test:quick` - Run without coverage analysis (faster, less memory)
+- `npm run test:single <file>` - Run a specific test file
+
+**When developing:**
+1. Use `npm run test:single <file>` for testing specific features
+2. Use `npm test` for full backend test verification
+
+### Test Environment Setup
+
+Tests use extensive mocking to avoid external dependencies:
+- Firebase Auth/Storage mocked in `jest.setup.js`
+- Database operations mocked via Drizzle ORM mocks
+- Stripe API mocked to prevent real charges
+- SendGrid mocked to prevent email sending
+
+### Common Test Issues & Solutions
+
+**TypeScript `import.meta.env` errors:**
+- Already configured in `jest.config.cjs` with global mocks
+- Client tests have Vite environment variables pre-configured
+
+**ESM module errors (wouter, regexparam):**
+- Handled via `transformIgnorePatterns` in Jest config
+- Uses `extensionsToTreatAsEsm` for proper module handling
+
+**Mock hoisting errors:**
+- Define mock variables before `jest.mock()` calls
+- Order matters due to Jest's hoisting behavior
+
 ## Database Management
 
 ### Migrations with Drizzle Kit
@@ -48,3 +91,4 @@ The project uses Drizzle Kit for database migrations. Configuration is in `drizz
 ## Memories & Development Notes
 
 - When the user adds the first new feature, remove the tasks feature
+- Never run the entire test suite yourself, either run targetted tests or push the user to run the full suite
