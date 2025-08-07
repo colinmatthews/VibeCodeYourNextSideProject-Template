@@ -36,8 +36,8 @@ export async function redirectToCheckout(params: {
   collectPhoneNumber?: boolean;
 } = {}) {
   try {
-    const { url } = await createCheckoutSession(params);
-    window.location.href = url;
+    const session = await createCheckoutSession(params) as { url: string };
+    window.location.href = session.url;
   } catch (error) {
     console.error('Error redirecting to checkout:', error);
     throw error;
@@ -75,7 +75,10 @@ export async function confirmPayment(
     throw new Error(result.error.message);
   }
 
-  return result.paymentIntent;
+  if ('paymentIntent' in result) {
+    return result.paymentIntent;
+  }
+  throw new Error('Payment confirmation failed');
 }
 
 // Create billing portal session
@@ -87,8 +90,8 @@ export async function createPortalSession() {
 // Redirect to billing portal
 export async function redirectToPortal() {
   try {
-    const { url } = await createPortalSession();
-    window.location.href = url;
+    const session = await createPortalSession() as { url: string };
+    window.location.href = session.url;
   } catch (error) {
     console.error('Error redirecting to portal:', error);
     throw error;

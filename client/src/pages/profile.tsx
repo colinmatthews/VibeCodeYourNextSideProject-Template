@@ -4,19 +4,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/useToast";
 import { useAuth } from "@/hooks/useAuth";
+import { useUser } from "@/hooks/useUser";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useState } from "react";
+import type { User } from "@shared/schema";
 
 export default function Profile() {
-  const { user } = useAuth();
+  const { user: firebaseUser } = useAuth();
+  const { user: userData } = useUser();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
-  const { data: userData } = useQuery({
-    queryKey: ['/api/users/profile'],
-    enabled: !!user,
-  });
 
   const [formData, setFormData] = useState({
     firstName: userData?.firstName || "",
@@ -32,7 +30,7 @@ export default function Profile() {
       return apiRequest("PATCH", "/api/users/profile", data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/users/profile'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/users/${firebaseUser?.uid}`] });
       toast({
         title: "Success",
         description: "Profile updated successfully",

@@ -7,8 +7,6 @@ import { AuthProvider } from "@/lib/auth";
 import Navbar from "@/components/Navbar";
 import Login from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
-import NewContact from "@/pages/contacts/new";
-import EditContact from "@/pages/contacts/edit";
 import NotFound from "@/pages/not-found";
 import Profile from "@/pages/profile";
 import Pricing from "@/pages/pricing";
@@ -62,8 +60,6 @@ function Router() {
           <Route path="/" component={Dashboard} />
           <Route path="/login" component={Login} />
           <Route path="/pricing" component={Pricing} />
-          <Route path="/contacts/new" component={NewContact} />
-          <Route path="/contacts/edit/:id" component={EditContact} />
           <Route path="/profile" component={Profile} />
           <Route path="/settings" component={Settings} />
           <Route path="/files" component={Files} />

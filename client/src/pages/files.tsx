@@ -4,12 +4,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth';
+import { useUser } from '@/hooks/useUser';
 import { useFiles } from '@/hooks/useFiles';
 import { HardDrive, Upload, List, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export default function Files() {
-  const { user } = useAuth();
+  const { user: firebaseUser } = useAuth();
+  const { user: userData } = useUser();
   const { files, loading, totalSize, totalFiles } = useFiles();
 
   const formatFileSize = (bytes: number): string => {
@@ -20,12 +22,12 @@ export default function Files() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const isPro = user?.subscriptionType?.includes('pro');
+  const isPro = userData?.subscriptionType === 'pro';
   const maxFiles = isPro ? 100 : 10;
   const maxSize = isPro ? 1024 * 1024 * 1024 : 100 * 1024 * 1024; // 1GB pro, 100MB free
   const usagePercentage = (totalSize / maxSize) * 100;
 
-  if (!user) {
+  if (!firebaseUser) {
     return (
       <div className="container mx-auto px-4 py-8">
         <Alert>

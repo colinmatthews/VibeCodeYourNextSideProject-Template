@@ -27,7 +27,6 @@ npm install
 ```
 
 ## Step 2: Setup MCPs
-- Set up RenderMCP (check claude.md for steps). Use MCP to help user with render setup
 - Set up Context7 
 
 Close and reopen claude to activate MCPs
