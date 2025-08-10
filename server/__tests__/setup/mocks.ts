@@ -74,9 +74,6 @@ export const mockStorage = require('../../storage/index').storage;
 // Import the Firebase Storage mock from the global jest setup
 export const mockFirebaseStorage = require('../../lib/firebaseStorage').firebaseStorage;
 
-// Import the Replit Storage mock from the global jest setup
-export const mockReplitStorage = require('../../lib/replitStorage').replitStorage;
-
 // Import the Stripe mock from jest.setup.js (will be same instance as routes)
 const StripeClass = require('stripe');
 export const mockStripeInstance = new StripeClass();
@@ -218,19 +215,4 @@ export const resetAllMocks = () => {
   });
   mockFirebaseStorage.fileExists.mockResolvedValue(true);
   mockFirebaseStorage.deleteFile.mockResolvedValue(true);
-
-  // Reset Replit Storage mock defaults with same interface
-  mockReplitStorage.uploadFile.mockResolvedValue({
-    name: `${timestamp}-${randomId}.jpg`,
-    originalName: 'original.jpg',
-    path: `users/test-firebase-uid/files/${timestamp}-${randomId}.jpg`,
-    url: `https://storage.replit.com/users/test-firebase-uid/files/${timestamp}-${randomId}.jpg?expires=1641321600&signature=abc123def456ghi789jkl012mno345pqr678stu901vwx234yz`,
-    size: 1024,
-    type: 'image/jpeg'
-  });
-  mockReplitStorage.fileExists.mockResolvedValue(true);
-  mockReplitStorage.deleteFile.mockResolvedValue(true);
-  mockReplitStorage.createDownloadStream.mockReturnValue(
-    require('stream').Readable.from('mock file content')
-  );
 };

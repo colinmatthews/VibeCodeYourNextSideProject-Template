@@ -20,18 +20,12 @@ import {
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 interface FileListProps {
-  files?: any[];
-  onDelete?: (fileId: number) => Promise<void>;
   refreshTrigger?: number;
   onFileDeleted?: (fileId: number) => void;
 }
 
-export function FileList({ files: propFiles, onDelete: propOnDelete, refreshTrigger, onFileDeleted }: FileListProps) {
-  const { files: hookFiles, loading, error, deleteFile } = useFiles();
-  
-  // Use props if provided, otherwise fall back to hook
-  const files = propFiles || hookFiles;
-  const deleteFileFunc = propOnDelete || deleteFile;
+export function FileList({ refreshTrigger, onFileDeleted }: FileListProps) {
+  const { files, loading, error, deleteFile } = useFiles();
   const [deletingFiles, setDeletingFiles] = useState<Set<number>>(new Set());
 
   const getFileIcon = (type: string) => {
@@ -63,7 +57,7 @@ export function FileList({ files: propFiles, onDelete: propOnDelete, refreshTrig
   const handleDelete = async (fileId: number) => {
     setDeletingFiles(prev => new Set(prev).add(fileId));
     try {
-      await deleteFileFunc(fileId);
+      await deleteFile(fileId);
       onFileDeleted?.(fileId);
     } catch (error) {
       console.error('Failed to delete file:', error);

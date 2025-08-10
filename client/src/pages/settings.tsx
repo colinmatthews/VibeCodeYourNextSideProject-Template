@@ -10,15 +10,10 @@ import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { updateUserPassword } from "@/lib/firebase";
 import { useUser } from "@/hooks/useUser";
-import { useFiles } from "@/hooks/useFiles";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, apiPost, apiJson } from "@/lib/queryClient";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
-import { FileUpload } from "@/components/FileUpload";
-import { FileList } from "@/components/FileList";
-import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
 
 async function createPortalSession(): Promise<{ url: string }> {
   try {
@@ -38,7 +33,6 @@ export default function Settings() {
   const { toast } = useToast();
   const { user: firebaseUser, loading } = useAuth();
   const { user: userData } = useUser(); // Renamed to avoid conflict
-  const { files, totalSize, totalFiles, deleteFile } = useFiles();
   const queryClient = useQueryClient();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -50,23 +44,6 @@ export default function Settings() {
 
   // Check if user logged in with email/password
   const isEmailUser = firebaseUser?.providerData?.[0]?.providerId === 'password';
-
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
-  const getStorageQuota = () => {
-    const isPremium = userData?.isPremium || false;
-    const maxStorage = isPremium ? 1024 * 1024 * 1024 : 100 * 1024 * 1024; // 1GB pro, 100MB free
-    const usedPercentage = (totalSize / maxStorage) * 100;
-    return { maxStorage, usedPercentage, isPremium };
-  };
-
-  const { maxStorage, usedPercentage, isPremium } = getStorageQuota();
 
   const updateEmailPreferences = useMutation({
     mutationFn: async (enabled: boolean) => {
@@ -335,74 +312,6 @@ export default function Settings() {
             </div>
           </Card>
         )}
-
-        {/* File Storage Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              File Storage 
-              <div className="flex items-center gap-2">
-                <Badge variant={isPremium ? "default" : "secondary"}>
-                  {isPremium ? "Pro Plan" : "Free Plan"}
-                </Badge>
-                <Badge variant="outline">
-                  {totalFiles} / {isPremium ? 100 : 10} files
-                </Badge>
-              </div>
-            </CardTitle>
-            <div className="text-sm text-muted-foreground">
-              <div className="flex justify-between items-center">
-                <span>Storage used: {formatFileSize(totalSize)} of {formatFileSize(maxStorage)}</span>
-                <span>{usedPercentage.toFixed(1)}% used</span>
-              </div>
-              <div className="w-full bg-muted rounded-full h-2 mt-2">
-                <div 
-                  className={`h-2 rounded-full transition-all ${
-                    usedPercentage > 90 ? 'bg-destructive' : 
-                    usedPercentage > 70 ? 'bg-yellow-500' : 'bg-primary'
-                  }`}
-                  style={{ width: `${Math.min(usedPercentage, 100)}%` }}
-                />
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div>
-              <h3 className="text-lg font-medium mb-4">Test Replit Storage Integration</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                Upload files to test the new Replit Object Storage integration. Files are securely stored with user isolation.
-              </p>
-              <FileUpload 
-                onUploadComplete={(result) => {
-                  console.log('Upload completed:', result);
-                  toast({
-                    title: "File uploaded successfully",
-                    description: `${result.originalName} has been uploaded to Replit Object Storage`,
-                  });
-                }}
-                accept="image/*,application/pdf,.txt,.doc,.docx,.json"
-                maxSize={isPremium ? 50 * 1024 * 1024 : 10 * 1024 * 1024}
-                multiple={false}
-              />
-            </div>
-            
-            <Separator />
-            
-            <div>
-              <h3 className="text-lg font-medium mb-4">Your Files</h3>
-              {totalFiles > 0 ? (
-                <FileList 
-                  files={files} 
-                  onDelete={deleteFile}
-                />
-              ) : (
-                <p className="text-muted-foreground text-center py-8">
-                  No files uploaded yet. Try uploading a file above to test the Replit storage integration!
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );
