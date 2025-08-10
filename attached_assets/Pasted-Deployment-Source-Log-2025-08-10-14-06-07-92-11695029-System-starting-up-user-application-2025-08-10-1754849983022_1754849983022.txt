@@ -1,0 +1,119 @@
+Deployment
+Source
+Log
+2025-08-10 14:06:07.92
+11695029
+System
+starting up user application
+2025-08-10 14:09:00.45
+11695029
+User
+at Object.xForwardedForHeader (file:///home/runner/workspace/node_modules/express-rate-limit/dist/index.mjs:335:13)
+2025-08-10 14:09:00.45
+11695029
+User
+at wrappedValidations. [as xForwardedForHeader] (file:///home/runner/workspace/node_modules/express-rate-limit/dist/index.mjs:577:22)
+2025-08-10 14:09:00.45
+11695029
+User
+at Object.keyGenerator (file:///home/runner/workspace/node_modules/express-rate-limit/dist/index.mjs:679:20)
+2025-08-10 14:09:00.45
+11695029
+User
+at file:///home/runner/workspace/node_modules/express-rate-limit/dist/index.mjs:737:32
+2025-08-10 14:09:00.45
+11695029
+User
+at async file:///home/runner/workspace/node_modules/express-rate-limit/dist/index.mjs:718:5 {
+2025-08-10 14:09:00.45
+11695029
+User
+code: 'ERR_ERL_UNEXPECTED_X_FORWARDED_FOR',
+2025-08-10 14:09:00.45
+11695029
+User
+help: 'https://express-rate-limit.github.io/ERR_ERL_UNEXPECTED_X_FORWARDED_FOR/'
+2025-08-10 14:09:00.45
+11695029
+User
+}
+2025-08-10 14:09:00.52
+11695029
+User
+6:09:00 PM [express] GET /api/users/IM674cksKIgr0VJr6IhCEGP6daC2 200 in 3ms
+2025-08-10 14:09:00.68
+11695029
+User
+6:09:00 PM [express] GET /api/items 200 in 171ms
+2025-08-10 14:09:00.69
+11695029
+User
+6:09:00 PM [express] POST /api/login 200 in 203ms
+2025-08-10 14:09:04.01
+11695029
+User
+6:09:04 PM [express] GET /api/users/IM674cksKIgr0VJr6IhCEGP6daC2 304 in 2ms
+2025-08-10 14:09:08.62
+11695029
+User
+6:09:08 PM [express] GET /api/users/IM674cksKIgr0VJr6IhCEGP6daC2 304 in 1ms
+2025-08-10 14:09:09.71
+11695029
+User
+6:09:09 PM [express] GET /api/users/profile 200 in 27ms
+2025-08-10 14:09:11.08
+11695029
+User
+6:09:11 PM [express] GET /api/users/IM674cksKIgr0VJr6IhCEGP6daC2 304 in 3ms
+2025-08-10 14:09:39.47
+11695029
+User
+6:09:39 PM [express] GET /api/users/IM674cksKIgr0VJr6IhCEGP6daC2 304 in 1ms
+2025-08-10 14:19:17.15
+11695029
+User
+6:19:17 PM [express] GET /api/users/IM674cksKIgr0VJr6IhCEGP6daC2 304 in 1ms
+2025-08-10 14:19:17.28
+11695029
+User
+6:19:17 PM [express] GET /api/items 200 in 118ms
+2025-08-10 14:19:20.28
+11695029
+User
+[Items] Received item data: { item: 'test3', userId: 'IM674cksKIgr0VJr6IhCEGP6daC2' }
+2025-08-10 14:19:20.31
+11695029
+User
+[Items] User data: {
+2025-08-10 14:19:20.31
+11695029
+User
+email: 'colin@techforproduct.com',
+2025-08-10 14:19:20.31
+11695029
+User
+emailNotifications: false,
+2025-08-10 14:19:20.31
+11695029
+User
+subscriptionType: 'free'
+2025-08-10 14:19:20.31
+11695029
+User
+}
+2025-08-10 14:19:20.33
+11695029
+User
+[Items] Current items count: 2
+2025-08-10 14:19:20.36
+11695029
+User
+[Items] Item created: { id: 3, item: 'test3', userId: 'IM674cksKIgr0VJr6IhCEGP6daC2' }
+2025-08-10 14:19:20.36
+11695029
+User
+6:19:20 PM [express] POST /api/items 200 in 83ms
+2025-08-10 14:19:20.60
+11695029
+User
+6:19:20 PM [express] GET /api/items 200 in 23ms
