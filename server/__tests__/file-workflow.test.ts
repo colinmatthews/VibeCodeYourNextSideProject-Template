@@ -1,7 +1,7 @@
 import request from 'supertest';
 import express from 'express';
 import { registerFileRoutes } from '../routes/fileRoutes';
-import { resetAllMocks, mockStorage, mockFirebaseStorage } from './setup/mocks';
+import { resetAllMocks, mockStorage, mockReplitStorage } from './setup/mocks';
 
 // Import and apply mocks
 import './setup/mocks';
@@ -122,8 +122,8 @@ describe('File Workflow', () => {
         })
         .expect(200);
 
-      // Verify Firebase Storage upload
-      expect(mockFirebaseStorage.uploadFile).toHaveBeenCalledWith(
+      // Verify Replit Storage upload
+      expect(mockReplitStorage.uploadFile).toHaveBeenCalledWith(
         expect.objectContaining({
           originalname: 'test.jpg',
           mimetype: 'image/jpeg'
@@ -137,7 +137,7 @@ describe('File Workflow', () => {
         name: expect.stringMatching(/^\d+-[a-zA-Z0-9]+\.jpg$/),
         originalName: 'original.jpg',
         path: expect.stringMatching(/^users\/test-firebase-uid\/files\/\d+-[a-zA-Z0-9]+\.jpg$/),
-        url: expect.stringMatching(/^https:\/\/storage\.googleapis\.com\/bucket-name\/.*\?GoogleAccessId=.*&Expires=.*&Signature=.*/),
+        url: expect.stringMatching(/^https:\/\/storage\.replit\.com\/.*\?expires=.*&signature=.*/),
         size: 1024,
         type: 'image/jpeg'
       });
@@ -169,12 +169,12 @@ describe('File Workflow', () => {
       mockStorage.getUserByFirebaseId.mockResolvedValue(proUser);
       mockStorage.getFilesByUserId.mockResolvedValue(existingFiles);
       
-      // Update Firebase Storage mock for large file upload
+      // Update Replit Storage mock for large file upload
       const largeFileUploadResponse = {
         name: expect.stringMatching(/^\d+-[a-zA-Z0-9]+\.jpg$/),
         originalName: 'large.jpg',
         path: expect.stringMatching(/^users\/test-firebase-uid\/files\/\d+-[a-zA-Z0-9]+\.jpg$/),
-        url: expect.stringMatching(/^https:\/\/storage\.googleapis\.com\/bucket-name\/.*\?GoogleAccessId=.*&Expires=.*&Signature=.*/),
+        url: expect.stringMatching(/^https:\/\/storage\.replit\.com\/.*\?expires=.*&signature=.*/),
         size: 40 * 1024 * 1024, // 40MB file
         type: 'image/jpeg'
       };
@@ -235,7 +235,7 @@ describe('File Workflow', () => {
       });
 
       // Verify no upload attempted
-      expect(mockFirebaseStorage.uploadFile).not.toHaveBeenCalled();
+      expect(mockReplitStorage.uploadFile).not.toHaveBeenCalled();
       expect(mockStorage.createFile).not.toHaveBeenCalled();
     });
 
@@ -324,8 +324,8 @@ describe('File Workflow', () => {
       mockStorage.getUserByFirebaseId.mockResolvedValue(freeUser);
       mockStorage.getFilesByUserId.mockResolvedValue([]);
       
-      // Mock Firebase Storage error
-      mockFirebaseStorage.uploadFile.mockRejectedValue(new Error('Storage error'));
+      // Mock Replit Storage error
+      mockReplitStorage.uploadFile.mockRejectedValue(new Error('Storage error'));
 
       const response = await request(app)
         .post('/api/files/upload')
@@ -369,17 +369,17 @@ describe('File Workflow', () => {
       mockStorage.getFileById.mockResolvedValue(mockFile);
       mockStorage.getFileByIdAndUserId.mockResolvedValue(mockFile);
 
-      mockFirebaseStorage.fileExists.mockResolvedValue(true);
+      mockReplitStorage.fileExists.mockResolvedValue(true);
 
       const response = await request(app)
         .get('/api/files/1/download')
         .expect(200);
 
       // Verify file existence check
-      expect(mockFirebaseStorage.fileExists).toHaveBeenCalledWith(mockFile.path);
+      expect(mockReplitStorage.fileExists).toHaveBeenCalledWith(mockFile.path);
 
       // Verify download stream creation
-      expect(mockFirebaseStorage.createDownloadStream).toHaveBeenCalledWith(mockFile.path);
+      expect(mockReplitStorage.createDownloadStream).toHaveBeenCalledWith(mockFile.path);
 
       // Verify headers
       expect(response.headers['content-disposition']).toBe('attachment; filename="photo.jpg"');
@@ -398,7 +398,7 @@ describe('File Workflow', () => {
       mockStorage.getFileById.mockResolvedValue(mockFile);
       mockStorage.getFileByIdAndUserId.mockResolvedValue(mockFile);
 
-      mockFirebaseStorage.fileExists.mockResolvedValue(false);
+      mockReplitStorage.fileExists.mockResolvedValue(false);
 
       const response = await request(app)
         .get('/api/files/1/download')
@@ -424,15 +424,15 @@ describe('File Workflow', () => {
       // Mock file lookup for ownership middleware
       mockStorage.getFileById.mockResolvedValue(mockFile);
 
-      mockFirebaseStorage.deleteFile.mockResolvedValue(true);
+      mockReplitStorage.deleteFile.mockResolvedValue(true);
       mockStorage.deleteFile.mockResolvedValue(true);
 
       const response = await request(app)
         .delete('/api/files/1')
         .expect(200);
 
-      // Verify Firebase Storage deletion
-      expect(mockFirebaseStorage.deleteFile).toHaveBeenCalledWith(mockFile.path);
+      // Verify Replit Storage deletion
+      expect(mockReplitStorage.deleteFile).toHaveBeenCalledWith(mockFile.path);
 
       // Verify database record deletion
       expect(mockStorage.deleteFile).toHaveBeenCalledWith(1);
@@ -443,7 +443,7 @@ describe('File Workflow', () => {
       });
     });
 
-    it('should continue with database deletion even if Firebase Storage deletion fails', async () => {
+    it('should continue with database deletion even if Replit Storage deletion fails', async () => {
       const mockFile = {
         id: 1,
         path: 'users/test-firebase-uid/files/1641234567890-abc123def.jpg',
@@ -453,8 +453,8 @@ describe('File Workflow', () => {
       // Mock file lookup for ownership middleware
       mockStorage.getFileById.mockResolvedValue(mockFile);
 
-      // Mock Firebase Storage error
-      mockFirebaseStorage.deleteFile.mockRejectedValue(new Error('Storage deletion failed'));
+      // Mock Replit Storage error
+      mockReplitStorage.deleteFile.mockRejectedValue(new Error('Storage deletion failed'));
       mockStorage.deleteFile.mockResolvedValue(true);
 
       const response = await request(app)
@@ -462,7 +462,7 @@ describe('File Workflow', () => {
         .expect(200);
 
       // Verify both operations were attempted
-      expect(mockFirebaseStorage.deleteFile).toHaveBeenCalledWith(mockFile.path);
+      expect(mockReplitStorage.deleteFile).toHaveBeenCalledWith(mockFile.path);
       expect(mockStorage.deleteFile).toHaveBeenCalledWith(1);
 
       expect(response.body).toEqual({

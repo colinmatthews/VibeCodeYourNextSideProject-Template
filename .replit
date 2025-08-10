@@ -12,3 +12,6 @@ build = ["sh", "-c", "npm run build"]
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[objectStorage]
+defaultBucketID = "replit-objstore-c5b3ac32-505f-4c2b-81e2-067ce33f0190"

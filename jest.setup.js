@@ -493,6 +493,70 @@ jest.mock('./server/lib/firebaseStorage', () => {
   };
 });
 
+// Mock Replit Object Storage
+jest.mock('@replit/object-storage', () => ({
+  Client: jest.fn().mockImplementation(() => ({
+    uploadFromBytes: jest.fn().mockResolvedValue({ ok: true, error: null }),
+    uploadFromText: jest.fn().mockResolvedValue({ ok: true, error: null }),
+    uploadFromStream: jest.fn().mockResolvedValue({ ok: true, error: null }),
+    uploadFromFilename: jest.fn().mockResolvedValue({ ok: true, error: null }),
+    downloadAsBytes: jest.fn().mockResolvedValue({ 
+      ok: true, 
+      value: Buffer.from('mock file content'), 
+      error: null 
+    }),
+    downloadAsText: jest.fn().mockResolvedValue({ 
+      ok: true, 
+      value: 'mock file content', 
+      error: null 
+    }),
+    downloadAsStream: jest.fn().mockResolvedValue({ 
+      ok: true, 
+      value: require('stream').Readable.from('mock file content'), 
+      error: null 
+    }),
+    downloadToFilename: jest.fn().mockResolvedValue({ ok: true, error: null }),
+    delete: jest.fn().mockResolvedValue({ ok: true, error: null }),
+    list: jest.fn().mockResolvedValue({ 
+      ok: true, 
+      value: [
+        { key: 'users/test-firebase-uid/files/test.jpg', size: 1024, lastModified: '2024-01-01T00:00:00Z' }
+      ], 
+      error: null 
+    })
+  }))
+}));
+
+// Mock Replit Storage Service with same interface as Firebase
+jest.mock('./server/lib/replitStorage', () => {
+  const timestamp = Date.now();
+  const randomId = Math.random().toString(36).substring(7);
+  return {
+    replitStorage: {
+      uploadFile: jest.fn().mockResolvedValue({
+        name: `${timestamp}-${randomId}.jpg`,
+        originalName: 'original.jpg',
+        path: `users/test-firebase-uid/files/${timestamp}-${randomId}.jpg`,
+        url: `https://storage.replit.com/users/test-firebase-uid/files/${timestamp}-${randomId}.jpg?expires=1641321600&signature=abc123def456ghi789jkl012mno345pqr678stu901vwx234yz`,
+        size: 1024,
+        type: 'image/jpeg'
+      }),
+      createDownloadStream: jest.fn().mockReturnValue(
+        require('stream').Readable.from('mock file content')
+      ),
+      deleteFile: jest.fn().mockResolvedValue(true),
+      fileExists: jest.fn().mockResolvedValue(true),
+      getDownloadUrl: jest.fn().mockResolvedValue('https://storage.replit.com/mock-url?expires=1641321600&signature=abc123'),
+      getFileMetadata: jest.fn().mockResolvedValue({
+        name: 'test.jpg',
+        size: 1024,
+        updated: '2024-01-01T00:00:00Z',
+        contentType: 'image/jpeg'
+      })
+    }
+  };
+});
+
 // Mock Auth Middleware - must be early to intercept imports
 jest.mock('./server/middleware/auth', () => ({
   requireAuth: jest.fn((req, res, next) => {

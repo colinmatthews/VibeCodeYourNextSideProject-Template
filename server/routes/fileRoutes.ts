@@ -5,7 +5,7 @@ import { z } from "zod";
 import { storage } from "../storage/index";
 import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
 import { requiresOwnership, requiresFileOwnership } from "../middleware/authHelpers";
-import { firebaseStorage } from "../lib/firebaseStorage";
+import { replitStorage } from "../lib/replitStorage";
 import { handleError, errors } from "../lib/errors";
 
 // Validation schemas
@@ -124,8 +124,8 @@ export async function registerFileRoutes(app: Express) {
         throw errors.tooLarge(`Storage limit reached. ${user?.subscriptionType?.includes('pro') ? 'Pro' : 'Free'} plan allows up to ${Math.round(maxTotalSize / (1024 * 1024))}MB total storage.`);
       }
 
-      // Upload to Firebase Storage
-      const uploadResult = await firebaseStorage.uploadFile(file, userId);
+      // Upload to Replit Object Storage
+      const uploadResult = await replitStorage.uploadFile(file, userId);
       
       // Save metadata to database
       const fileRecord = await storage.createFile({
@@ -208,8 +208,8 @@ export async function registerFileRoutes(app: Express) {
       const { id } = fileIdSchema.parse(req.params);
       const file = (req as any).file;
       
-      // Check if file exists in Firebase Storage
-      const fileExists = await firebaseStorage.fileExists(file.path);
+      // Check if file exists in Replit Object Storage
+      const fileExists = await replitStorage.fileExists(file.path);
       if (!fileExists) {
         throw errors.notFound("File");
       }
@@ -218,8 +218,8 @@ export async function registerFileRoutes(app: Express) {
       res.setHeader('Content-Disposition', `attachment; filename="${file.originalName}"`);
       res.setHeader('Content-Type', file.type);
       
-      // Stream the file from Firebase Storage
-      const downloadStream = firebaseStorage.createDownloadStream(file.path);
+      // Stream the file from Replit Object Storage
+      const downloadStream = replitStorage.createDownloadStream(file.path);
       
       downloadStream.on('error', (error) => {
         console.error('Download stream error:', error);
@@ -243,13 +243,13 @@ export async function registerFileRoutes(app: Express) {
       // File is already verified to exist and be owned by user via middleware
       const file = (req as any).file;
       
-      // Delete from Firebase Storage first
+      // Delete from Replit Object Storage first
       try {
-        await firebaseStorage.deleteFile(file.path);
-        console.log(`[Files] Deleted file from Firebase Storage: ${file.path}`);
+        await replitStorage.deleteFile(file.path);
+        console.log(`[Files] Deleted file from Replit Object Storage: ${file.path}`);
       } catch (error) {
-        console.error(`[Files] Error deleting file from Firebase Storage: ${file.path}`, error);
-        // Continue with database deletion even if Firebase deletion fails
+        console.error(`[Files] Error deleting file from Replit Object Storage: ${file.path}`, error);
+        // Continue with database deletion even if storage deletion fails
       }
       
       // Delete from database

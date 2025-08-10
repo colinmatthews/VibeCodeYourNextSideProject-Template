@@ -5,14 +5,20 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/useToast";
 import { useAuth } from "@/hooks/useAuth";
 import { useUser } from "@/hooks/useUser";
+import { useFiles } from "@/hooks/useFiles";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useState } from "react";
+import { FileUpload } from "@/components/FileUpload";
+import { FileList } from "@/components/FileList";
+import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 import type { User } from "@shared/schema";
 
 export default function Profile() {
   const { user: firebaseUser } = useAuth();
   const { user: userData } = useUser();
+  const { files, totalSize, totalFiles, deleteFile } = useFiles();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -38,8 +44,26 @@ export default function Profile() {
     },
   });
 
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const getStorageQuota = () => {
+    const isPremium = userData?.isPremium || false;
+    const maxStorage = isPremium ? 1024 * 1024 * 1024 : 100 * 1024 * 1024; // 1GB pro, 100MB free
+    const usedPercentage = (totalSize / maxStorage) * 100;
+    return { maxStorage, usedPercentage, isPremium };
+  };
+
+  const { maxStorage, usedPercentage, isPremium } = getStorageQuota();
+
   return (
-    <div className="container mx-auto py-8">
+    <div className="container mx-auto py-8 space-y-6">
+      {/* Profile Settings Card */}
       <Card>
         <CardHeader>
           <CardTitle>Profile Settings</CardTitle>
@@ -86,6 +110,67 @@ export default function Profile() {
           >
             Save Changes
           </Button>
+        </CardContent>
+      </Card>
+
+      {/* File Storage Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            File Storage 
+            <div className="flex items-center gap-2">
+              <Badge variant={isPremium ? "default" : "secondary"}>
+                {isPremium ? "Pro Plan" : "Free Plan"}
+              </Badge>
+              <Badge variant="outline">
+                {totalFiles} / {isPremium ? 100 : 10} files
+              </Badge>
+            </div>
+          </CardTitle>
+          <div className="text-sm text-muted-foreground">
+            <div className="flex justify-between items-center">
+              <span>Storage used: {formatFileSize(totalSize)} of {formatFileSize(maxStorage)}</span>
+              <span>{usedPercentage.toFixed(1)}% used</span>
+            </div>
+            <div className="w-full bg-muted rounded-full h-2 mt-2">
+              <div 
+                className={`h-2 rounded-full transition-all ${
+                  usedPercentage > 90 ? 'bg-destructive' : 
+                  usedPercentage > 70 ? 'bg-yellow-500' : 'bg-primary'
+                }`}
+                style={{ width: `${Math.min(usedPercentage, 100)}%` }}
+              />
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div>
+            <h3 className="text-lg font-medium mb-4">Test Replit Storage Integration</h3>
+            <FileUpload 
+              onUploadComplete={(result) => {
+                console.log('Upload completed:', result);
+              }}
+              accept="image/*,application/pdf,.txt,.doc,.docx,.json"
+              maxSize={isPremium ? 50 * 1024 * 1024 : 10 * 1024 * 1024}
+              multiple={false}
+            />
+          </div>
+          
+          <Separator />
+          
+          <div>
+            <h3 className="text-lg font-medium mb-4">Your Files</h3>
+            {totalFiles > 0 ? (
+              <FileList 
+                files={files} 
+                onDelete={deleteFile}
+              />
+            ) : (
+              <p className="text-muted-foreground text-center py-8">
+                No files uploaded yet. Try uploading a file above to test the Replit storage integration!
+              </p>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>
