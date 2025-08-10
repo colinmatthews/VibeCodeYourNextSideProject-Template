@@ -1,8 +1,14 @@
-modules = ["nodejs-20", "web"]
+modules = ["nodejs-20", "web", "postgresql-16"]
 run = "npm run dev"
 
 [nix]
 channel = "stable-25_05"
 
 [deployment]
-run = ["sh", "-c", "npm run dev"]
+run = ["sh", "-c", "npm run start"]
+deploymentTarget = "cloudrun"
+build = ["sh", "-c", "npm run build"]
+
+[[ports]]
+localPort = 5000
+externalPort = 80
