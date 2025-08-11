@@ -5,6 +5,7 @@ import { registerItemRoutes } from './itemRoutes';
 import { registerPaymentRoutes } from './paymentRoutes';
 import { registerFileRoutes } from './fileRoutes';
 import { registerAIRoutes } from './aiRoutes';
+import { registerThreadRoutes } from './threadRoutes';
 
 export async function registerRoutes(app: Express) {
   const server = createServer(app);
@@ -15,6 +16,7 @@ export async function registerRoutes(app: Express) {
   await registerPaymentRoutes(app);
   await registerFileRoutes(app);
   await registerAIRoutes(app);
+  await registerThreadRoutes(app);
 
   return server;
 }

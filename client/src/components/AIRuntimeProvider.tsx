@@ -6,14 +6,18 @@ import { ReactNode } from "react";
 interface Props {
   children: ReactNode;
   token?: string;
+  threadId?: string;
+  initialMessages?: any[];
 }
 
-export function AIRuntimeProvider({ children, token }: Props) {
+export function AIRuntimeProvider({ children, token, threadId, initialMessages = [] }: Props) {
   const chat = useChat({
     api: "/api/ai/chat",
     headers: token ? {
       'Authorization': `Bearer ${token}`,
     } : undefined,
+    body: threadId ? { threadId } : undefined,
+    initialMessages: initialMessages,
   });
 
   const runtime = useVercelUseChatRuntime(chat as any);
