@@ -14,13 +14,15 @@ interface AuthContextType {
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
+  getToken: () => Promise<string | null>;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
   signInWithGoogle: async () => {},
-  signOut: async () => {}
+  signOut: async () => {},
+  getToken: async () => null
 });
 
 interface AuthProviderProps {
@@ -107,12 +109,23 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     return firebaseSignOut(auth);
   };
 
+  const getToken = async (): Promise<string | null> => {
+    if (!user) return null;
+    try {
+      return await user.getIdToken();
+    } catch (error) {
+      console.error('Error getting ID token:', error);
+      return null;
+    }
+  };
+
   return React.createElement(AuthContext.Provider, {
     value: {
       user,
       loading,
       signInWithGoogle,
-      signOut
+      signOut,
+      getToken
     },
     children
   });
