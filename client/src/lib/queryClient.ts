@@ -71,6 +71,20 @@ export async function apiJson<T>(response: Response): Promise<T> {
   return response.json();
 }
 
+// Streaming-compatible fetch function that includes auth headers
+export async function streamingFetch(url: string, options?: RequestInit): Promise<Response> {
+  const authHeaders = await getAuthHeaders();
+  
+  return fetch(url, {
+    ...options,
+    headers: {
+      ...options?.headers,
+      ...authHeaders,
+    },
+    credentials: "include",
+  });
+}
+
 type UnauthorizedBehavior = "returnNull" | "throw";
 export const getQueryFn: <T>(options: {
   on401: UnauthorizedBehavior;

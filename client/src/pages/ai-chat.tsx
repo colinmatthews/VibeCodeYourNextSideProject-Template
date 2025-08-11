@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { MessageCircle, Zap, Shield, Clock, Menu, PlusCircle, Archive, Trash2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { nanoid } from "nanoid";
+import { apiGet, apiPost, apiRequest, apiJson } from "@/lib/queryClient";
 
 interface ThreadData {
   id: string;
@@ -38,18 +39,9 @@ const AIChat = () => {
       if (!token) return;
       
       try {
-        const response = await fetch('/api/ai/status', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          setAiStatus(data.status === 'ready' ? 'ready' : 'not_configured');
-        } else {
-          setAiStatus('error');
-        }
+        const response = await apiGet('/api/ai/status');
+        const data = await apiJson<{ status: string }>(response);
+        setAiStatus(data.status === 'ready' ? 'ready' : 'not_configured');
       } catch (error) {
         console.error('Failed to check AI status:', error);
         setAiStatus('error');
@@ -80,22 +72,21 @@ const AIChat = () => {
     
     try {
       setLoading(true);
-      const response = await fetch('/api/ai/threads', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await apiGet('/api/ai/threads');
+      const data = await apiJson<{
+        threads: Array<{ remoteId: string; title: string; createdAt: string; updatedAt: string }>;
+        archivedThreads: Array<{ remoteId: string; title: string; createdAt: string; updatedAt: string }>;
+      }>(response);
       
-      if (response.ok) {
-        const data = await response.json();
-        const allThreads = [
-          ...data.threads.map((t: any) => ({ ...t, id: t.remoteId, archived: false })),
-          ...data.archivedThreads.map((t: any) => ({ ...t, id: t.remoteId, archived: true }))
-        ];
-        setThreads(allThreads);
-        
-        // Set first thread as current if none selected
-        if (!currentThreadId && allThreads.length > 0) {
-          setCurrentThreadId(allThreads[0].id);
-        }
+      const allThreads = [
+        ...data.threads.map((t) => ({ ...t, id: t.remoteId, archived: false })),
+        ...data.archivedThreads.map((t) => ({ ...t, id: t.remoteId, archived: true }))
+      ];
+      setThreads(allThreads);
+      
+      // Set first thread as current if none selected
+      if (!currentThreadId && allThreads.length > 0) {
+        setCurrentThreadId(allThreads[0].id);
       }
     } catch (error) {
       console.error('Failed to fetch threads:', error);
@@ -108,23 +99,26 @@ const AIChat = () => {
     if (!token) return;
     
     try {
-      const response = await fetch(`/api/ai/threads/${threadId}/messages`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await apiGet(`/api/ai/threads/${threadId}/messages`);
+      const data = await apiJson<{
+        messages: Array<{
+          id: string;
+          role: 'user' | 'assistant';
+          content: Array<{ text: string }> | string;
+          createdAt: string;
+        }>;
+      }>(response);
       
-      if (response.ok) {
-        const data = await response.json();
-        // Convert messages to the format expected by useChat (UIMessage format)
-        const formattedMessages = data.messages.map((msg: any) => ({
-          id: msg.id,
-          role: msg.role as 'user' | 'assistant',
-          content: msg.content[0].text,
-          createdAt: new Date(msg.createdAt)
-        }));
-        // Sort messages by timestamp to ensure proper order
-        formattedMessages.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-        setThreadMessages(formattedMessages);
-      }
+      // Convert messages to the format expected by useChat (UIMessage format)
+      const formattedMessages = data.messages.map((msg) => ({
+        id: msg.id,
+        role: msg.role as 'user' | 'assistant',
+        content: Array.isArray(msg.content) ? msg.content[0].text : msg.content,
+        createdAt: new Date(msg.createdAt)
+      }));
+      // Sort messages by timestamp to ensure proper order
+      formattedMessages.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+      setThreadMessages(formattedMessages);
     } catch (error) {
       console.error('Failed to fetch thread messages:', error);
       setThreadMessages([]);
@@ -135,27 +129,23 @@ const AIChat = () => {
     if (!token) return;
     
     try {
-      const response = await fetch('/api/ai/threads', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ title: 'New Chat' })
-      });
+      const response = await apiPost('/api/ai/threads', { title: 'New Chat' });
+      const thread = await apiJson<{
+        remoteId: string;
+        title: string;
+        createdAt: string;
+        updatedAt: string;
+      }>(response);
       
-      if (response.ok) {
-        const thread = await response.json();
-        const newThread = {
-          id: thread.remoteId,
-          title: thread.title,
-          createdAt: new Date(thread.createdAt),
-          updatedAt: new Date(thread.updatedAt),
-          archived: false
-        };
-        setThreads(prev => [newThread, ...prev]);
-        setCurrentThreadId(newThread.id);
-      }
+      const newThread = {
+        id: thread.remoteId,
+        title: thread.title,
+        createdAt: new Date(thread.createdAt),
+        updatedAt: new Date(thread.updatedAt),
+        archived: false
+      };
+      setThreads(prev => [newThread, ...prev]);
+      setCurrentThreadId(newThread.id);
     } catch (error) {
       console.error('Failed to create thread:', error);
     }
@@ -165,14 +155,7 @@ const AIChat = () => {
     if (!token) return;
     
     try {
-      await fetch(`/api/ai/threads/${threadId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ archived: true })
-      });
+      await apiRequest('PATCH', `/api/ai/threads/${threadId}`, { archived: true });
       
       setThreads(prev => prev.map(t => 
         t.id === threadId ? { ...t, archived: true } : t
@@ -186,10 +169,7 @@ const AIChat = () => {
     if (!token) return;
     
     try {
-      await fetch(`/api/ai/threads/${threadId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await apiRequest('DELETE', `/api/ai/threads/${threadId}`);
       
       setThreads(prev => prev.filter(t => t.id !== threadId));
       
