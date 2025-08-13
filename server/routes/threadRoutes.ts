@@ -2,6 +2,8 @@ import type { Express } from "express";
 import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
 import { storage } from "../storage";
 import { nanoid } from "nanoid";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
+import { z } from "zod";
 
 interface CreateThreadRequest {
   title?: string;
@@ -13,8 +15,35 @@ interface UpdateThreadRequest {
 }
 
 export async function registerThreadRoutes(app: Express) {
+  // Validation schemas
+  const CreateThreadSchema = z.object({ title: z.string().min(1).max(120).optional() });
+  const UpdateThreadSchema = z.object({ title: z.string().min(1).max(120).optional(), archived: z.boolean().optional() });
+  const CreateMessageSchema = z.object({
+    id: z.string().min(1).max(128).optional(),
+    role: z.enum(["user", "assistant", "system"]),
+    content: z.union([
+      z.string().max(8000),
+      z.array(z.object({ type: z.literal("text"), text: z.string().max(8000) })).max(10)
+    ])
+  });
+
+  // Lightweight per-user/IP limiters
+  const threadsLimiter = rateLimit({
+    windowMs: 60_000,
+    max: 60,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req: any) => req.user?.uid ?? ipKeyGenerator(req)
+  });
+  const writeLimiter = rateLimit({
+    windowMs: 60_000,
+    max: 30,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req: any) => req.user?.uid ?? ipKeyGenerator(req)
+  });
   // Get all threads for the authenticated user
-  app.get("/api/ai/threads", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/ai/threads", requireAuth, threadsLimiter, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user!.uid;
       
@@ -44,10 +73,14 @@ export async function registerThreadRoutes(app: Express) {
   });
 
   // Create a new thread
-  app.post("/api/ai/threads", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/ai/threads", requireAuth, writeLimiter, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user!.uid;
-      const { title = "New Chat" } = req.body as CreateThreadRequest;
+      const parsed = CreateThreadSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: 'Validation failed', details: parsed.error.errors.map(e => e.message) });
+      }
+      const { title = "New Chat" } = parsed.data;
       
       const threadId = nanoid();
       
@@ -72,7 +105,7 @@ export async function registerThreadRoutes(app: Express) {
   });
 
   // Initialize a thread (assistant-ui requirement)
-  app.post("/api/ai/threads/:threadId/initialize", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/ai/threads/:threadId/initialize", requireAuth, writeLimiter, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user!.uid;
       const { threadId } = req.params;
@@ -98,7 +131,7 @@ export async function registerThreadRoutes(app: Express) {
   });
 
   // Get a specific thread
-  app.get("/api/ai/threads/:threadId", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/ai/threads/:threadId", requireAuth, threadsLimiter, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user!.uid;
       const { threadId } = req.params;
@@ -123,11 +156,15 @@ export async function registerThreadRoutes(app: Express) {
   });
 
   // Update a thread (rename, archive, etc.)
-  app.patch("/api/ai/threads/:threadId", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.patch("/api/ai/threads/:threadId", requireAuth, writeLimiter, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user!.uid;
       const { threadId } = req.params;
-      const updateData = req.body as UpdateThreadRequest;
+      const parsed = UpdateThreadSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: 'Validation failed', details: parsed.error.errors.map(e => e.message) });
+      }
+      const updateData = parsed.data as UpdateThreadRequest;
       
       const thread = await storage.updateThread(threadId, userId, updateData);
       
@@ -149,15 +186,12 @@ export async function registerThreadRoutes(app: Express) {
   });
 
   // Delete a thread
-  app.delete("/api/ai/threads/:threadId", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.delete("/api/ai/threads/:threadId", requireAuth, writeLimiter, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user!.uid;
       const { threadId } = req.params;
       
-      // First delete all messages in the thread
-      await storage.deleteMessagesByThreadId(threadId);
-      
-      // Then delete the thread
+      // Delete the thread (messages will cascade via FK)
       await storage.deleteThread(threadId, userId);
 
       res.json({ success: true });
@@ -168,7 +202,7 @@ export async function registerThreadRoutes(app: Express) {
   });
 
   // Get messages for a thread
-  app.get("/api/ai/threads/:threadId/messages", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/ai/threads/:threadId/messages", requireAuth, threadsLimiter, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user!.uid;
       const { threadId } = req.params;
@@ -196,11 +230,15 @@ export async function registerThreadRoutes(app: Express) {
   });
 
   // Add a message to a thread
-  app.post("/api/ai/threads/:threadId/messages", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/ai/threads/:threadId/messages", requireAuth, writeLimiter, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user!.uid;
       const { threadId } = req.params;
-      const { id, role, content } = req.body;
+      const parsed = CreateMessageSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: 'Validation failed', details: parsed.error.errors.map(e => e.message) });
+      }
+      const { id, role, content } = parsed.data;
       
       // First verify the user owns this thread
       const thread = await storage.getThreadByIdAndUserId(threadId, userId);

@@ -3,10 +3,13 @@ import { AIRuntimeProvider } from "@/components/AIRuntimeProvider";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { MessageCircle, Zap, Shield, Clock, Menu, PlusCircle, Archive, Trash2 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { MessageCircle, Zap, Clock, Menu, PlusCircle, Archive, Trash2, Check, X } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
 import { nanoid } from "nanoid";
 import { apiGet, apiPost, apiRequest, apiJson } from "@/lib/queryClient";
+import { useLocation, useRoute } from "wouter";
+import * as ContextMenu from "@radix-ui/react-context-menu";
+import { CreateTodoToolUI } from "@/components/tools/CreateTodoToolUI";
 
 interface ThreadData {
   id: string;
@@ -17,27 +20,23 @@ interface ThreadData {
 }
 
 const AIChat = () => {
-  const { user, getToken } = useAuth();
+  const { user } = useAuth();
   const [aiStatus, setAiStatus] = useState<'checking' | 'ready' | 'not_configured' | 'error'>('checking');
-  const [token, setToken] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [threads, setThreads] = useState<ThreadData[]>([]);
-  const [currentThreadId, setCurrentThreadId] = useState<string | null>(null);
+  const [, setLocation] = useLocation();
+  const [match, params] = useRoute("/ai-chat/:threadId");
+  const currentThreadId = (match ? (params as any).threadId : null) as string | null;
   const [loading, setLoading] = useState(false);
   const [threadMessages, setThreadMessages] = useState<any[]>([]);
-
-  // Get user token
-  useEffect(() => {
-    if (user) {
-      getToken().then(setToken);
-    }
-  }, [user, getToken]);
+  const [refreshing, setRefreshing] = useState(false);
+  const [messagesThreadId, setMessagesThreadId] = useState<string | null>(null);
+  const [editingThreadId, setEditingThreadId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState("");
 
   // Check AI service status
   useEffect(() => {
     const checkAIStatus = async () => {
-      if (!token) return;
-      
       try {
         const response = await apiGet('/api/ai/status');
         const data = await apiJson<{ status: string }>(response);
@@ -48,28 +47,33 @@ const AIChat = () => {
       }
     };
 
-    checkAIStatus();
-  }, [token]);
+    if (user) checkAIStatus();
+  }, [user]);
 
   // Fetch threads on mount
   useEffect(() => {
-    if (token) {
+    if (user) {
       fetchThreads();
     }
-  }, [token]);
+  }, [user]);
 
-  // Fetch messages when thread changes
+  // Fetch messages when thread changes (clear immediately to avoid stale branches)
   useEffect(() => {
-    if (token && currentThreadId) {
-      fetchThreadMessages(currentThreadId);
-    } else {
+    if (!user) return;
+    if (!currentThreadId) {
       setThreadMessages([]);
+      setMessagesThreadId(null);
+      setEditingThreadId(null);
+      return;
     }
-  }, [token, currentThreadId]);
+    // Clear first to ensure a clean swap
+    setThreadMessages([]);
+    setMessagesThreadId(currentThreadId);
+    setEditingThreadId(null);
+    fetchThreadMessages(currentThreadId);
+  }, [user, currentThreadId]);
 
   const fetchThreads = async () => {
-    if (!token) return;
-    
     try {
       setLoading(true);
       const response = await apiGet('/api/ai/threads');
@@ -78,15 +82,29 @@ const AIChat = () => {
         archivedThreads: Array<{ remoteId: string; title: string; createdAt: string; updatedAt: string }>;
       }>(response);
       
-      const allThreads = [
-        ...data.threads.map((t) => ({ ...t, id: t.remoteId, archived: false })),
-        ...data.archivedThreads.map((t) => ({ ...t, id: t.remoteId, archived: true }))
+      const allThreads: ThreadData[] = [
+        ...data.threads.map((t) => ({
+          id: t.remoteId,
+          title: t.title,
+          createdAt: new Date(t.createdAt),
+          updatedAt: new Date(t.updatedAt),
+          archived: false,
+        })),
+        ...data.archivedThreads.map((t) => ({
+          id: t.remoteId,
+          title: t.title,
+          createdAt: new Date(t.createdAt),
+          updatedAt: new Date(t.updatedAt),
+          archived: true,
+        })),
       ];
+      // Sort by most recent update
+      allThreads.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
       setThreads(allThreads);
       
-      // Set first thread as current if none selected
+      // If URL has no threadId, navigate to the first thread (if any)
       if (!currentThreadId && allThreads.length > 0) {
-        setCurrentThreadId(allThreads[0].id);
+        setLocation(`/ai-chat/${allThreads[0].id}`);
       }
     } catch (error) {
       console.error('Failed to fetch threads:', error);
@@ -96,8 +114,6 @@ const AIChat = () => {
   };
 
   const fetchThreadMessages = async (threadId: string) => {
-    if (!token) return;
-    
     try {
       const response = await apiGet(`/api/ai/threads/${threadId}/messages`);
       const data = await apiJson<{
@@ -119,15 +135,42 @@ const AIChat = () => {
       // Sort messages by timestamp to ensure proper order
       formattedMessages.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
       setThreadMessages(formattedMessages);
+      setMessagesThreadId(threadId);
     } catch (error) {
       console.error('Failed to fetch thread messages:', error);
       setThreadMessages([]);
+      setMessagesThreadId(threadId);
+    }
+  };
+
+  // On chat generation finish, refresh the current thread's title and timestamps
+  const handleFinish = async () => {
+    if (!currentThreadId) return;
+    try {
+      setRefreshing(true);
+      // Fetch just the current thread
+      const res = await apiGet(`/api/ai/threads/${currentThreadId}`);
+      const t = await apiJson<{ remoteId: string; title: string; status: string; createdAt: string; updatedAt: string }>(res);
+      setThreads(prev => {
+        const updated = prev.map((th) => th.id === t.remoteId ? {
+          id: t.remoteId,
+          title: t.title,
+          createdAt: new Date(t.createdAt),
+          updatedAt: new Date(t.updatedAt),
+          archived: th.archived,
+        } : th);
+        // Reorder by updatedAt desc so the active thread floats up if needed
+        const toTime = (v: Date | string) => (v instanceof Date ? v : new Date(v)).getTime();
+        return [...updated].sort((a, b) => toTime(b.updatedAt) - toTime(a.updatedAt));
+      });
+    } catch (e) {
+      // Non-fatal; UI will converge on next list fetch
+    } finally {
+      setRefreshing(false);
     }
   };
 
   const createNewThread = async () => {
-    if (!token) return;
-    
     try {
       const response = await apiPost('/api/ai/threads', { title: 'New Chat' });
       const thread = await apiJson<{
@@ -145,15 +188,13 @@ const AIChat = () => {
         archived: false
       };
       setThreads(prev => [newThread, ...prev]);
-      setCurrentThreadId(newThread.id);
+      setLocation(`/ai-chat/${newThread.id}`);
     } catch (error) {
       console.error('Failed to create thread:', error);
     }
   };
 
   const archiveThread = async (threadId: string) => {
-    if (!token) return;
-    
     try {
       await apiRequest('PATCH', `/api/ai/threads/${threadId}`, { archived: true });
       
@@ -165,9 +206,19 @@ const AIChat = () => {
     }
   };
 
+  const unarchiveThread = async (threadId: string) => {
+    try {
+      await apiRequest('PATCH', `/api/ai/threads/${threadId}`, { archived: false });
+
+      setThreads(prev => prev.map(t =>
+        t.id === threadId ? { ...t, archived: false } : t
+      ));
+    } catch (error) {
+      console.error('Failed to restore thread:', error);
+    }
+  };
+
   const deleteThread = async (threadId: string) => {
-    if (!token) return;
-    
     try {
       await apiRequest('DELETE', `/api/ai/threads/${threadId}`);
       
@@ -175,10 +226,37 @@ const AIChat = () => {
       
       if (currentThreadId === threadId) {
         const remainingThreads = threads.filter(t => t.id !== threadId);
-        setCurrentThreadId(remainingThreads.length > 0 ? remainingThreads[0].id : null);
+        if (remainingThreads.length > 0) {
+          setLocation(`/ai-chat/${remainingThreads[0].id}`);
+        } else {
+          setLocation(`/ai-chat`);
+        }
       }
     } catch (error) {
       console.error('Failed to delete thread:', error);
+    }
+  };
+
+  const saveThreadRename = async (threadId: string) => {
+    const newTitle = editingTitle.trim();
+    if (!newTitle) return;
+    try {
+      const res = await apiRequest('PATCH', `/api/ai/threads/${threadId}`, { title: newTitle });
+      const updated = await apiJson<{ remoteId: string; title: string; status: string; createdAt: string; updatedAt: string }>(res);
+      setThreads(prev => {
+        const next = prev.map(t => t.id === updated.remoteId ? {
+          id: updated.remoteId,
+          title: updated.title,
+          createdAt: new Date(updated.createdAt),
+          updatedAt: new Date(updated.updatedAt),
+          archived: t.archived
+        } : t);
+        next.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+        return next;
+      });
+      setEditingThreadId(null);
+    } catch (e) {
+      console.error('Failed to rename thread:', e);
     }
   };
 
@@ -301,41 +379,84 @@ const AIChat = () => {
         <div className="flex-1 overflow-y-auto p-4">
           <div className="space-y-1">
             {threads.filter(t => !t.archived).map(thread => (
-              <div
-                key={thread.id}
-                className={`p-2 rounded-lg cursor-pointer hover:bg-muted transition-colors ${
-                  currentThreadId === thread.id ? 'bg-muted' : ''
-                }`}
-                onClick={() => setCurrentThreadId(thread.id)}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-sm truncate flex-1">{thread.title}</span>
-                  <div className="flex items-center space-x-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        archiveThread(thread.id);
-                      }}
-                      className="h-6 w-6 p-0"
-                    >
-                      <Archive className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteThread(thread.id);
-                      }}
-                      className="h-6 w-6 p-0"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
+              <ContextMenu.Root key={thread.id}>
+                <ContextMenu.Trigger asChild>
+                  <div
+                    className={`p-2 rounded-lg cursor-pointer hover:bg-muted transition-colors ${
+                      currentThreadId === thread.id ? 'bg-muted' : ''
+                    }`}
+                    onClick={() => setLocation(`/ai-chat/${thread.id}`)}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      {editingThreadId === thread.id ? (
+                        <div className="flex items-center gap-1 flex-1">
+                          <input
+                            value={editingTitle}
+                            onChange={(e) => setEditingTitle(e.target.value.slice(0, 120))}
+                            onClick={(e) => e.stopPropagation()}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') { e.stopPropagation(); saveThreadRename(thread.id); }
+                              if (e.key === 'Escape') { e.stopPropagation(); setEditingThreadId(null); }
+                            }}
+                            className="border rounded px-2 py-1 text-sm w-full"
+                            placeholder="Thread title"
+                            autoFocus
+                          />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => { e.stopPropagation(); saveThreadRename(thread.id); }}
+                            className="h-6 px-2"
+                            aria-label="Save name"
+                          >
+                            <Check className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => { e.stopPropagation(); setEditingThreadId(null); }}
+                            className="h-6 px-2"
+                            aria-label="Cancel rename"
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <span className="text-sm truncate flex-1" title={thread.title}>
+                          {thread.title}
+                        </span>
+                      )}
+                      <div className="flex items-center space-x-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteThread(thread.id);
+                          }}
+                          className="h-6 w-6 p-0"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
+                </ContextMenu.Trigger>
+                <ContextMenu.Content className="rounded-md border bg-popover p-1 text-sm shadow-md">
+                  <ContextMenu.Item
+                    className="cursor-pointer select-none rounded px-2 py-1.5 hover:bg-muted"
+                    onSelect={() => { setEditingThreadId(thread.id); setEditingTitle(thread.title); }}
+                  >
+                    Rename
+                  </ContextMenu.Item>
+                  <ContextMenu.Item
+                    className="cursor-pointer select-none rounded px-2 py-1.5 hover:bg-muted"
+                    onSelect={() => archiveThread(thread.id)}
+                  >
+                    Archive
+                  </ContextMenu.Item>
+                </ContextMenu.Content>
+              </ContextMenu.Root>
             ))}
           </div>
           
@@ -346,28 +467,82 @@ const AIChat = () => {
               </div>
               <div className="space-y-1">
                 {threads.filter(t => t.archived).map(thread => (
-                  <div
-                    key={thread.id}
-                    className={`p-2 rounded-lg cursor-pointer hover:bg-muted transition-colors opacity-60 ${
-                      currentThreadId === thread.id ? 'bg-muted' : ''
-                    }`}
-                    onClick={() => setCurrentThreadId(thread.id)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm truncate flex-1">{thread.title}</span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteThread(thread.id);
-                        }}
-                        className="h-6 w-6 p-0"
+                  <ContextMenu.Root key={thread.id}>
+                    <ContextMenu.Trigger asChild>
+                      <div
+                        className={`p-2 rounded-lg cursor-pointer hover:bg-muted transition-colors opacity-60 ${
+                          currentThreadId === thread.id ? 'bg-muted' : ''
+                        }`}
+                        onClick={() => setLocation(`/ai-chat/${thread.id}`)}
                       >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </div>
+                        <div className="flex items-center justify-between gap-2">
+                          {editingThreadId === thread.id ? (
+                            <div className="flex items-center gap-1 flex-1">
+                              <input
+                                value={editingTitle}
+                                onChange={(e) => setEditingTitle(e.target.value.slice(0, 120))}
+                                onClick={(e) => e.stopPropagation()}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') { e.stopPropagation(); saveThreadRename(thread.id); }
+                                  if (e.key === 'Escape') { e.stopPropagation(); setEditingThreadId(null); }
+                                }}
+                                className="border rounded px-2 py-1 text-sm w-full"
+                                placeholder="Thread title"
+                                autoFocus
+                              />
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => { e.stopPropagation(); saveThreadRename(thread.id); }}
+                                className="h-6 px-2"
+                                aria-label="Save name"
+                              >
+                                <Check className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => { e.stopPropagation(); setEditingThreadId(null); }}
+                                className="h-6 px-2"
+                                aria-label="Cancel rename"
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <span className="text-sm truncate flex-1" title={thread.title}>
+                              {thread.title}
+                            </span>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteThread(thread.id);
+                            }}
+                            className="h-6 w-6 p-0"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    </ContextMenu.Trigger>
+                    <ContextMenu.Content className="rounded-md border bg-popover p-1 text-sm shadow-md">
+                      <ContextMenu.Item
+                        className="cursor-pointer select-none rounded px-2 py-1.5 hover:bg-muted"
+                        onSelect={() => { setEditingThreadId(thread.id); setEditingTitle(thread.title); }}
+                      >
+                        Rename
+                      </ContextMenu.Item>
+                      <ContextMenu.Item
+                        className="cursor-pointer select-none rounded px-2 py-1.5 hover:bg-muted"
+                        onSelect={() => unarchiveThread(thread.id)}
+                      >
+                        Restore
+                      </ContextMenu.Item>
+                    </ContextMenu.Content>
+                  </ContextMenu.Root>
                 ))}
               </div>
             </>
@@ -377,39 +552,33 @@ const AIChat = () => {
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col">
-        <div className="border-b p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-              >
-                <Menu className="h-4 w-4" />
-              </Button>
-              <div>
-                <h1 className="text-xl font-semibold">AI Chat Assistant</h1>
-                <p className="text-sm text-muted-foreground">
-                  {currentThreadId ? `Thread: ${threads.find(t => t.id === currentThreadId)?.title || 'Chat'}` : 'Select or create a thread'}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-              <Shield className="h-4 w-4" />
-              <span>Secure & Private</span>
+        <div className="border-b p-2">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+            >
+              <Menu className="h-4 w-4" />
+            </Button>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-base font-medium truncate">
+                {currentThreadId ? (threads.find(t => t.id === currentThreadId)?.title || "Chat") : "Chat"}
+              </h1>
             </div>
           </div>
         </div>
 
         <div className="flex-1 overflow-hidden">
           {currentThreadId ? (
-            <AIRuntimeProvider 
+            <AIRuntimeProvider
               key={currentThreadId}
-              token={token || undefined} 
               threadId={currentThreadId}
-              initialMessages={threadMessages}
+              initialMessages={messagesThreadId === currentThreadId ? threadMessages : []}
+              onFinish={handleFinish}
             >
               <Thread />
+              <CreateTodoToolUI />
             </AIRuntimeProvider>
           ) : (
             <div className="flex items-center justify-center h-full text-muted-foreground">

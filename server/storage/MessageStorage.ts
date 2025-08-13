@@ -1,6 +1,6 @@
 import { db } from '../db';
-import { aiMessages, type AiMessage, type InsertAiMessage } from '@shared/schema';
-import { eq, asc } from 'drizzle-orm';
+import { aiMessages, aiThreads, type AiMessage, type InsertAiMessage } from '@shared/schema';
+import { eq, asc, and } from 'drizzle-orm';
 
 export class MessageStorage {
   async getMessagesByThreadId(threadId: string): Promise<AiMessage[]> {
@@ -22,12 +22,20 @@ export class MessageStorage {
   }
 
   async createMessage(message: InsertAiMessage): Promise<AiMessage> {
-    const result = await db
-      .insert(aiMessages)
-      .values(message)
-      .returning();
-    
-    return result[0];
+    return await db.transaction(async (tx) => {
+      const inserted = await tx
+        .insert(aiMessages)
+        .values(message)
+        .returning();
+
+      // Bump thread updatedAt
+      await tx
+        .update(aiThreads)
+        .set({ updatedAt: new Date() })
+        .where(eq(aiThreads.id, message.threadId));
+
+      return inserted[0];
+    });
   }
 
   async deleteMessage(id: string): Promise<void> {
@@ -44,12 +52,37 @@ export class MessageStorage {
 
   async createMessages(messages: InsertAiMessage[]): Promise<AiMessage[]> {
     if (messages.length === 0) return [];
-    
-    const result = await db
-      .insert(aiMessages)
-      .values(messages)
-      .returning();
-    
-    return result;
+    return await db.transaction(async (tx) => {
+      const result = await tx
+        .insert(aiMessages)
+        .values(messages)
+        .returning();
+
+      // Bump thread updatedAt (all messages share the same threadId in our usage)
+      const threadId = messages[0].threadId;
+      await tx
+        .update(aiThreads)
+        .set({ updatedAt: new Date() })
+        .where(eq(aiThreads.id, threadId));
+
+      return result;
+    });
+  }
+
+  async messageExistsByContent(
+    threadId: string,
+    role: 'user' | 'assistant' | 'system',
+    content: string
+  ): Promise<boolean> {
+    const rows = await db
+      .select({ id: aiMessages.id })
+      .from(aiMessages)
+      .where(and(
+        eq(aiMessages.threadId, threadId),
+        eq(aiMessages.role, role),
+        eq(aiMessages.content, content)
+      ))
+      .limit(1);
+    return rows.length > 0;
   }
 }

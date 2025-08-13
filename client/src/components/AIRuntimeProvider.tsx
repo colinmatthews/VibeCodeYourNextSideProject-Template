@@ -6,17 +6,20 @@ import { streamingFetch } from "@/lib/queryClient";
 
 interface Props {
   children: ReactNode;
-  token?: string;
   threadId?: string;
   initialMessages?: any[];
+  onFinish?: (args: { threadId?: string }) => void;
 }
 
-export function AIRuntimeProvider({ children, token, threadId, initialMessages = [] }: Props) {
+export function AIRuntimeProvider({ children, threadId, initialMessages = [], onFinish }: Props) {
   const chat = useChat({
     api: "/api/ai/chat",
     fetch: streamingFetch,
     body: threadId ? { threadId } : undefined,
     initialMessages: initialMessages,
+    onFinish: () => {
+      onFinish?.({ threadId });
+    },
   });
 
   const runtime = useVercelUseChatRuntime(chat as any);

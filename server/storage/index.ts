@@ -52,6 +52,7 @@ export interface IStorage {
   getMessageById(id: string): Promise<AiMessage | undefined>;
   createMessage(message: InsertAiMessage): Promise<AiMessage>;
   createMessages(messages: InsertAiMessage[]): Promise<AiMessage[]>;
+  messageExistsByContent(threadId: string, role: 'user' | 'assistant' | 'system', content: string): Promise<boolean>;
   deleteMessage(id: string): Promise<void>;
   deleteMessagesByThreadId(threadId: string): Promise<void>;
 }
@@ -170,6 +171,10 @@ export class PostgresStorage implements IStorage {
 
   async createMessages(messages: InsertAiMessage[]): Promise<AiMessage[]> {
     return this.messageStorage.createMessages(messages);
+  }
+
+  async messageExistsByContent(threadId: string, role: 'user' | 'assistant' | 'system', content: string): Promise<boolean> {
+    return this.messageStorage.messageExistsByContent(threadId, role, content);
   }
 
   async deleteMessage(id: string): Promise<void> {
