@@ -84,8 +84,8 @@ export async function registerAIRoutes(app: Express) {
       const temperature = Math.max(0, Math.min(2, parseFloat(process.env.AI_TEMPERATURE || "0.7")));
       const topP = Math.max(0, Math.min(1, parseFloat(process.env.AI_TOP_P || "1")));
       const systemPrompt = process.env.AI_SYSTEM_PROMPT ||
-        "You can call tools. When the user asks to add a todo/task, call the createTodo tool with the provided text exactly. Prefer tools over plain text replies for actions. After tools complete, provide a brief confirmation.";
-      const maxToolRoundtrips = Math.max(0, Math.min(5, parseInt(process.env.AI_MAX_TOOL_ROUNDTRIPS || "2", 10)));
+        "You can call tools. When the user asks to add a todo/task, call the createTodo tool with the provided text exactly. Prefer tools over plain text replies for actions. If a tool returns an error field or fails, clearly explain the reason to the user and suggest next steps (e.g., upgrading the plan). After tools complete, provide a brief confirmation.";
+      const maxSteps = Math.max(1, parseInt(process.env.AI_MAX_STEPS || "3", 10));
 
       const result = streamText({
         model: openai(modelName),
@@ -95,9 +95,17 @@ export async function registerAIRoutes(app: Express) {
         maxTokens,
         temperature,
         topP,
-        // Encourage reliable tool usage
+        // Encourage reliable tool usage in v4
         toolChoice: 'auto',
-        maxToolRoundtrips,
+        maxSteps: Math.max(2, maxSteps),
+        onStepFinish: (event: any) => {
+          try {
+            console.log('[ai] step finished', {
+              finishReason: event.finishReason,
+              toolCalls: event.toolCalls?.map((c: any) => ({ name: c.toolName })) ?? [],
+            });
+          } catch {}
+        },
         tools: {
           createTodo: tool({
             description: "Create a new todo item for the current user",
@@ -105,15 +113,23 @@ export async function registerAIRoutes(app: Express) {
               item: z.string().min(1).max(1000).describe("The todo item text"),
             }),
             execute: async ({ item }) => {
+              console.log('[createTodo] start', { item, userId });
               const currentUserId = userId;
               // Enforce simple free-tier limit (mirror itemRoutes)
               const user = await storage.getUserByFirebaseId(currentUserId);
               const items = await storage.getItemsByUserId(currentUserId);
               if (!user?.subscriptionType?.includes('pro') && items.length >= 5) {
-                throw new Error('Item limit reached. Please upgrade to Pro plan.');
+                // Return a structured result with an error so the model can summarize in the next step
+                return { ok: false, error: 'Free plan item limit reached. Upgrade to Pro to add more todos.' };
               }
-              const created = await storage.createItem({ userId: currentUserId, item });
-              return { id: created.id, item: created.item, createdAt: created.id ? new Date() : new Date() };
+              try {
+                const created = await storage.createItem({ userId: currentUserId, item });
+                console.log('[createTodo] success', { id: created.id });
+                return { ok: true, id: created.id, item: created.item, createdAt: new Date().toISOString() };
+              } catch (err) {
+                console.error('[createTodo] error', err);
+                return { ok: false, error: 'Failed to create todo. Please try again.' };
+              }
             },
           }),
         },

@@ -48,6 +48,9 @@ export default function Dashboard() {
       return Array.isArray(data) ? data : [];
     },
     enabled: !!firebaseUser,
+    // Ensure we always refetch on mount/navigation and mark as immediately stale
+    refetchOnMount: 'always',
+    staleTime: 0,
   });
 
   const deleteMutation = useMutation({
