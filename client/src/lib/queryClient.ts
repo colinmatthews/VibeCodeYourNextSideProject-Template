@@ -15,8 +15,8 @@ export async function getAuthHeaders(): Promise<Record<string, string>> {
   }
   
   try {
-    // Force token refresh to handle expired tokens
-    const token = await user.getIdToken(true);
+    // Use cached token by default; refresh on 401 at call sites
+    const token = await user.getIdToken();
     return {
       'Authorization': `Bearer ${token}`
     };
@@ -45,6 +45,26 @@ export async function apiRequest(
     credentials: "include",
   });
 
+  if (res.status === 401 && auth.currentUser) {
+    // Retry once with a forced refresh
+    try {
+      const freshToken = await auth.currentUser.getIdToken(true);
+      const retryRes = await fetch(url, {
+        method,
+        headers: {
+          ...(data && !(data instanceof FormData) ? { "Content-Type": "application/json" } : {}),
+          'Authorization': `Bearer ${freshToken}`
+        },
+        body: data instanceof FormData ? data : (data ? JSON.stringify(data) : undefined),
+        credentials: "include",
+      });
+      await throwIfResNotOk(retryRes);
+      return retryRes;
+    } catch (e) {
+      // fallthrough to original error handling below
+    }
+  }
+
   await throwIfResNotOk(res);
   return res;
 }
@@ -69,6 +89,32 @@ export async function apiDelete(url: string): Promise<Response> {
 // Helper to get JSON response
 export async function apiJson<T>(response: Response): Promise<T> {
   return response.json();
+}
+
+// Streaming-compatible fetch function that includes auth headers
+export async function streamingFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const authHeaders = await getAuthHeaders();
+
+  const doFetch = async (extraHeaders: Record<string, string>) => {
+    const mergedHeaders: Record<string, string> = {
+      ...(init?.headers as Record<string, string> | undefined),
+      ...extraHeaders,
+    };
+    return fetch(input as any, {
+      ...init,
+      headers: mergedHeaders,
+      credentials: "include",
+    });
+  };
+
+  let res = await doFetch(authHeaders);
+  if (res.status === 401 && auth.currentUser) {
+    try {
+      const freshToken = await auth.currentUser.getIdToken(true);
+      res = await doFetch({ Authorization: `Bearer ${freshToken}` });
+    } catch {}
+  }
+  return res;
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";

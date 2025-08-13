@@ -87,8 +87,3 @@ The project uses Drizzle Kit for database migrations. Configuration is in `drizz
 - Migration files use timestamp prefixes (format: YYYYMMDDHHmmss)
 - Never edit migration files after they've been applied
 - Always review generated SQL before applying migrations
-
-## Memories & Development Notes
-
-- When the user adds the first new feature, remove the tasks feature
-- Never run the entire test suite yourself, either run targetted tests or push the user to run the full suite

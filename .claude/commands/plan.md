@@ -175,12 +175,8 @@ Before implementing, analyze the existing codebase:
 
 ### Phase 3: Client Layer
 
-1. **TDD for Frontend Components**
-   - Write component tests first (if using client testing)
-   - Test component rendering, user interactions, and error states
-   - Study any existing client test patterns
 
-2. **Data Fetching Hook**
+1. **Data Fetching Hook**
    - Study existing hooks in `client/src/hooks/`
    - Follow the same patterns as `useFiles.ts`, `useUser.ts`, or `use-auth.ts`
    - Use consistent data fetching patterns and error handling
@@ -191,7 +187,7 @@ Before implementing, analyze the existing codebase:
    - **Run TypeScript check**: `npm run check`
    - **Commit hook**: `git add . && git commit -m "Add [feature] data fetching hook"`
 
-3. **Main Feature Component**
+2. **Main Feature Component**
    - Study existing components in `client/src/components/`
    - Follow the same UI patterns as `FileList.tsx` or similar components
    - Use consistent shadcn/ui components from `client/src/components/ui/`
@@ -202,7 +198,7 @@ Before implementing, analyze the existing codebase:
    - **Run TypeScript check**: `npm run check`
    - **Commit component**: `git add . && git commit -m "Add [feature] main component"`
 
-4. **Form Component**
+3. **Form Component**
    - Study existing form components in similar features
    - Follow the same form handling patterns and validation approaches
    - Use consistent shadcn/ui form components
@@ -212,7 +208,7 @@ Before implementing, analyze the existing codebase:
    - **Run TypeScript check**: `npm run check`
    - **Commit form**: `git add . && git commit -m "Add [feature] form component"`
 
-5. **Page Component (if needed)**
+4. **Page Component (if needed)**
    - Study existing page components in `client/src/pages/`
    - Follow the same layout patterns as `Files.tsx`, `profile.tsx`, or `settings.tsx`
    - Use consistent container and spacing patterns
@@ -220,7 +216,7 @@ Before implementing, analyze the existing codebase:
    - **Run TypeScript check**: `npm run check`
    - **Commit page**: `git add . && git commit -m "Add [feature] page component"`
 
-6. **Add to Navigation**
+5. **Add to Navigation**
    - Study existing routing patterns in `client/src/App.tsx`
    - Follow the same route registration and navigation patterns
    - Update navigation components consistently
