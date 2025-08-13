@@ -13,23 +13,24 @@ const mockConvertToCoreMessages = jest.fn();
 const mockPipeDataStreamToResponse = jest.fn();
 
 jest.mock('ai', () => ({
-  streamText: mockStreamText,
-  convertToCoreMessages: mockConvertToCoreMessages
+  streamText: (...args: any[]) => (mockStreamText as any)(...args),
+  convertToCoreMessages: (...args: any[]) => (mockConvertToCoreMessages as any)(...args),
+  tool: (...spec: any[]) => ({ __mockTool: true, spec })
 }));
 
-// Mock the OpenAI SDK
+// Mock the OpenAI SDK (avoid hoist init ordering)
 const mockOpenAI = jest.fn();
 jest.mock('@ai-sdk/openai', () => ({
-  openai: mockOpenAI
+  openai: (...args: any[]) => (mockOpenAI as any)(...args)
 }));
 
 describe('AI Routes', () => {
   let app: express.Express;
-  let originalEnv: NodeJS.ProcessEnv;
+  let originalEnv: Record<string, string | undefined>;
 
   beforeAll(async () => {
     app = express();
-    app.use(express.json());
+    app.use(express.json({ limit: '10mb' }));
     
     // Register the AI routes
     await registerAIRoutes(app);
@@ -38,8 +39,8 @@ describe('AI Routes', () => {
   beforeEach(() => {
     resetAllMocks();
     
-    // Store original environment
-    originalEnv = process.env;
+    // Store original environment (copy)
+    originalEnv = { ...process.env };
     
     // Setup default environment variables
     process.env.OPENAI_API_KEY = 'sk-test123';
@@ -52,7 +53,7 @@ describe('AI Routes', () => {
     const mockResult = {
       pipeDataStreamToResponse: mockPipeDataStreamToResponse
     };
-    mockStreamText.mockResolvedValue(mockResult);
+    mockStreamText.mockReturnValue(mockResult);
     mockPipeDataStreamToResponse.mockImplementation((res) => {
       res.setHeader('Content-Type', 'text/plain; charset=utf-8');
       res.write('data: {"content":"Hello"}\n\n');
@@ -62,7 +63,23 @@ describe('AI Routes', () => {
   });
 
   afterEach(() => {
-    process.env = originalEnv;
+    try {
+      const desc = Object.getOwnPropertyDescriptor(process, 'env');
+      if (!desc || 'value' in desc) {
+        // Replace env object contents
+        for (const k of Object.keys(process.env)) {
+          delete (process.env as any)[k];
+        }
+        Object.assign(process.env, originalEnv);
+      } else {
+        // Redefine to a value descriptor with the original copy
+        Object.defineProperty(process, 'env', {
+          value: { ...originalEnv },
+          writable: false,
+          configurable: true
+        });
+      }
+    } catch {}
     jest.clearAllMocks();
   });
 
@@ -80,10 +97,10 @@ describe('AI Routes', () => {
           .expect(200);
 
         expect(mockConvertToCoreMessages).toHaveBeenCalledWith(messages);
-        expect(mockStreamText).toHaveBeenCalledWith({
+        expect(mockStreamText).toHaveBeenCalledWith(expect.objectContaining({
           model: 'gpt-4o-mini',
           messages: messages
-        });
+        }));
         expect(mockPipeDataStreamToResponse).toHaveBeenCalled();
       });
 
@@ -112,14 +129,14 @@ describe('AI Routes', () => {
           .expect(200);
 
         expect(mockOpenAI).toHaveBeenCalledWith('gpt-4o-mini');
-        expect(mockStreamText).toHaveBeenCalledWith({
+        expect(mockStreamText).toHaveBeenCalledWith(expect.objectContaining({
           model: 'gpt-4o-mini',
           messages: messages
-        });
+        }));
       });
 
       it('should handle empty message arrays', async () => {
-        const messages = [];
+        const messages: any[] = [];
 
         await request(app)
           .post('/api/ai/chat')
@@ -144,19 +161,19 @@ describe('AI Routes', () => {
         expect(mockConvertToCoreMessages).toHaveBeenCalledWith(messages);
       });
 
-      it('should handle large message payloads', async () => {
-        const largeContent = 'x'.repeat(10000);
+      it('should reject message content exceeding limits', async () => {
+        const largeContent = 'x'.repeat(10000); // exceeds 8000 char limit
         const messages = [
           { role: 'user', content: largeContent }
         ];
 
-        await request(app)
+        const response = await request(app)
           .post('/api/ai/chat')
           .set('Authorization', 'Bearer valid_token')
           .send({ messages })
-          .expect(200);
+          .expect(400);
 
-        expect(mockConvertToCoreMessages).toHaveBeenCalledWith(messages);
+        expect(response.body.error).toBe('Validation failed');
       });
     });
 
@@ -181,7 +198,7 @@ describe('AI Routes', () => {
         const mockAuth = getAuth();
         
         const authError = new Error('Invalid token');
-        authError.code = 'auth/invalid-id-token';
+        (authError as any).code = 'auth/invalid-id-token';
         mockAuth.verifyIdToken.mockRejectedValue(authError);
 
         const messages = [{ role: 'user', content: 'Test' }];
@@ -204,7 +221,7 @@ describe('AI Routes', () => {
         const mockAuth = getAuth();
         
         const expiredError = new Error('Token expired');
-        expiredError.code = 'auth/id-token-expired';
+        (expiredError as any).code = 'auth/id-token-expired';
         mockAuth.verifyIdToken.mockRejectedValue(expiredError);
 
         const messages = [{ role: 'user', content: 'Test' }];
@@ -281,24 +298,24 @@ describe('AI Routes', () => {
     });
 
     describe('Request Validation', () => {
-      it('should handle missing messages field', async () => {
+      it('should reject missing messages field', async () => {
         const response = await request(app)
           .post('/api/ai/chat')
           .set('Authorization', 'Bearer valid_token')
           .send({})
-          .expect(200);
+          .expect(400);
 
-        expect(mockConvertToCoreMessages).toHaveBeenCalledWith(undefined);
+        expect(response.body.error).toBe('Validation failed');
       });
 
-      it('should handle null messages', async () => {
+      it('should reject null messages', async () => {
         const response = await request(app)
           .post('/api/ai/chat')
           .set('Authorization', 'Bearer valid_token')
           .send({ messages: null })
-          .expect(200);
+          .expect(400);
 
-        expect(mockConvertToCoreMessages).toHaveBeenCalledWith(null);
+        expect(response.body.error).toBe('Validation failed');
       });
 
       it('should handle malformed JSON', async () => {
@@ -310,32 +327,32 @@ describe('AI Routes', () => {
           .expect(400);
       });
 
-      it('should handle non-array messages', async () => {
+      it('should reject non-array messages', async () => {
         const messages = 'not an array';
 
-        await request(app)
+        const response = await request(app)
           .post('/api/ai/chat')
           .set('Authorization', 'Bearer valid_token')
           .send({ messages })
-          .expect(200);
+          .expect(400);
 
-        expect(mockConvertToCoreMessages).toHaveBeenCalledWith(messages);
+        expect(response.body.error).toBe('Validation failed');
       });
 
-      it('should handle messages with invalid structure', async () => {
+      it('should reject messages with invalid structure', async () => {
         const messages = [
           { role: 'user' }, // missing content
           { content: 'test' }, // missing role
           { role: 'invalid', content: 'test' } // invalid role
         ];
 
-        await request(app)
+        const response = await request(app)
           .post('/api/ai/chat')
           .set('Authorization', 'Bearer valid_token')
           .send({ messages })
-          .expect(200);
+          .expect(400);
 
-        expect(mockConvertToCoreMessages).toHaveBeenCalledWith(messages);
+        expect(response.body.error).toBe('Validation failed');
       });
     });
 
@@ -376,7 +393,7 @@ describe('AI Routes', () => {
       });
 
       it('should handle OpenAI rate limit errors', async () => {
-        const rateLimitError = new Error('Rate limit exceeded');
+        const rateLimitError: any = new Error('Rate limit exceeded');
         rateLimitError.name = 'RateLimitError';
         rateLimitError.status = 429;
         mockStreamText.mockRejectedValue(rateLimitError);
@@ -395,7 +412,7 @@ describe('AI Routes', () => {
       });
 
       it('should handle OpenAI service unavailable errors', async () => {
-        const serviceError = new Error('Service unavailable');
+        const serviceError: any = new Error('Service unavailable');
         serviceError.status = 503;
         mockStreamText.mockRejectedValue(serviceError);
 
@@ -414,7 +431,7 @@ describe('AI Routes', () => {
 
       it('should handle network timeout errors', async () => {
         const timeoutError = new Error('Network timeout');
-        timeoutError.code = 'ETIMEDOUT';
+        (timeoutError as any).code = 'ETIMEDOUT';
         mockStreamText.mockRejectedValue(timeoutError);
 
         const messages = [{ role: 'user', content: 'Test' }];
@@ -563,7 +580,7 @@ describe('AI Routes', () => {
         const mockAuth = getAuth();
         
         const authError = new Error('Invalid token');
-        authError.code = 'auth/invalid-id-token';
+        (authError as any).code = 'auth/invalid-id-token';
         mockAuth.verifyIdToken.mockRejectedValue(authError);
 
         const response = await request(app)
@@ -582,7 +599,7 @@ describe('AI Routes', () => {
         const mockAuth = getAuth();
         
         const expiredError = new Error('Token expired');
-        expiredError.code = 'auth/id-token-expired';
+        (expiredError as any).code = 'auth/id-token-expired';
         mockAuth.verifyIdToken.mockRejectedValue(expiredError);
 
         const response = await request(app)
@@ -599,12 +616,17 @@ describe('AI Routes', () => {
 
     describe('Error Handling', () => {
       it('should handle internal server errors gracefully', async () => {
-        // Mock a scenario where checking environment variables throws
-        const originalEnv = process.env;
+        // Mock a scenario where checking environment variables throws for the specific key
+        const originalEnv = { ...process.env } as Record<string, string | undefined>;
         Object.defineProperty(process, 'env', {
-          get: () => {
-            throw new Error('Environment access error');
-          },
+          get: () => new Proxy(originalEnv, {
+            get(target, prop: string | symbol) {
+              if (prop === 'OPENAI_API_KEY') {
+                throw new Error('Environment access error');
+              }
+              return (target as any)[prop];
+            }
+          }),
           configurable: true
         });
 
@@ -619,7 +641,7 @@ describe('AI Routes', () => {
 
         // Restore original environment
         Object.defineProperty(process, 'env', {
-          get: () => originalEnv,
+          value: originalEnv,
           configurable: true
         });
       });
@@ -676,17 +698,17 @@ describe('AI Routes', () => {
       expect(mockConvertToCoreMessages).toHaveBeenCalledWith(maliciousMessages);
     });
 
-    it('should handle extremely large payloads gracefully', async () => {
+    it('should reject extremely large payloads', async () => {
       const hugeContent = 'x'.repeat(1000000); // 1MB of content
       const messages = [{ role: 'user', content: hugeContent }];
 
-      await request(app)
+      const response = await request(app)
         .post('/api/ai/chat')
         .set('Authorization', 'Bearer valid_token')
         .send({ messages })
-        .expect(200);
+        .expect(400);
 
-      expect(mockConvertToCoreMessages).toHaveBeenCalledWith(messages);
+      expect(response.body.error).toBe('Validation failed');
     });
   });
 
