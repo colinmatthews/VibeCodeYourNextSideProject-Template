@@ -92,22 +92,26 @@ export async function apiJson<T>(response: Response): Promise<T> {
 }
 
 // Streaming-compatible fetch function that includes auth headers
-export async function streamingFetch(url: string, options?: RequestInit): Promise<Response> {
+export async function streamingFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const authHeaders = await getAuthHeaders();
-  const doFetch = (headers: Record<string, string>) => fetch(url, {
-    ...options,
-    headers: {
-      ...options?.headers,
-      ...headers,
-    },
-    credentials: "include",
-  });
+
+  const doFetch = async (extraHeaders: Record<string, string>) => {
+    const mergedHeaders: Record<string, string> = {
+      ...(init?.headers as Record<string, string> | undefined),
+      ...extraHeaders,
+    };
+    return fetch(input as any, {
+      ...init,
+      headers: mergedHeaders,
+      credentials: "include",
+    });
+  };
 
   let res = await doFetch(authHeaders);
   if (res.status === 401 && auth.currentUser) {
     try {
       const freshToken = await auth.currentUser.getIdToken(true);
-      res = await doFetch({ 'Authorization': `Bearer ${freshToken}` });
+      res = await doFetch({ Authorization: `Bearer ${freshToken}` });
     } catch {}
   }
   return res;
