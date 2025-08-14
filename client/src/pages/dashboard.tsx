@@ -83,11 +83,21 @@ export default function Dashboard() {
       });
     },
     onError: (error) => {
-      toast({
-        title: "Error",
-        description: "Failed to add item",
-        variant: "destructive",
-      });
+      if (error instanceof Error && error.message.includes('Item limit')) {
+        toast({
+          title: 'Item limit reached',
+          description:
+            "You've reached the maximum of 5 items on the free plan. Upgrade to Pro for unlimited items!",
+          variant: 'destructive',
+        });
+        setShowUpgradeDialog(true);
+      } else {
+        toast({
+          title: 'Error',
+          description: 'Failed to add item',
+          variant: 'destructive',
+        });
+      }
     }
   });
 
@@ -125,12 +135,8 @@ export default function Dashboard() {
 
     try {
       await addItemMutation.mutateAsync(newItem);
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to add item",
-        variant: "destructive",
-      });
+    } catch {
+      // Error is handled in addItemMutation.onError
     }
   };
 
