@@ -30,6 +30,7 @@ export const items = pgTable("items", {
   id: serial("id").primaryKey(),
   item: text("item").notNull(),
   userId: text("user_id").notNull().references(() => users.firebaseId),
+  files: text("files").array(), // Array of file paths or identifiers
 });
 
 export const files = pgTable("files", {
@@ -114,6 +115,7 @@ export const insertUserSchema = createInsertSchema(users, {
 export const insertItemSchema = createInsertSchema(items, {
   userId: z.string(),
   item: z.string(),
+  files: z.array(z.string()).optional(), // Optional array of file paths
 });
 
 export const insertFileSchema = createInsertSchema(files, {

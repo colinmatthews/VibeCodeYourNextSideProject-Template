@@ -1,14 +1,17 @@
 import { makeAssistantToolUI } from "@assistant-ui/react";
 import { useEffect, useRef } from "react";
 import { queryClient } from "@/lib/queryClient";
+import { FileText } from "lucide-react";
 
 type CreateTodoArgs = {
   item: string;
+  files?: string[];
 };
 
 type CreateTodoResult = {
   id: number;
   item: string;
+  files?: string[];
   createdAt: string | Date;
 };
 
@@ -19,6 +22,12 @@ export const CreateTodoToolUI = makeAssistantToolUI<CreateTodoArgs, CreateTodoRe
       return (
         <div className="rounded border p-3 text-sm">
           Creating todo: <span className="font-medium">{args.item}</span>
+          {args.files && args.files.length > 0 && (
+            <div className="mt-2 text-xs text-muted-foreground">
+              <FileText className="inline h-3 w-3 mr-1" />
+              {args.files.length} file{args.files.length > 1 ? 's' : ''} attached
+            </div>
+          )}
         </div>
       );
     }
@@ -61,6 +70,22 @@ export const CreateTodoToolUI = makeAssistantToolUI<CreateTodoArgs, CreateTodoRe
         <InvalidateOnSuccess enabled={true} />
         <div className="font-medium">Todo created</div>
         <div className="mt-1">{result.item}</div>
+        {result.files && result.files.length > 0 && (
+          <div className="mt-2 space-y-1">
+            <div className="text-xs font-medium text-muted-foreground flex items-center">
+              <FileText className="h-3 w-3 mr-1" />
+              Attached files:
+            </div>
+            <div className="space-y-1">
+              {result.files.map((file, index) => (
+                <div key={index} className="text-xs bg-muted/50 px-2 py-1 rounded flex items-center">
+                  <FileText className="h-3 w-3 mr-1 text-muted-foreground" />
+                  <span className="truncate">{file.split('/').pop() || file}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
   },

@@ -15,4 +15,35 @@ export class ItemStorage {
   async deleteItem(id: number): Promise<void> {
     await db.delete(items).where(eq(items.id, id));
   }
+
+  async updateItemFiles(id: number, filePaths: string[]): Promise<Item | null> {
+    const [updatedItem] = await db
+      .update(items)
+      .set({ files: filePaths })
+      .where(eq(items.id, id))
+      .returning();
+    return updatedItem || null;
+  }
+
+  async addFileToItem(id: number, filePath: string): Promise<Item | null> {
+    // First get the current item to append to existing files
+    const [currentItem] = await db.select().from(items).where(eq(items.id, id));
+    if (!currentItem) return null;
+    
+    const currentFiles = currentItem.files || [];
+    const updatedFiles = [...currentFiles, filePath];
+    
+    return this.updateItemFiles(id, updatedFiles);
+  }
+
+  async removeFileFromItem(id: number, filePath: string): Promise<Item | null> {
+    // First get the current item to remove from existing files
+    const [currentItem] = await db.select().from(items).where(eq(items.id, id));
+    if (!currentItem) return null;
+    
+    const currentFiles = currentItem.files || [];
+    const updatedFiles = currentFiles.filter(file => file !== filePath);
+    
+    return this.updateItemFiles(id, updatedFiles);
+  }
 }

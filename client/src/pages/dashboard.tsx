@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/useToast";
 import { SearchBar } from "@/components/SearchBar";
-import { Plus } from "lucide-react";
+import { Plus, FileText } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -184,6 +184,7 @@ export default function Dashboard() {
           <TableHeader>
             <TableRow>
               <TableHead>Item</TableHead>
+              <TableHead>Files</TableHead>
               <TableHead className="w-[100px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -191,6 +192,20 @@ export default function Dashboard() {
             {filteredItems.map((item) => (
               <TableRow key={item.id}>
                 <TableCell>{item.item}</TableCell>
+                <TableCell>
+                  {item.files && item.files.length > 0 ? (
+                    <div className="flex flex-wrap gap-1">
+                      {item.files.map((file, index) => (
+                        <div key={index} className="flex items-center gap-1 text-xs bg-muted/50 px-2 py-1 rounded">
+                          <FileText className="h-3 w-3 text-muted-foreground" />
+                          <span className="truncate max-w-[100px]">{file.split('/').pop() || file}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-muted-foreground text-sm">No files</span>
+                  )}
+                </TableCell>
                 <TableCell>
                   <Button
                     variant="destructive"
