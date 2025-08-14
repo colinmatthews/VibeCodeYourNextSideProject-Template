@@ -1,0 +1,30 @@
+name: Deploy Render Preview from PR Command
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  deploy:
+    if: github.event.issue.pull_request != '' && startsWith(github.event.comment.body, '/deploy-preview')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get PR branch
+        id: branch
+        run: |
+          PR_API_URL=$(jq -r .issue.pull_request.url "$GITHUB_EVENT_PATH")
+          PR_BRANCH=$(curl -sSL \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "$PR_API_URL" | jq -r .head.ref)
+          echo "branch=$PR_BRANCH" >> $GITHUB_OUTPUT
+
+      - name: Trigger Render Deploy
+        run: |
+          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}&branch=${{ steps.branch.outputs.branch }}"
+
+      - name: Comment Preview URL
+        run: |
+          COMMENT="🚀 Preview deployed for branch \`${{ steps.branch.outputs.branch }}\`: https://preview.yourdomain.com"
+          gh pr comment ${{ github.event.issue.number }} --body "$COMMENT"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
