@@ -135,9 +135,10 @@ export async function registerAIRoutes(app: Express) {
             description: "Create a new todo item for the current user",
             parameters: z.object({
               item: z.string().min(1).max(1000).describe("The todo item text"),
+              files: z.array(z.string()).optional().describe("Optional array of file paths to associate with this todo"),
             }),
-            execute: async ({ item }) => {
-              console.log('[createTodo] start', { item, userId });
+            execute: async ({ item, files }) => {
+              console.log('[createTodo] start', { item, files, userId });
               const currentUserId = userId;
               // Enforce simple free-tier limit (mirror itemRoutes)
               const user = await storage.getUserByFirebaseId(currentUserId);
@@ -147,9 +148,9 @@ export async function registerAIRoutes(app: Express) {
                 return { ok: false, error: 'Free plan item limit reached. Upgrade to Pro to add more todos.' };
               }
               try {
-                const created = await storage.createItem({ userId: currentUserId, item });
+                const created = await storage.createItem({ userId: currentUserId, item, files });
                 console.log('[createTodo] success', { id: created.id });
-                return { ok: true, id: created.id, item: created.item, createdAt: new Date().toISOString() };
+                return { ok: true, id: created.id, item: created.item, files: created.files, createdAt: new Date().toISOString() };
               } catch (err) {
                 console.error('[createTodo] error', err);
                 return { ok: false, error: 'Failed to create todo. Please try again.' };
