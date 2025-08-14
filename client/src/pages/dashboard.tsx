@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { useUser } from "@/hooks/useUser";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Trash2 } from "lucide-react";
+import { useFiles } from "@/hooks/useFiles";
 //import { sendContactNotification } from "@/lib/mail"; // Removed as it's not relevant to items
 
 export default function Dashboard() {
@@ -23,6 +24,8 @@ export default function Dashboard() {
   const [isNewItemOpen, setIsNewItemOpen] = useState(false);
   const [newItem, setNewItem] = useState("");
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const { uploadFile } = useFiles();
 
   // Handle checkout success from URL params
   useEffect(() => {
@@ -67,15 +70,21 @@ export default function Dashboard() {
   });
 
   const addItemMutation = useMutation({
-    mutationFn: async (item: string) => {
-      await apiRequest('POST', '/api/items', {
+    mutationFn: async ({ item, file }: { item: string; file?: File }) => {
+      const res = await apiRequest('POST', '/api/items', {
         userId: firebaseUser?.uid,
         item: item.trim()
       });
+      const created = await res.json();
+      if (file) {
+        const uploaded = await uploadFile(file);
+        await apiRequest('POST', `/api/items/${created.id}/files`, { fileId: uploaded.id });
+      }
     },
     onSuccess: () => {
       refetch();
       setNewItem('');
+      setFile(null);
       setIsNewItemOpen(false);
       toast({
         title: "Success",
@@ -124,7 +133,7 @@ export default function Dashboard() {
     if (!firebaseUser?.uid || !newItem.trim()) return;
 
     try {
-      await addItemMutation.mutateAsync(newItem);
+      await addItemMutation.mutateAsync({ item: newItem, file: file || undefined });
     } catch (error) {
       toast({
         title: "Error",
@@ -154,6 +163,7 @@ export default function Dashboard() {
               value={newItem}
               onChange={(e) => setNewItem(e.target.value)}
             />
+            <Input type="file" onChange={(e) => setFile(e.target.files?.[0] || null)} />
             <div className="flex justify-end">
               <Button type="submit">Add Item</Button>
             </div>
