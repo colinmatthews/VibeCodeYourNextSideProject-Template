@@ -4,6 +4,8 @@ process.env.NODE_ENV = 'test';
 process.env.STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || 'sk_test_key';
 process.env.STRIPE_PRICE_ID_PRO = process.env.STRIPE_PRICE_ID_PRO || 'price_test_pro';
 process.env.SENDGRID_API_KEY = process.env.SENDGRID_API_KEY || 'SG.test_key';
+// Use a stable, verified sender for tests
+process.env.SENDGRID_FROM = process.env.SENDGRID_FROM || 'carlos@kindnessengineering.com';
 process.env.POSTHOG_API_KEY = process.env.POSTHOG_API_KEY || 'phc_test_key';
 process.env.FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'test-project';
 process.env.FIREBASE_PRIVATE_KEY = process.env.FIREBASE_PRIVATE_KEY || 'test-key';

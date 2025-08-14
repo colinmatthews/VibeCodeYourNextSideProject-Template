@@ -3,9 +3,7 @@ import { storage } from "../storage/index";
 import Stripe from "stripe";
 import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
-  apiVersion: "2025-01-27.acacia",
-});
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
 
 export async function registerPaymentRoutes(app: Express) {
   // New Stripe Checkout endpoint - replaces complex payment method flow
@@ -47,6 +45,29 @@ export async function registerPaymentRoutes(app: Express) {
       }
 
       // Create checkout session
+      // Limit redirects to trusted origins in production; be permissive in tests/dev
+      const isProd = process.env.NODE_ENV === 'production';
+      const allowedOrigins = isProd
+        ? [process.env.FRONTEND_URL].filter(Boolean) as string[]
+        : ['http://localhost:5173', 'http://localhost:5000', 'http://127.0.0.1:5173'];
+
+      const isAllowed = (url: string | undefined): url is string => {
+        if (!url) return false;
+        if (!isProd) {
+          // In non-prod, accept any well-formed URL to ease testing
+          try { new URL(url); return true; } catch { return false; }
+        }
+        try {
+          const origin = new URL(url).origin;
+          return allowedOrigins.some(o => !!o && origin === new URL(o).origin);
+        } catch {
+          return false;
+        }
+      };
+
+      const defaultSuccess = `${allowedOrigins[0] || (req.headers.origin as string) || ''}/dashboard?success=true&session_id={CHECKOUT_SESSION_ID}`;
+      const defaultCancel = `${allowedOrigins[0] || (req.headers.origin as string) || ''}/pricing?canceled=true`;
+
       const sessionParams: Stripe.Checkout.SessionCreateParams = {
         customer: customerId,
         line_items: [
@@ -56,8 +77,8 @@ export async function registerPaymentRoutes(app: Express) {
           },
         ],
         mode: mode as 'subscription' | 'payment',
-        success_url: successUrl || `${req.headers.origin}/dashboard?success=true&session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: cancelUrl || `${req.headers.origin}/pricing?canceled=true`,
+        success_url: isAllowed(successUrl) ? successUrl : defaultSuccess,
+        cancel_url: isAllowed(cancelUrl) ? cancelUrl : defaultCancel,
         metadata: {
           firebaseId: user.firebaseId,
         },

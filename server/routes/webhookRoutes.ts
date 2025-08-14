@@ -2,10 +2,9 @@ import type { Express, Request, Response } from "express";
 import { storage } from "../storage/index";
 import Stripe from "stripe";
 import express from 'express';
+import { logSecurity } from '../lib/audit';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
-  apiVersion: "2025-01-27.acacia",
-});
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
 
 // Read endpoint secret at request time to allow for testing
 
@@ -62,6 +61,12 @@ export async function registerWebhookRoutes(app: Express) {
       }
       event = stripe.webhooks.constructEvent(req.body, sig as string, endpointSecret);
     } catch (err) {
+      logSecurity('webhook_signature_failed', {
+        provider: 'stripe',
+        reason: (err as Error)?.message,
+        hasSignature: Boolean(sig),
+        path: '/api/webhook'
+      });
       console.log('[Webhook] Signature verification failed:', (err as Error).message);
       return res.status(400).send(`Webhook Error: ${(err as Error).message}`);
     }

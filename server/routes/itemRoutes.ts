@@ -58,7 +58,6 @@ export async function registerItemRoutes(app: Express) {
         console.log("[Items] Sending email notification to:", user.email);
         const emailResult = await sendEmail({
           to: user.email,
-          from: "carlos@kindnessengineering.com",
           subject: "New Item Created",
           text: `A new item "${item}" has been created in your list.`,
           html: `<p>A new item "<strong>${item}</strong>" has been created in your list.</p>`

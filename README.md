@@ -16,6 +16,20 @@ STRIPE_PRICE_ID_PRO=price_...           # Price ID for your Pro subscription
 
 # Client-side
 VITE_STRIPE_PUBLIC_KEY=pk_test_...      # Your Stripe publishable key
+
+# SendGrid (email)
+SENDGRID_API_KEY=SG....                  # Server-side only
+SENDGRID_FROM=verified@yourdomain.com    # Verified sender address
+
+# Analytics (PostHog)
+POSTHOG_API_KEY=phc_...
+POSTHOG_HOST=https://us.i.posthog.com
+
+# OpenAI (AI chat)
+OPENAI_API_KEY=sk-...
+
+# Frontend origin (prod only; used by CORS and redirect validation)
+FRONTEND_URL=https://yourapp.com
 ```
 
 ### How It Works
@@ -30,6 +44,10 @@ VITE_STRIPE_PUBLIC_KEY=pk_test_...      # Your Stripe publishable key
 - `POST /api/create-checkout-session` - Creates a new Stripe Checkout session
 - `POST /api/create-portal-session` - Creates a Stripe billing portal session
 - `POST /api/webhook` - Handles Stripe webhook events
+
+Health and readiness:
+- `GET /health` - Liveness probe (always 200)
+- `GET /ready` - Readiness probe (checks DB connectivity)
 
 ### Webhook Events Handled
 
@@ -76,3 +94,15 @@ Make sure to:
 2. Configure webhook endpoint in Stripe Dashboard
 3. Set `STRIPE_WEBHOOK_SECRET` from webhook settings 
 4. Configure Stripe billing portal at Settings > Billing > Customer portal in Stripe Dashboard 
+
+## Security Notes
+
+- Content Security Policy (CSP): In production, inline scripts/styles are blocked. Only required third-party origins are allowed (Stripe, Google Auth/Fonts, Firebase, PostHog). Development permits inline for Vite.
+- Rate Limiting: A global `/api` limiter enforces 500 requests per 15 minutes, keyed by authenticated user when available, otherwise IP. AI chat and thread routes also have per-route limits.
+- Safe Downloads: File downloads use a sanitized filename and RFC 5987 headers to prevent header injection.
+- Stripe Redirects: `success_url` and `cancel_url` are validated against trusted origins (from `FRONTEND_URL` in production). Unknown origins fall back to safe defaults.
+- SendGrid Sender: Emails use `SENDGRID_FROM` (must be a verified sender), not a hardcoded address.
+
+## CORS
+
+Production CORS is strict. Ensure `FRONTEND_URL` matches your deployed domain. Development allows `http://localhost:5173`, `http://localhost:5000`, and `http://127.0.0.1:5173`.

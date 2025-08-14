@@ -29,12 +29,14 @@ export class AppError extends Error {
 
 export function handleError(error: unknown, res: Response): void {
   console.error('Error occurred:', error);
+  const requestId = (res as any)?.locals?.requestId || res.getHeader?.('X-Request-Id');
 
   // Handle Zod validation errors
   if (error instanceof ZodError) {
     res.status(400).json({
       error: 'Validation failed',
-      details: error.errors.map(e => `${e.path.join('.')}: ${e.message}`)
+      details: error.errors.map(e => `${e.path.join('.')}: ${e.message}`),
+      requestId
     });
     return;
   }
@@ -43,7 +45,8 @@ export function handleError(error: unknown, res: Response): void {
   if (error instanceof AppError) {
     res.status(error.status).json({
       error: sanitizeErrorMessage(error.message, error.status),
-      code: error.code
+      code: error.code,
+      requestId
     });
     return;
   }
@@ -52,14 +55,16 @@ export function handleError(error: unknown, res: Response): void {
   if (error instanceof Error) {
     const status = getStatusFromError(error);
     res.status(status).json({
-      error: sanitizeErrorMessage(error.message, status)
+      error: sanitizeErrorMessage(error.message, status),
+      requestId
     });
     return;
   }
 
   // Handle unknown errors
   res.status(500).json({
-    error: sanitizeErrorMessage('Unknown error occurred', 500)
+    error: sanitizeErrorMessage('Unknown error occurred', 500),
+    requestId
   });
 }
 

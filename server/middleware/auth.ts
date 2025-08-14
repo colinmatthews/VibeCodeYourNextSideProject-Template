@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
+import { logSecurity } from '../lib/audit';
 
 // Initialize Firebase Admin SDK
 if (getApps().length === 0) {
@@ -46,21 +47,23 @@ export async function verifyFirebaseToken(
   try {
     const authHeader = req.headers.authorization;
     
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({
-        error: 'Authentication required',
-        code: 'auth/no-token'
-      });
-    }
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    logSecurity('auth_failed', { reason: 'no_token', path: req.path, method: req.method, ip: req.ip });
+    return res.status(401).json({
+      error: 'Authentication required',
+      code: 'auth/no-token'
+    });
+  }
 
     const idToken = authHeader.split('Bearer ')[1];
     
-    if (!idToken) {
-      return res.status(401).json({
-        error: 'Authentication required',
-        code: 'auth/no-token'
-      });
-    }
+  if (!idToken) {
+    logSecurity('auth_failed', { reason: 'empty_token', path: req.path, method: req.method, ip: req.ip });
+    return res.status(401).json({
+      error: 'Authentication required',
+      code: 'auth/no-token'
+    });
+  }
 
     // Verify the Firebase ID token
     const decodedToken = await getAuth().verifyIdToken(idToken);
@@ -78,6 +81,7 @@ export async function verifyFirebaseToken(
     
     // Handle specific Firebase Auth errors
     if (error.code === 'auth/id-token-expired') {
+      logSecurity('auth_failed', { reason: 'expired', path: req.path, method: req.method, ip: req.ip });
       return res.status(401).json({
         error: 'Authentication token has expired',
         code: 'auth/expired-token'
@@ -85,6 +89,7 @@ export async function verifyFirebaseToken(
     }
     
     if (error.code === 'auth/id-token-revoked') {
+      logSecurity('auth_failed', { reason: 'revoked', path: req.path, method: req.method, ip: req.ip });
       return res.status(401).json({
         error: 'Authentication token has been revoked',
         code: 'auth/invalid-token'
@@ -92,6 +97,7 @@ export async function verifyFirebaseToken(
     }
     
     if (error.code === 'auth/invalid-id-token') {
+      logSecurity('auth_failed', { reason: 'invalid', path: req.path, method: req.method, ip: req.ip });
       return res.status(401).json({
         error: 'Invalid authentication token',
         code: 'auth/invalid-token'
@@ -99,6 +105,7 @@ export async function verifyFirebaseToken(
     }
 
     // Generic authentication error
+    logSecurity('auth_failed', { reason: 'generic', path: req.path, method: req.method, ip: req.ip });
     return res.status(401).json({
       error: 'Authentication failed',
       code: 'auth/invalid-token'

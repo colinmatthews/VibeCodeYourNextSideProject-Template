@@ -9,7 +9,7 @@ mailService.setApiKey(process.env.SENDGRID_API_KEY);
 
 interface EmailParams {
   to: string;
-  from: string;
+  from?: string;
   subject: string;
   text: string;
   html?: string;
@@ -20,8 +20,8 @@ export async function sendEmail(params: EmailParams): Promise<boolean> {
     // Log the start of the sendEmail process
     console.debug("Starting sendEmail function", { params });
 
-    // Validate email parameters
-    if (!params.to || !params.from || !params.subject || !params.text) {
+    // Validate email parameters (sender can be provided via env)
+    if (!params.to || !params.subject || !params.text) {
       console.error(
         "SendGrid error: Missing required email parameters",
         params,
@@ -32,8 +32,12 @@ export async function sendEmail(params: EmailParams): Promise<boolean> {
     // Log validation success
     console.log("[SendGrid] Email parameters validation passed", { params });
 
-    // Ensure we're using a verified sender domain
-    const from = "carlos@kindnessengineering.com";
+    // Use verified sender from configuration (required by SendGrid)
+    const from = process.env.SENDGRID_FROM || params.from;
+    if (!from) {
+      console.error("[SendGrid] Missing SENDGRID_FROM environment variable or 'from' param");
+      return false;
+    }
     console.log("[SendGrid] Preparing to send email:", {
       from,
       to: params.to,

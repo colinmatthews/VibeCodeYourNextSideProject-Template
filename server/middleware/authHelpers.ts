@@ -1,6 +1,7 @@
 import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from './auth';
 import { storage } from '../storage/index';
+import { logSecurity } from '../lib/audit';
 
 /**
  * Middleware to verify that the authenticated user owns the resource
@@ -12,6 +13,7 @@ export function requiresOwnership(
   next: NextFunction
 ) {
   if (!req.user) {
+    logSecurity('access_denied', { reason: 'no_user', path: req.path, method: req.method, ip: req.ip });
     return res.status(401).json({
       error: 'Authentication required',
       code: 'auth/no-token'
@@ -25,6 +27,7 @@ export function requiresOwnership(
                         req.body.userId;
 
   if (!resourceUserId) {
+    logSecurity('access_denied', { reason: 'missing_user_id', path: req.path, method: req.method, userId: req.user.uid });
     return res.status(400).json({
       error: 'User ID is required'
     });
@@ -32,6 +35,7 @@ export function requiresOwnership(
 
   // Verify the authenticated user matches the resource owner
   if (req.user.uid !== resourceUserId) {
+    logSecurity('access_denied', { reason: 'mismatch_user', path: req.path, method: req.method, userId: req.user.uid, resourceUserId });
     return res.status(403).json({
       error: 'Access denied: You can only access your own resources',
       code: 'auth/access-denied'
@@ -51,6 +55,7 @@ export async function requiresFileOwnership(
   next: NextFunction
 ) {
   if (!req.user) {
+    logSecurity('access_denied', { reason: 'no_user', path: req.path, method: req.method, ip: req.ip });
     return res.status(401).json({
       error: 'Authentication required',
       code: 'auth/no-token'
@@ -60,6 +65,7 @@ export async function requiresFileOwnership(
   const fileId = Number(req.params.id);
   
   if (isNaN(fileId)) {
+    logSecurity('access_denied', { reason: 'invalid_file_id', path: req.path, method: req.method, userId: req.user.uid });
     return res.status(400).json({
       error: 'Invalid file ID'
     });
@@ -69,6 +75,7 @@ export async function requiresFileOwnership(
     const file = await storage.getFileById(fileId);
     
     if (!file) {
+      logSecurity('access_denied', { reason: 'file_not_found', path: req.path, method: req.method, userId: req.user.uid, fileId });
       return res.status(404).json({
         error: 'File not found'
       });
@@ -76,6 +83,7 @@ export async function requiresFileOwnership(
 
     // Verify the authenticated user owns this file
     if (file.userId !== req.user.uid) {
+      logSecurity('access_denied', { reason: 'not_owner', path: req.path, method: req.method, userId: req.user.uid, fileOwnerId: file.userId, fileId });
       return res.status(403).json({
         error: 'Access denied: You can only access your own files',
         code: 'auth/access-denied'

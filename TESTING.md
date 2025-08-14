@@ -4,17 +4,14 @@ This project includes comprehensive unit tests covering all critical workflows w
 
 ## Test Structure
 
-### Server Tests (5 files)
+### Server Tests
 - **`auth-workflow.test.ts`** - Authentication, user creation, PostHog tracking
 - **`payment-workflow.test.ts`** - Stripe checkout, customer portal
 - **`file-workflow.test.ts`** - File upload, download, storage limits
 - **`email-workflow.test.ts`** - SendGrid integration, notifications
 - **`storage.test.ts`** - Database operations, user ownership
 
-### Client Tests (3 files)
-- **`auth-integration.test.tsx`** - Firebase auth context, state management
-- **`file-upload.test.tsx`** - File upload component, error handling
-- **`critical-flows.test.tsx`** - Payment flows, profile management
+This template focuses tests on the server API and storage layers. There are no client-side tests included.
 
 ## Running Tests
 
@@ -30,7 +27,7 @@ npm run test:watch
 npm test -- --coverage
 
 # Run specific test file
-npm test -- auth-workflow.test.ts
+npm test -- server/__tests__/auth-workflow.test.ts
 
 # Run tests matching pattern
 npm test -- --testNamePattern="payment"
@@ -73,6 +70,7 @@ Tests use mock environment variables (defined in `.env.test` for local testing):
 NODE_ENV=test
 DATABASE_URL=postgresql://test:test@localhost:5432/test_db  # Mocked, but required
 SENDGRID_API_KEY=SG.test_key
+SENDGRID_FROM=test@example.com
 STRIPE_SECRET_KEY=sk_test_key
 POSTHOG_API_KEY=phc_test_key
 FIREBASE_PROJECT_ID=test-project
@@ -81,6 +79,17 @@ FIREBASE_CLIENT_EMAIL=test@test.com
 ```
 
 **Note:** The `DATABASE_URL` is required to prevent initialization errors but the actual database is mocked - no real connection is made.
+
+## Health and Readiness Endpoints
+
+- `GET /health` should always return 200; useful for liveness checks.
+- `GET /ready` returns 200 when the DB connection is healthy, 503 otherwise. In tests the DB layer is mocked, so this typically returns 200.
+
+## Rate Limiting in Tests
+
+- Global `/api` limiter: 500 requests per 15 minutes, keyed by authenticated user (if token present via mocked auth) or IP. Most tests won’t hit this limit.
+- AI chat limiter: In test mode, the per-route chat limiter `max` is set very high to avoid flakiness.
+- If you encounter 429s in tests, narrow the scope of requests or adjust the test to avoid hot loops.
 
 ## Debugging Tests
 

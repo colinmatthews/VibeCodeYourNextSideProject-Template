@@ -1,91 +1,85 @@
 import 'dotenv/config';
 import express, { type Request, Response, NextFunction } from "express";
-import rateLimit from 'express-rate-limit';
+import { randomUUID } from 'crypto';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import helmet from 'helmet';
 import cors from 'cors';
-import { PostHog, setupExpressErrorHandler } from 'posthog-node';
+import { setupExpressErrorHandler } from 'posthog-node';
 import { registerRoutes } from "./routes";
 import { registerWebhookRoutes } from "./routes/webhookRoutes";
 import { setupVite, serveStatic, log } from "./vite";
 import { sanitizeInputs } from './middleware/sanitize';
+import { optionalAuth } from './middleware/auth';
 
 const app = express();
 
 // Trust proxy - required for Replit's infrastructure
 app.set('trust proxy', true);
 
-// Initialize PostHog
-const posthog = new PostHog(
-  process.env.POSTHOG_API_KEY!,
-  { 
-    host: process.env.POSTHOG_HOST,
-    enableExceptionAutocapture: true
-  }
-);
+import { posthog, logEvent, logSecurity } from './lib/audit';
 
 (async () => {
   // Security headers with Helmet
   app.use(helmet({
-    // Additional security in production
     ...(process.env.NODE_ENV === 'production' && {
       referrerPolicy: { policy: "strict-origin-when-cross-origin" },
       permittedCrossDomainPolicies: false,
       dnsPrefetchControl: { allow: false }
     }),
-    // XSS Protection headers
-    crossOriginResourcePolicy: { policy: "cross-origin" },
-    xXssProtection: true,
     noSniff: true,
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        styleSrc: [
-          "'self'", 
-          "'unsafe-inline'", // Required for styled-components and some CSS-in-JS
-          "https://fonts.googleapis.com"
-        ],
-        fontSrc: [
-          "'self'", 
-          "https://fonts.gstatic.com"
-        ],
-        scriptSrc: [
-          "'self'",
-          "'unsafe-inline'", // Required for Vite development mode
-          "https://js.stripe.com", // Required for Stripe.js
-          "https://apis.google.com", // Required for Google Sign-in
-          "https://accounts.google.com", // Required for Google Sign-in
-          "https://us-assets.i.posthog.com" // Required for PostHog scripts
-        ],
+        styleSrc: process.env.NODE_ENV === 'production'
+          ? ["'self'", "https://fonts.googleapis.com"]
+          : ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+        scriptSrc: process.env.NODE_ENV === 'production'
+          ? [
+              "'self'",
+              "https://js.stripe.com",
+              "https://apis.google.com",
+              "https://accounts.google.com",
+              "https://us-assets.i.posthog.com"
+            ]
+          : [
+              "'self'",
+              "'unsafe-inline'",
+              "https://js.stripe.com",
+              "https://apis.google.com",
+              "https://accounts.google.com",
+              "https://us-assets.i.posthog.com"
+            ],
         connectSrc: [
           "'self'",
-          "https://api.stripe.com", // Required for Stripe API calls
-          "https://firebasestorage.googleapis.com", // Required for Firebase Storage
-          "https://identitytoolkit.googleapis.com", // Required for Firebase Auth
-          "https://securetoken.googleapis.com", // Required for Firebase Auth
-          "https://accounts.google.com", // Required for Google Sign-in
-          "https://www.googleapis.com", // Required for Google APIs
-          "https://*.firebaseapp.com", // Required for Firebase Auth domain
-          "https://us.i.posthog.com", // Required for PostHog API
-          "https://us-assets.i.posthog.com", // Required for PostHog assets
-          "https://*.posthog.com", // Required for PostHog subdomains
+          "https://api.stripe.com",
+          "https://firebasestorage.googleapis.com",
+          "https://identitytoolkit.googleapis.com",
+          "https://securetoken.googleapis.com",
+          "https://accounts.google.com",
+          "https://www.googleapis.com",
+          "https://*.firebaseapp.com",
+          "https://us.i.posthog.com",
+          "https://us-assets.i.posthog.com",
+          "https://*.posthog.com",
         ],
         imgSrc: [
-          "'self'", 
-          "data:", 
+          "'self'",
+          "data:",
           "https://firebasestorage.googleapis.com",
-          "https://*.googleusercontent.com" // Required for Google profile images
+          "https://*.googleusercontent.com"
         ],
         frameSrc: [
-          "https://js.stripe.com", // Required for Stripe Elements
-          "https://accounts.google.com", // Required for Google Sign-in popup
-          "https://*.firebaseapp.com" // Required for Firebase Auth
+          "https://js.stripe.com",
+          "https://accounts.google.com",
+          "https://*.firebaseapp.com"
         ]
       }
     },
-    crossOriginOpenerPolicy: { policy: "unsafe-none" }, // Allow popups for Firebase auth
-    crossOriginEmbedderPolicy: false, // Disabled to allow Firebase popup authentication
+    crossOriginOpenerPolicy: { policy: "unsafe-none" },
+    crossOriginEmbedderPolicy: false,
     hsts: {
-      maxAge: 31536000, // 1 year
+      maxAge: 31536000,
       includeSubDomains: true,
       preload: true
     }
@@ -99,6 +93,40 @@ const posthog = new PostHog(
   // This ensures Stripe webhooks receive raw body for signature verification
   await registerWebhookRoutes(app);
 
+  // Request ID + basic request logging (structured via PostHog)
+  app.use((req, res, next) => {
+    const requestId = randomUUID();
+    (res as any).locals = (res as any).locals || {};
+    (res as any).locals.requestId = requestId;
+    res.setHeader('X-Request-Id', requestId);
+    const start = Date.now();
+    const userId = (req as any).user?.uid || undefined;
+
+    // Log request start (no body)
+    logEvent('api.request', {
+      requestId,
+      method: req.method,
+      path: req.path,
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+      userId
+    });
+
+    res.on('finish', () => {
+      const durationMs = Date.now() - start;
+      logEvent('api.response', {
+        requestId,
+        method: req.method,
+        path: req.path,
+        status: res.statusCode,
+        durationMs,
+        userId: (req as any).user?.uid || userId
+      });
+    });
+
+    next();
+  });
+
   // Rate limiting middleware
   const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
@@ -109,14 +137,56 @@ const posthog = new PostHog(
     },
     standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
     legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+    // Prefer per-user limits when authenticated, otherwise fall back to IP
+    keyGenerator: (req: any) => req.user?.uid ?? ipKeyGenerator(req),
+    handler: (req: any, res, _next, options) => {
+      const requestId = (res as any)?.locals?.requestId;
+      const userId = req.user?.uid;
+      logSecurity('rate_limit', {
+        requestId,
+        method: req.method,
+        path: req.path,
+        userId,
+        ip: req.ip,
+        windowMs: options.windowMs,
+        max: options.max,
+      });
+      res.status(options.statusCode || 429).json({
+        ...(typeof options.message === 'object' ? options.message : { error: 'Too many requests' }),
+        requestId,
+      });
+    },
     // Skip rate limiting for webhooks and health checks
     skip: (req) => {
       return req.path.startsWith('/api/webhook') || req.path === '/health';
     }
   });
 
-  // Apply rate limiting to API routes
+  // Apply optional auth before limiter so per-user keys can be used
+  app.use('/api', optionalAuth);
+  // Apply rate limiting to API routes (per-user when available, else IP)
   app.use('/api', limiter);
+
+  // Lightweight health and readiness endpoints
+  app.get('/health', (_req, res) => {
+    res.status(200).json({ status: 'ok' });
+  });
+
+  // Readiness: attempts a lightweight DB check
+  try {
+    const { pool } = await import('./db');
+    app.get('/ready', async (_req, res) => {
+      try {
+        await pool.query('select 1');
+        res.status(200).json({ status: 'ready' });
+      } catch (e) {
+        res.status(503).json({ status: 'degraded' });
+      }
+    });
+  } catch {
+    // If DB import fails in certain environments, still expose endpoint
+    app.get('/ready', (_req, res) => res.status(200).json({ status: 'ready' }));
+  }
 
   // CORS configuration
   app.use(cors({
@@ -146,42 +216,28 @@ const posthog = new PostHog(
   });
 
   // Setup PostHog Express error handler
-  setupExpressErrorHandler(posthog, app);
+  if (posthog) {
+    setupExpressErrorHandler(posthog, app);
+  }
 
-  app.use((req, res, next) => {
-    const start = Date.now();
-    const path = req.path;
-    let capturedJsonResponse: Record<string, any> | undefined = undefined;
-
-    const originalResJson = res.json;
-    res.json = function (bodyJson, ...args) {
-      capturedJsonResponse = bodyJson;
-      return originalResJson.apply(res, [bodyJson, ...args]);
-    };
-
-    res.on("finish", () => {
-      const duration = Date.now() - start;
-      if (path.startsWith("/api")) {
-          let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-          if (capturedJsonResponse) {
-            log(logLine);
-            // Only log response bodies in development for security
-            if (process.env.NODE_ENV !== 'production') {
-              log(`Response: ${JSON.stringify(capturedJsonResponse, null, 2)}`);
-            }
-          } else {
-            log(logLine);
-          }
-      }
+  // Keep concise console logs for API timing in dev
+  if (process.env.NODE_ENV !== 'production') {
+    app.use((req, res, next) => {
+      const start = Date.now();
+      res.on('finish', () => {
+        const duration = Date.now() - start;
+        if (req.path.startsWith('/api')) {
+          log(`${req.method} ${req.path} ${res.statusCode} in ${duration}ms`);
+        }
+      });
+      next();
     });
-
-    next();
-  });
+  }
 
   const server = await registerRoutes(app);
 
   // Global error handler
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
     console.error('Error:', err);
     const status = err.status || err.statusCode || 500;
     
@@ -192,42 +248,58 @@ const posthog = new PostHog(
 
     // Handle authentication errors specially
     if (err.code && err.code.startsWith('auth/')) {
+      const requestId = (res as any)?.locals?.requestId;
+      logEvent('api.error', { requestId, method: req.method, path: req.path, status: 401, code: err.code });
       return res.status(401).json({ 
         error: message,
-        code: err.code
+        code: err.code,
+        requestId
       });
     }
 
     // Handle authorization errors
     if (status === 403) {
+      const requestId = (res as any)?.locals?.requestId;
+      logEvent('api.error', { requestId, method: req.method, path: req.path, status: 403, code: 'auth/access-denied' });
       return res.status(403).json({ 
         error: message,
-        code: 'auth/access-denied'
+        code: 'auth/access-denied',
+        requestId
       });
     }
 
     // Handle validation errors
     if (err.name === 'ZodError') {
+      const requestId = (res as any)?.locals?.requestId;
+      logEvent('api.error', { requestId, method: req.method, path: req.path, status: 400, code: 'validation_error' });
       return res.status(400).json({
         error: 'Validation failed',
-        details: err.errors?.map((e: any) => `${e.path.join('.')}: ${e.message}`) || []
+        details: err.errors?.map((e: any) => `${e.path.join('.')}: ${e.message}`) || [],
+        requestId
       });
     }
 
     // Handle multer errors (file upload)
     if (err.code === 'LIMIT_FILE_SIZE') {
+      const requestId = (res as any)?.locals?.requestId;
+      logEvent('api.error', { requestId, method: req.method, path: req.path, status: 413, code: 'payload_too_large' });
       return res.status(413).json({
-        error: 'File too large'
+        error: 'File too large',
+        requestId
       });
     }
 
     if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+      const requestId = (res as any)?.locals?.requestId;
+      logEvent('api.error', { requestId, method: req.method, path: req.path, status: 400, code: 'unexpected_file_field' });
       return res.status(400).json({
-        error: 'Unexpected file field'
+        error: 'Unexpected file field',
+        requestId
       });
     }
-
-    res.status(status).json({ error: message });
+    const requestId = (res as any)?.locals?.requestId;
+    logEvent('api.error', { requestId, method: req.method, path: req.path, status, code: err.code || 'internal_error' });
+    res.status(status).json({ error: message, requestId });
   });
 
 // Helper function to get sanitized error messages for production
@@ -256,25 +328,25 @@ function getProductionErrorMessage(status: number): string {
   // Handle uncaught exceptions
   process.on('uncaughtException', async (error) => {
     console.error('Uncaught Exception:', error);
-    await posthog.shutdown();
+    try { await posthog?.shutdown(); } catch {}
   });
 
   // Handle unhandled promise rejections
   process.on('unhandledRejection', async (reason, promise) => {
     console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-    await posthog.shutdown();
+    try { await posthog?.shutdown(); } catch {}
   });
 
   // Handle process termination
   process.on('SIGTERM', async () => {
     console.log('SIGTERM received, shutting down gracefully');
-    await posthog.shutdown();
+    try { await posthog?.shutdown(); } catch {}
     process.exit(0);
   });
 
   process.on('SIGINT', async () => {
     console.log('SIGINT received, shutting down gracefully');
-    await posthog.shutdown();
+    try { await posthog?.shutdown(); } catch {}
     process.exit(0);
   });
 

@@ -7,9 +7,7 @@ import { requiresOwnership, requiresUserExists } from "../middleware/authHelpers
 import { z } from "zod";
 import { PostHog } from 'posthog-node';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
-  apiVersion: "2025-01-27.acacia",
-});
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
 
 // Initialize PostHog for server-side events
 const posthog = new PostHog(
