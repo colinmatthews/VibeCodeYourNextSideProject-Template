@@ -45,6 +45,12 @@ export const files = pgTable("files", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+export const itemFiles = pgTable("item_files", {
+  id: serial("id").primaryKey(),
+  itemId: integer("item_id").notNull().references(() => items.id, { onDelete: 'cascade' }),
+  fileId: integer("file_id").notNull().references(() => files.id, { onDelete: 'cascade' }),
+});
+
 export const aiThreads = pgTable("ai_threads", {
   id: text("id").primaryKey(),
   title: text("title").notNull().default("New Chat"),
@@ -68,17 +74,30 @@ export const usersRelations = relations(users, ({ many }) => ({
   aiThreads: many(aiThreads),
 }));
 
-export const itemsRelations = relations(items, ({ one }) => ({
+export const itemsRelations = relations(items, ({ one, many }) => ({
   user: one(users, {
     fields: [items.userId],
     references: [users.firebaseId],
   }),
+  itemFiles: many(itemFiles),
 }));
 
-export const filesRelations = relations(files, ({ one }) => ({
+export const filesRelations = relations(files, ({ one, many }) => ({
   user: one(users, {
     fields: [files.userId],
     references: [users.firebaseId],
+  }),
+  itemFiles: many(itemFiles),
+}));
+
+export const itemFilesRelations = relations(itemFiles, ({ one }) => ({
+  item: one(items, {
+    fields: [itemFiles.itemId],
+    references: [items.id],
+  }),
+  file: one(files, {
+    fields: [itemFiles.fileId],
+    references: [files.id],
   }),
 }));
 
@@ -126,6 +145,11 @@ export const insertFileSchema = createInsertSchema(files, {
   userId: z.string(),
 });
 
+export const insertItemFileSchema = createInsertSchema(itemFiles, {
+  itemId: z.number(),
+  fileId: z.number(),
+});
+
 export const insertAiThreadSchema = createInsertSchema(aiThreads, {
   id: z.string(),
   title: z.string().default("New Chat"),
@@ -146,6 +170,8 @@ export type InsertItem = z.infer<typeof insertItemSchema>;
 export type Item = typeof items.$inferSelect;
 export type InsertFile = z.infer<typeof insertFileSchema>;
 export type File = typeof files.$inferSelect;
+export type InsertItemFile = z.infer<typeof insertItemFileSchema>;
+export type ItemFile = typeof itemFiles.$inferSelect;
 export type InsertAiThread = z.infer<typeof insertAiThreadSchema>;
 export type AiThread = typeof aiThreads.$inferSelect;
 export type InsertAiMessage = z.infer<typeof insertAiMessageSchema>;
