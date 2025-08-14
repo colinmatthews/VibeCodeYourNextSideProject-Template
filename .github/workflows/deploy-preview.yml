@@ -4,6 +4,10 @@ on:
   issue_comment:
     types: [created]
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   deploy:
     if: github.event.issue.pull_request != '' && startsWith(github.event.comment.body, '/deploy-preview')
@@ -11,20 +15,28 @@ jobs:
     steps:
       - name: Get PR branch
         id: branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          PR_API_URL=$(jq -r .issue.pull_request.url "$GITHUB_EVENT_PATH")
-          PR_BRANCH=$(curl -sSL \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            "$PR_API_URL" | jq -r .head.ref)
+          PR_API_URL="${{ github.event.issue.pull_request.url }}"
+          PR_BRANCH=$(curl -sSL -H "Authorization: token $GITHUB_TOKEN" "$PR_API_URL" | jq -r .head.ref)
+          if [ -z "$PR_BRANCH" ] || [ "$PR_BRANCH" = "null" ]; then
+            echo "Could not determine PR branch"; exit 1
+          fi
           echo "branch=$PR_BRANCH" >> $GITHUB_OUTPUT
 
       - name: Trigger Render Deploy
         run: |
-          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}&branch=${{ steps.branch.outputs.branch }}"
+          curl -sS -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}&branch=${{ steps.branch.outputs.branch }}"
 
       - name: Comment Preview URL
-        run: |
-          COMMENT="🚀 Preview deployed for branch \`${{ steps.branch.outputs.branch }}\`: https://preview.yourdomain.com"
-          gh pr comment ${{ github.event.issue.number }} --body "$COMMENT"
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BODY=$(jq -n --arg b "${{ steps.branch.outputs.branch }}" --arg url "https://preview.yourdomain.com" \
+            '{body: "🚀 Preview deployed for branch `\($b)`: \($url)"}')
+          curl -sS -H "Authorization: token $GITHUB_TOKEN" \
+               -H "Accept: application/vnd.github+json" \
+               -X POST \
+               -d "$BODY" \
+               "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments"
