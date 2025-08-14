@@ -7,20 +7,35 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  issues: write
 
 jobs:
   deploy:
-    if: github.event.issue.pull_request != '' && startsWith(github.event.comment.body, '/deploy-preview')
+    if: ${{ github.event.issue.pull_request != null && startsWith(github.event.comment.body, '/deploy-preview') }}
     runs-on: ubuntu-latest
     steps:
-      - name: Get PR info
+      - name: Debug event (first few fields)
+        run: |
+          echo "Comment: ${{ github.event.comment.body }}"
+          echo "PR URL:  ${{ github.event.issue.pull_request.url }}"
+          echo "Repo:     ${{ github.repository }}"
+
+      - name: Get PR info (branch + SHA)
         id: pr
-        env: { GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} }
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           PR_URL="${{ github.event.issue.pull_request.url }}"
           PR_JSON=$(curl -sSL -H "Authorization: token $GITHUB_TOKEN" "$PR_URL")
-          echo "branch=$(jq -r .head.ref <<<"$PR_JSON")" >> $GITHUB_OUTPUT
-          echo "sha=$(jq -r .head.sha <<<"$PR_JSON")" >> $GITHUB_OUTPUT
+          BRANCH=$(jq -r .head.ref <<<"$PR_JSON")
+          SHA=$(jq -r .head.sha <<<"$PR_JSON")
+          if [ -z "$BRANCH" ] || [ "$BRANCH" = "null" ] || [ -z "$SHA" ] || [ "$SHA" = "null" ]; then
+            echo "Failed to get PR branch/SHA"
+            exit 1
+          fi
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+          echo "sha=$SHA" >> $GITHUB_OUTPUT
+          echo "Will deploy branch=$BRANCH sha=$SHA"
 
       - name: Trigger Render deploy for this commit
         env:
@@ -30,13 +45,13 @@ jobs:
           curl -sS -X POST "https://api.render.com/v1/services/$SERVICE_ID/deploys" \
             -H "Authorization: Bearer $RENDER_TOKEN" \
             -H "Content-Type: application/json" \
-            -d "{\"commitId\":\"${{ steps.pr.outputs.sha }}\"}"
+            -d "{\"commitId\":\"${{ steps.pr.outputs.sha }}\"}" \
+            | jq -r '.id, .status, .createdAt'
 
       - name: Comment Preview URL
-        env: { GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} }
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           BODY=$(jq -n --arg b "${{ steps.pr.outputs.branch }}" --arg url "https://preview.yourdomain.com" \
-            '{body: "🚀 Preview deployed for branch `\($b)`: \($url)"}')
-          curl -sS -H "Authorization: token $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" \
-               -X POST -d "$BODY" \
-               "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments"
+            '{body: "🚀 Preview deploy triggered for branch `\($b)`. Live at: \($url)"}')
+          curl -sS -H "Auth
