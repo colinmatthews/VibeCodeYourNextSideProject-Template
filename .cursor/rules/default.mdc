@@ -1,4 +1,6 @@
-# CLAUDE.md - VibeCode Template Development Guide
+---
+alwaysApply: true
+---
 
 This document provides comprehensive information for Claude AI when working on this VibeCode Template project.
 
@@ -13,7 +15,6 @@ This is a **full-stack web application template** designed for rapid side projec
 - **Payments**: Stripe Checkout (simplified payment flow)
 - **Email**: SendGrid
 - **Deployment**: Optimized for quick deployment
-
 
 ## Testing
 

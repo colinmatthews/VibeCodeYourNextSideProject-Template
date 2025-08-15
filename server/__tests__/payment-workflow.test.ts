@@ -244,7 +244,7 @@ describe('Payment Workflow', () => {
       // Verify portal session creation
       expect(mockStripeInstance.billingPortal.sessions.create).toHaveBeenCalledWith({
         customer: 'cus_existing123',
-        return_url: 'https://myapp.com/dashboard'
+        return_url: 'https://myapp.com/'
       });
 
       expect(response.body).toEqual({
@@ -271,7 +271,7 @@ describe('Payment Workflow', () => {
       // Verify default return URL
       expect(mockStripeInstance.billingPortal.sessions.create).toHaveBeenCalledWith({
         customer: 'cus_existing123',
-        return_url: 'http://localhost:5000/dashboard'
+        return_url: 'http://localhost:5000/'
       });
     });
 

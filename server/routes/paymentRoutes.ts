@@ -65,7 +65,7 @@ export async function registerPaymentRoutes(app: Express) {
         }
       };
 
-      const defaultSuccess = `${allowedOrigins[0] || (req.headers.origin as string) || ''}/dashboard?success=true&session_id={CHECKOUT_SESSION_ID}`;
+      const defaultSuccess = `${allowedOrigins[0] || (req.headers.origin as string) || ''}/?success=true&session_id={CHECKOUT_SESSION_ID}`;
       const defaultCancel = `${allowedOrigins[0] || (req.headers.origin as string) || ''}/pricing?canceled=true`;
 
       const sessionParams: Stripe.Checkout.SessionCreateParams = {
@@ -132,7 +132,7 @@ export async function registerPaymentRoutes(app: Express) {
       // Create portal session
       const portalSession = await stripe.billingPortal.sessions.create({
         customer: user.stripeCustomerId,
-        return_url: `${process.env.FRONTEND_URL || 'http://localhost:5000'}/dashboard`,
+        return_url: `${process.env.FRONTEND_URL || 'http://localhost:5000'}/`,
       });
 
       res.json({ url: portalSession.url });
