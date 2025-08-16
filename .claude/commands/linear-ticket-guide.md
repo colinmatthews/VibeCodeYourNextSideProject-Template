@@ -6,6 +6,7 @@ This guide outlines the process for creating comprehensive Linear tickets for en
 IMPORTANT: When using this workflow, do not make code changes. Only document the issue.
 
 FIRST: tell the user you will write a Linear ticket for them.
+REQUIRED: Logs must be included
 
 ## Before Creating a Ticket
 
