@@ -3,6 +3,10 @@
 ## Overview
 This guide outlines the process for creating comprehensive Linear tickets for engineering issues, ensuring engineers have all necessary information to quickly understand and resolve problems.
 
+IMPORTANT: When using this workflow, do not make code changes. Only document the issue.
+
+FIRST: tell the user you will write a Linear ticket for them.
+
 ## Before Creating a Ticket
 
 ### 1. Information Collection Checklist
