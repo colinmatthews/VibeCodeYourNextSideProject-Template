@@ -3,13 +3,12 @@ import { storage } from "../storage/index";
 import Stripe from "stripe";
 import express from 'express';
 import { logSecurity } from '../lib/audit';
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
+import { getStripeClient } from '../lib/stripe';
 
 // Read endpoint secret at request time to allow for testing
 
 // Fulfillment helper function for checkout sessions
-async function fulfillCheckoutSession(session: Stripe.Checkout.Session) {
+async function fulfillCheckoutSession(session: Stripe.Checkout.Session, stripe: Stripe) {
   const firebaseId = session.metadata?.firebaseId;
   if (!firebaseId) {
     console.error('[Webhook] No firebase ID in session metadata');
@@ -50,6 +49,11 @@ export async function registerWebhookRoutes(app: Express) {
 
   // Stripe webhook handler
   app.post('/api/webhook', async (req: Request, res: Response) => {
+    const stripe = getStripeClient();
+    if (!stripe) {
+      return res.status(503).json({ error: 'Payments service not configured' });
+    }
+
     const sig = req.headers['stripe-signature'];
     let event: Stripe.Event;
 
@@ -80,7 +84,7 @@ export async function registerWebhookRoutes(app: Express) {
           
           // Only fulfill if payment was successful
           if (checkoutSession.payment_status === 'paid') {
-            await fulfillCheckoutSession(checkoutSession);
+            await fulfillCheckoutSession(checkoutSession, stripe);
           }
           break;
 

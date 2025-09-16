@@ -356,17 +356,23 @@ describe('Email Workflow', () => {
   });
 
   describe('Email Environment Configuration', () => {
-    it('should require SENDGRID_API_KEY environment variable', async () => {
-      // Remove API key
+    it('should skip sending when SENDGRID_API_KEY is not configured', async () => {
+      // Remove API key to simulate optional configuration
       delete process.env.SENDGRID_API_KEY;
 
-      // This would normally throw during module import
-      // In our test environment, we can simulate the check
-      expect(() => {
-        if (!process.env.SENDGRID_API_KEY) {
-          throw new Error('SENDGRID_API_KEY environment variable must be set');
-        }
-      }).toThrow('SENDGRID_API_KEY environment variable must be set');
+      const emailParams = {
+        to: 'test@example.com',
+        from: 'carlos@kindnessengineering.com',
+        subject: 'Test',
+        text: 'Test content'
+      };
+
+      const result = await sendEmail(emailParams);
+
+      expect(result).toBe(false);
+
+      const mockMailService = getMockMailService();
+      expect(mockMailService.send).not.toHaveBeenCalled();
     });
 
     it('should validate email addresses', async () => {

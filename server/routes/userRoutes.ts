@@ -6,19 +6,17 @@ import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
 import { requiresOwnership, requiresUserExists } from "../middleware/authHelpers";
 import { z } from "zod";
 import { PostHog } from 'posthog-node';
+import { getStripeClient } from "../lib/stripe";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
-
-// Initialize PostHog for server-side events
-const posthog = new PostHog(
-  process.env.POSTHOG_API_KEY!,
-  { 
-    host: process.env.POSTHOG_HOST,
-  }
-);
+// Initialize PostHog for server-side events when configured
+const posthogKey = process.env.POSTHOG_API_KEY;
+const posthog = posthogKey
+  ? new PostHog(posthogKey, { host: process.env.POSTHOG_HOST })
+  : null;
 
 // Helper function to identify user in PostHog
 const identifyUserInPostHog = (email: string, firebaseId: string, additionalProperties?: Record<string, any>) => {
+  if (!posthog) return;
   posthog.identify({
     distinctId: email,
     properties: {
@@ -71,15 +69,17 @@ export async function registerUserRoutes(app: Express) {
           });
           
           // Track user registration event
-          posthog.capture({
-            distinctId: email,
-            event: 'user_registered',
-            properties: {
-              firebaseId,
-              subscriptionType: 'free',
-              method: 'firebase_auth'
-            }
-          });
+          if (posthog) {
+            posthog.capture({
+              distinctId: email,
+              event: 'user_registered',
+              properties: {
+                firebaseId,
+                subscriptionType: 'free',
+                method: 'firebase_auth'
+              }
+            });
+          }
         }
       } else {
         // Identify returning user in PostHog
@@ -92,14 +92,16 @@ export async function registerUserRoutes(app: Express) {
           });
           
           // Track login event
-          posthog.capture({
-            distinctId: email,
-            event: 'user_logged_in',
-            properties: {
-              firebaseId,
-              subscriptionType: user.subscriptionType
-            }
-          });
+          if (posthog) {
+            posthog.capture({
+              distinctId: email,
+              event: 'user_logged_in',
+              properties: {
+                firebaseId,
+                subscriptionType: user.subscriptionType
+              }
+            });
+          }
         }
       }
 
@@ -122,6 +124,11 @@ export async function registerUserRoutes(app: Express) {
   // Check and create Stripe customer if needed
   app.post("/api/users/ensure-stripe", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      const stripe = getStripeClient();
+      if (!stripe) {
+        return res.status(503).json({ error: "Payments service not configured" });
+      }
+
       const firebaseId = req.user!.uid;
       const email = req.user!.email;
 
@@ -180,6 +187,11 @@ export async function registerUserRoutes(app: Express) {
 
   app.post("/api/users", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      const stripe = getStripeClient();
+      if (!stripe) {
+        return res.status(503).json({ error: "Payments service not configured" });
+      }
+
       const userInput = req.body;
       const firebaseId = req.user!.uid;
       const authenticatedEmail = req.user!.email;

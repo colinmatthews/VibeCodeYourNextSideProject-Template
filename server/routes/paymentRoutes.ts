@@ -2,13 +2,17 @@ import type { Express } from "express";
 import { storage } from "../storage/index";
 import Stripe from "stripe";
 import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
+import { getStripeClient } from "../lib/stripe";
 
 export async function registerPaymentRoutes(app: Express) {
   // New Stripe Checkout endpoint - replaces complex payment method flow
   app.post("/api/create-checkout-session", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      const stripe = getStripeClient();
+      if (!stripe) {
+        return res.status(503).json({ error: 'Payments service not configured' });
+      }
+
       console.log('[Checkout] Creating checkout session');
       const { mode = 'subscription', priceId, successUrl, cancelUrl } = req.body;
       const firebaseId = req.user!.uid;
@@ -121,6 +125,11 @@ export async function registerPaymentRoutes(app: Express) {
   // Create Stripe Customer Portal session for subscription management
   app.post('/api/create-portal-session', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      const stripe = getStripeClient();
+      if (!stripe) {
+        return res.status(503).json({ error: 'Payments service not configured' });
+      }
+
       const firebaseId = req.user!.uid;
 
       // Get user data to find their Stripe customer ID
