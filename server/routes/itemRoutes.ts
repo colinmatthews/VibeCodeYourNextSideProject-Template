@@ -15,11 +15,15 @@ const createItemSchema = z.object({
   item: z.string().min(1).max(1000).trim()
 });
 
+const addFileSchema = z.object({
+  fileId: z.number().int()
+});
+
 export async function registerItemRoutes(app: Express) {
   app.get("/api/items", requireAuth, requiresOwnership, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user!.uid;
-      const items = await storage.getItemsByUserId(userId);
+      const items = await storage.getItemsWithFilesByUserId(userId);
       res.json(items || []);
     } catch (error) {
       console.error("Error fetching items:", error);
@@ -76,11 +80,41 @@ export async function registerItemRoutes(app: Express) {
     try {
       // Validate item ID parameter
       const { id } = itemIdSchema.parse(req.params);
-      
+
       await storage.deleteItem(id);
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting item:", error);
+      handleError(error, res);
+    }
+  });
+
+  app.post("/api/items/:id/files", requireAuth, requiresItemOwnership, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { id } = itemIdSchema.parse(req.params);
+      const { fileId } = addFileSchema.parse(req.body);
+      const userId = req.user!.uid;
+
+      const file = await storage.getFileById(fileId);
+      if (!file || file.userId !== userId) {
+        throw errors.notFound("File");
+      }
+
+      await storage.addFileToItem(id, fileId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("[Items] Error adding file to item:", error);
+      handleError(error, res);
+    }
+  });
+
+  app.get("/api/items/:id/files", requireAuth, requiresItemOwnership, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { id } = itemIdSchema.parse(req.params);
+      const files = await storage.getFilesByItemId(id);
+      res.json(files || []);
+    } catch (error) {
+      console.error("[Items] Error fetching item files:", error);
       handleError(error, res);
     }
   });

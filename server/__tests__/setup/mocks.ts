@@ -92,12 +92,15 @@ export const resetAllMocks = () => {
   mockStorage.getUserByFirebaseId.mockResolvedValue(null);
   mockStorage.getUserByEmail.mockResolvedValue(null);
   mockStorage.getItemsByUserId.mockResolvedValue([]);
+  mockStorage.getItemsWithFilesByUserId.mockResolvedValue([]);
   mockStorage.getFilesByUserId.mockResolvedValue([]);
   mockStorage.getFileById.mockResolvedValue(null);
   mockStorage.createUser.mockResolvedValue({ id: 1, firebaseId: 'test-firebase-uid' });
   mockStorage.updateUser.mockResolvedValue({ id: 1, firebaseId: 'test-firebase-uid' });
   mockStorage.createItem.mockResolvedValue({ id: 1, item: 'test', userId: 'test-firebase-uid' });
   mockStorage.deleteItem.mockResolvedValue(undefined);
+  mockStorage.addFileToItem.mockResolvedValue(undefined);
+  mockStorage.getFilesByItemId.mockResolvedValue([]);
   mockStorage.createFile.mockResolvedValue({ id: 1, name: 'test.jpg', userId: 'test-firebase-uid' });
   mockStorage.deleteFile.mockResolvedValue(undefined);
   mockStorage.getFileByPath.mockResolvedValue(null);

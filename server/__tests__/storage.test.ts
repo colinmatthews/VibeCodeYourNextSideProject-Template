@@ -404,6 +404,32 @@ describe('Storage Layer', () => {
     });
   });
 
+  describe('Item-File Relationships', () => {
+    it('should link a file to an item', async () => {
+      mockStorage.addFileToItem.mockResolvedValue(undefined);
+      await expect(mockStorage.addFileToItem(1, 2)).resolves.toBeUndefined();
+      expect(mockStorage.addFileToItem).toHaveBeenCalledWith(1, 2);
+    });
+
+    it('should fetch files for an item', async () => {
+      const mockFiles = [
+        { id: 1, name: 'f.txt', originalName: 'f.txt', path: 'p', url: 'u', size: 1, type: 'text/plain', userId: 'uid' }
+      ];
+      mockStorage.getFilesByItemId.mockResolvedValue(mockFiles as any);
+      const result = await mockStorage.getFilesByItemId(1);
+      expect(result).toEqual(mockFiles);
+    });
+
+    it('should fetch items with files for a user', async () => {
+      const mockItems = [
+        { id: 1, item: 'test', userId: 'uid', files: [] }
+      ];
+      mockStorage.getItemsWithFilesByUserId.mockResolvedValue(mockItems as any);
+      const result = await mockStorage.getItemsWithFilesByUserId('uid');
+      expect(result).toEqual(mockItems);
+    });
+  });
+
   describe('Data Integrity and Security', () => {
     it('should enforce user ownership in all operations', async () => {
       const userId = 'test-firebase-uid';

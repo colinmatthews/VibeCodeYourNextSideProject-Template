@@ -5,6 +5,8 @@ import { ThreadStorage } from './ThreadStorage';
 import { MessageStorage } from './MessageStorage';
 import { type Item, type InsertItem, type User, type InsertUser, type File, type InsertFile, type AiThread, type InsertAiThread, type AiMessage, type InsertAiMessage } from "@shared/schema";
 
+export type ItemWithFiles = Item & { files: File[] };
+
 interface UpdateUserData {
   firstName?: string;
   lastName?: string;
@@ -27,8 +29,11 @@ export interface IStorage {
 
   // Item operations
   getItemsByUserId(userId: string): Promise<Item[]>;
+  getItemsWithFilesByUserId(userId: string): Promise<ItemWithFiles[]>;
   createItem(item: InsertItem): Promise<Item>;
   deleteItem(id: number): Promise<void>;
+  addFileToItem(itemId: number, fileId: number): Promise<void>;
+  getFilesByItemId(itemId: number): Promise<File[]>;
 
   // File operations
   getFilesByUserId(userId: string): Promise<File[]>;
@@ -94,12 +99,24 @@ export class PostgresStorage implements IStorage {
     return this.itemStorage.getItemsByUserId(userId);
   }
 
+  async getItemsWithFilesByUserId(userId: string): Promise<ItemWithFiles[]> {
+    return this.itemStorage.getItemsWithFilesByUserId(userId);
+  }
+
   async createItem(item: InsertItem): Promise<Item> {
     return this.itemStorage.createItem(item);
   }
 
   async deleteItem(id: number): Promise<void> {
     return this.itemStorage.deleteItem(id);
+  }
+
+  async addFileToItem(itemId: number, fileId: number): Promise<void> {
+    return this.itemStorage.addFileToItem(itemId, fileId);
+  }
+
+  async getFilesByItemId(itemId: number): Promise<File[]> {
+    return this.itemStorage.getFilesByItemId(itemId);
   }
 
   // File operations
