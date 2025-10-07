@@ -290,10 +290,10 @@ npm run build
 ### Backend Testing
 ```bash
 # Test API endpoints manually (if needed)
-curl -X GET http://localhost:5000/api/[feature] \
+curl -X GET http://localhost:4000/api/[feature] \
   -H "Authorization: Bearer [token]"
 
-curl -X POST http://localhost:5000/api/[feature] \
+curl -X POST http://localhost:4000/api/[feature] \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer [token]" \
   -d '{"title": "Test", "description": "Test description"}'

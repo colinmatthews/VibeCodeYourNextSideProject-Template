@@ -51,9 +51,10 @@ export async function registerPaymentRoutes(app: Express) {
       // Create checkout session
       // Limit redirects to trusted origins in production; be permissive in tests/dev
       const isProd = process.env.NODE_ENV === 'production';
+      const port = process.env.PORT || '4000';
       const allowedOrigins = isProd
         ? [process.env.FRONTEND_URL].filter(Boolean) as string[]
-        : ['http://localhost:5173', 'http://localhost:5000', 'http://127.0.0.1:5173'];
+        : ['http://localhost:5173', `http://localhost:${port}`, 'http://127.0.0.1:5173'];
 
       const isAllowed = (url: string | undefined): url is string => {
         if (!url) return false;
@@ -139,9 +140,10 @@ export async function registerPaymentRoutes(app: Express) {
       }
 
       // Create portal session
+      const port = process.env.PORT || '4000';
       const portalSession = await stripe.billingPortal.sessions.create({
         customer: user.stripeCustomerId,
-        return_url: `${process.env.FRONTEND_URL || 'http://localhost:5000'}/`,
+        return_url: `${process.env.FRONTEND_URL || `http://localhost:${port}`}/`,
       });
 
       res.json({ url: portalSession.url });

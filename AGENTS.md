@@ -8,7 +8,7 @@
 - Build output in `dist/`; environment files: `.env`, `.env.example`, `.env.test`.
 
 ## Build, Test, Run
-- `npm run dev`: Start server with Vite dev client on port 5000.
+- `npm run dev`: Start server with Vite dev client on port 4000 (configurable via PORT env).
 - `npm run build`: Build client via Vite and bundle server to `dist/`.
 - `npm start`: Run production server from `dist/index.js`.
 - `npm test`: Run Jest tests (Node, TypeScript). Add `--coverage` for report.
@@ -35,5 +35,5 @@
 ## Security & Configuration
 - Do not commit secrets. Copy `.env.example` to `.env` for local dev.
 - Required keys include Stripe, Firebase, and PostHog; set webhook secret for `/api/webhook`.
-- CORS is strict in prod; use `http://localhost:5173` during dev. Web server runs on `http://localhost:5000`.
+- CORS is strict in prod; use `http://localhost:5173` during dev. Web server runs on `http://localhost:4000`.
 

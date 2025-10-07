@@ -204,7 +204,7 @@ A: Stripe Tax can automatically calculate and collect taxes based on customer lo
 A: Stripe automatically retries failed webhooks. Implement idempotency in your handlers to handle duplicate events safely.
 
 **Q: How do I test webhooks locally?**
-A: Use Stripe CLI: `stripe listen --forward-to localhost:5000/api/webhook`
+A: Use Stripe CLI: `stripe listen --forward-to localhost:4000/api/webhook`
 
 ## Webhook Best Practices
 

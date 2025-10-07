@@ -41,7 +41,7 @@ npm run db:push
 npm run dev
 ```
 
-The app will be available at `http://localhost:5000`
+The app will be available at `http://localhost:4000` (configurable via `PORT` env variable)
 
 ### Required Environment Variables
 
@@ -124,7 +124,7 @@ Health and readiness:
 4. Test failed payments with card `4000 0000 0000 0002`
 
 
-Use stripe listen --forward-to localhost:5000/api/webhook for testing webhooks locally
+Use stripe listen --forward-to localhost:4000/api/webhook for testing webhooks locally
 
 ### Benefits of Stripe Checkout
 
@@ -164,4 +164,4 @@ Make sure to:
 
 ## CORS
 
-Production CORS is strict. Ensure `FRONTEND_URL` matches your deployed domain. Development allows `http://localhost:5173`, `http://localhost:5000`, and `http://127.0.0.1:5173`.
+Production CORS is strict. Ensure `FRONTEND_URL` matches your deployed domain. Development allows `http://localhost:5173`, `http://localhost:4000`, and `http://127.0.0.1:5173`.
