@@ -123,8 +123,15 @@ export async function registerAIRoutes(app: Express) {
         // Encourage reliable tool usage in v4
         toolChoice: 'auto',
         maxSteps: Math.max(2, maxSteps),
-        onStepFinish: () => {
-          // Track tool execution progress
+        onStepFinish: (event) => {
+          try {
+            console.log('[ai] step finished', {
+              finishReason: event.finishReason,
+              toolCalls: event.toolCalls?.map((c: any) => ({ name: c.toolName })) ?? [],
+            });
+          } catch (err) {
+            // Ignore logging errors
+          }
         },
         tools: {
           createTodo: tool({
@@ -134,6 +141,7 @@ export async function registerAIRoutes(app: Express) {
             }),
             execute: async ({ item }) => {
               const currentUserId = userId;
+              console.log('[createTodo] start', { item, userId: currentUserId });
               // Enforce simple free-tier limit (mirror itemRoutes)
               const user = await storage.getUserByFirebaseId(currentUserId);
               const items = await storage.getItemsByUserId(currentUserId);
@@ -143,6 +151,7 @@ export async function registerAIRoutes(app: Express) {
               }
               try {
                 const created = await storage.createItem({ userId: currentUserId, item });
+                console.log('[createTodo] success', { id: created.id });
                 return { ok: true, id: created.id, item: created.item, createdAt: new Date().toISOString() };
               } catch (err) {
                 return { ok: false, error: 'Failed to create todo. Please try again.' };
