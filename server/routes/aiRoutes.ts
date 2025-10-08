@@ -35,6 +35,7 @@ export async function registerAIRoutes(app: Express) {
   // AI Chat endpoint with thread support
   app.post("/api/ai/chat", requireAuth, chatLimiter, async (req: AuthenticatedRequest, res) => {
     try {
+      console.log("AI chat request received");
       // Defensive auth guard (helps in test environments)
       const authHeader = req.headers.authorization;
       if (!req.user?.uid || !authHeader || !authHeader.startsWith('Bearer ')) {
@@ -81,10 +82,12 @@ export async function registerAIRoutes(app: Express) {
       }
       
       if (!process.env.OPENAI_API_KEY) {
-        return res.status(500).json({ 
-          error: "AI service not configured. Please add OPENAI_API_KEY to your environment variables." 
+        return res.status(500).json({
+          error: "AI service not configured. Please add OPENAI_API_KEY to your environment variables."
         });
       }
+
+      console.log("Starting OpenAI stream...");
 
       // Choose model based on user subscription
       const userRecord = await storage.getUserByFirebaseId(userId);
