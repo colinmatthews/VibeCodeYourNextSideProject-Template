@@ -79,6 +79,18 @@ jest.mock('@neondatabase/serverless', () => ({
 // Mock WebSocket
 jest.mock('ws', () => ({}));
 
+// Mock PostHog - prevent real analytics and timers
+jest.mock('posthog-node', () => ({
+  PostHog: jest.fn().mockImplementation(() => ({
+    identify: jest.fn(),
+    capture: jest.fn(),
+    shutdown: jest.fn().mockResolvedValue(undefined),
+    isFeatureEnabled: jest.fn().mockResolvedValue(false),
+    getFeatureFlag: jest.fn().mockResolvedValue(null),
+    reloadFeatureFlags: jest.fn().mockResolvedValue(undefined)
+  }))
+}));
+
 // Mock Storage - essential to prevent real DB access
 jest.mock('./server/storage/index', () => ({
   storage: {
