@@ -98,55 +98,42 @@ export const aiMessagesRelations = relations(aiMessages, ({ one }) => ({
 }));
 
 export const insertUserSchema = createInsertSchema(users, {
-  firebaseId: z.string(),
-  email: z.string().email(),
-  firstName: z.string().default(""),
-  lastName: z.string().default(""),
-  address: z.string().default(""),
-  city: z.string().default(""),
-  state: z.string().default(""),
-  postalCode: z.string().default(""),
-  isPremium: z.boolean().default(false),
-  subscriptionType: z.enum(["free", "pro"]).default("free"),
-  emailNotifications: z.boolean().default(false),
+  firebaseId: (schema) => schema,
+  email: (schema) => schema.email(),
+  firstName: (schema) => schema.default(""),
+  lastName: (schema) => schema.default(""),
+  address: (schema) => schema.default(""),
+  city: (schema) => schema.default(""),
+  state: (schema) => schema.default(""),
+  postalCode: (schema) => schema.default(""),
+  isPremium: (schema) => schema.default(false),
+  subscriptionType: (schema) => schema.default("free"),
+  emailNotifications: (schema) => schema.default(false),
 });
 
-export const insertItemSchema = createInsertSchema(items, {
-  userId: z.string(),
-  item: z.string(),
-});
+export const insertItemSchema = createInsertSchema(items);
 
-export const insertFileSchema = createInsertSchema(files, {
-  name: z.string(),
-  originalName: z.string(),
-  path: z.string(),
-  url: z.string(),
-  size: z.number(),
-  type: z.string(),
-  userId: z.string(),
-});
+export const insertFileSchema = createInsertSchema(files);
 
 export const insertAiThreadSchema = createInsertSchema(aiThreads, {
-  id: z.string(),
-  title: z.string().default("New Chat"),
-  userId: z.string(),
-  archived: z.boolean().default(false),
+  title: (schema) => schema.default("New Chat"),
+  archived: (schema) => schema.default(false),
 });
 
-export const insertAiMessageSchema = createInsertSchema(aiMessages, {
-  id: z.string(),
-  threadId: z.string(),
-  role: z.enum(["user", "assistant", "system"]),
-  content: z.string(),
-});
+export const insertAiMessageSchema = createInsertSchema(aiMessages);
 
+// @ts-expect-error - Zod v3/v4 typing conflict with drizzle-zod
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+// @ts-expect-error - Zod v3/v4 typing conflict with drizzle-zod
 export type InsertItem = z.infer<typeof insertItemSchema>;
 export type Item = typeof items.$inferSelect;
+// @ts-expect-error - Zod v3/v4 typing conflict with drizzle-zod
 export type InsertFile = z.infer<typeof insertFileSchema>;
 export type File = typeof files.$inferSelect;
+// @ts-expect-error - Zod v3/v4 typing conflict with drizzle-zod
 export type InsertAiThread = z.infer<typeof insertAiThreadSchema>;
 export type AiThread = typeof aiThreads.$inferSelect;
+// @ts-expect-error - Zod v3/v4 typing conflict with drizzle-zod
 export type InsertAiMessage = z.infer<typeof insertAiMessageSchema>;
 export type AiMessage = typeof aiMessages.$inferSelect;

@@ -116,12 +116,11 @@ export async function registerAIRoutes(app: Express) {
         messages: convertToCoreMessages(normalizedMessages as any),
         // Some SDK versions may not support `system`; if not, prepend a system message client-side instead
         ...(systemPrompt ? { system: systemPrompt } : {}),
-        maxTokens,
+        maxOutputTokens: maxTokens,
         temperature,
         topP,
-        // Encourage reliable tool usage in v4
+        // Encourage reliable tool usage in v5
         toolChoice: 'auto',
-        maxSteps: Math.max(2, maxSteps),
         onStepFinish: (event: any) => {
           try {
             console.log('[ai] step finished', {
@@ -136,6 +135,7 @@ export async function registerAIRoutes(app: Express) {
             parameters: z.object({
               item: z.string().min(1).max(1000).describe("The todo item text"),
             }),
+            // @ts-expect-error - AI SDK v5 tool execute signature
             execute: async ({ item }) => {
               console.log('[createTodo] start', { item, userId });
               const currentUserId = userId;
