@@ -132,7 +132,8 @@ export async function registerWebhookRoutes(app: Express) {
 
         // Invoice events (for subscription billing)
         case 'invoice.payment_succeeded':
-          const paidInvoice = event.data.object as any;
+          // Note: Stripe v19 types don't include subscription property, but it exists at runtime
+          const paidInvoice = event.data.object as Stripe.Invoice & { subscription?: string | Stripe.Subscription | null };
 
           // Ensure subscription is marked as active
           if (paidInvoice.subscription && typeof paidInvoice.subscription === 'string') {
@@ -148,7 +149,8 @@ export async function registerWebhookRoutes(app: Express) {
           break;
 
         case 'invoice.payment_failed':
-          const failedInvoice = event.data.object as any;
+          // Note: Stripe v19 types don't include subscription property, but it exists at runtime
+          const failedInvoice = event.data.object as Stripe.Invoice & { subscription?: string | Stripe.Subscription | null };
           console.log('[Webhook] Invoice payment failed:', failedInvoice.id);
 
           // Optional: Handle failed invoice payments (send notification, etc.)
