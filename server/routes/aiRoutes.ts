@@ -35,7 +35,6 @@ export async function registerAIRoutes(app: Express) {
   // AI Chat endpoint with thread support
   app.post("/api/ai/chat", requireAuth, chatLimiter, async (req: AuthenticatedRequest, res) => {
     try {
-      console.log("AI chat request received");
       // Defensive auth guard (helps in test environments)
       const authHeader = req.headers.authorization;
       if (!req.user?.uid || !authHeader || !authHeader.startsWith('Bearer ')) {
@@ -87,7 +86,6 @@ export async function registerAIRoutes(app: Express) {
         });
       }
 
-      console.log("Starting OpenAI stream...");
       // Choose model based on user subscription
       const userRecord = await storage.getUserByFirebaseId(userId);
       const isPro = userRecord?.subscriptionType === 'pro' || userRecord?.isPremium === true;
@@ -116,18 +114,14 @@ export async function registerAIRoutes(app: Express) {
         messages: convertToCoreMessages(normalizedMessages as any),
         // Some SDK versions may not support `system`; if not, prepend a system message client-side instead
         ...(systemPrompt ? { system: systemPrompt } : {}),
-        maxOutputTokens: maxTokens,
+        maxTokens,
         temperature,
         topP,
-        // Encourage reliable tool usage in v5
+        // Encourage reliable tool usage in v4
         toolChoice: 'auto',
-        onStepFinish: (event: any) => {
-          try {
-            console.log('[ai] step finished', {
-              finishReason: event.finishReason,
-              toolCalls: event.toolCalls?.map((c: any) => ({ name: c.toolName })) ?? [],
-            });
-          } catch {}
+        maxSteps: Math.max(2, maxSteps),
+        onStepFinish: () => {
+          // Track tool execution progress
         },
         tools: {
           createTodo: tool({
@@ -135,9 +129,7 @@ export async function registerAIRoutes(app: Express) {
             parameters: z.object({
               item: z.string().min(1).max(1000).describe("The todo item text"),
             }),
-            // @ts-expect-error - AI SDK v5 tool execute signature
             execute: async ({ item }) => {
-              console.log('[createTodo] start', { item, userId });
               const currentUserId = userId;
               // Enforce simple free-tier limit (mirror itemRoutes)
               const user = await storage.getUserByFirebaseId(currentUserId);
@@ -148,10 +140,8 @@ export async function registerAIRoutes(app: Express) {
               }
               try {
                 const created = await storage.createItem({ userId: currentUserId, item });
-                console.log('[createTodo] success', { id: created.id });
                 return { ok: true, id: created.id, item: created.item, createdAt: new Date().toISOString() };
               } catch (err) {
-                console.error('[createTodo] error', err);
                 return { ok: false, error: 'Failed to create todo. Please try again.' };
               }
             },
