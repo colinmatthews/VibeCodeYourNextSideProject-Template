@@ -9,10 +9,10 @@ import './setup/mocks';
 describe('File Workflow', () => {
   let app: express.Express;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     app = express();
     app.use(express.json());
-    registerFileRoutes(app);
+    await registerFileRoutes(app);
   });
 
   beforeEach(() => {

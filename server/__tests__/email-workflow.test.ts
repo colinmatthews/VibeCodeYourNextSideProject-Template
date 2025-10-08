@@ -22,10 +22,10 @@ const getMockMailService = () => global.mockMailServiceInstance;
 describe('Email Workflow', () => {
   let app: express.Express;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     app = express();
     app.use(express.json());
-    registerItemRoutes(app);
+    await registerItemRoutes(app);
   });
 
   beforeEach(() => {
