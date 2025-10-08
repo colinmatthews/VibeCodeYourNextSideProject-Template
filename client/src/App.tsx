@@ -14,6 +14,7 @@ import Pricing from "@/pages/pricing";
 import Settings from "@/pages/settings";
 import Files from "@/pages/files";
 import AIChat from "@/pages/ai-chat";
+import AIAgent from "@/pages/ai-agent";
 
 class ErrorBoundary extends Component<
   { children: ReactNode },
@@ -67,6 +68,7 @@ function Router() {
           <Route path="/files" component={Files} />
           <Route path="/ai-chat" component={AIChat} />
           <Route path="/ai-chat/:threadId" component={AIChat} />
+          <Route path="/ai-agent" component={AIAgent} />
           <Route component={NotFound} />
         </Switch>
       </div>
