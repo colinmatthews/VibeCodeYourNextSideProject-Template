@@ -40,7 +40,8 @@ import { posthog, logEvent, logSecurity } from './lib/audit';
               "https://js.stripe.com",
               "https://apis.google.com",
               "https://accounts.google.com",
-              "https://us-assets.i.posthog.com"
+              "https://us-assets.i.posthog.com",
+              "https://cdn.platform.openai.com"
             ]
           : [
               "'self'",
@@ -48,7 +49,8 @@ import { posthog, logEvent, logSecurity } from './lib/audit';
               "https://js.stripe.com",
               "https://apis.google.com",
               "https://accounts.google.com",
-              "https://us-assets.i.posthog.com"
+              "https://us-assets.i.posthog.com",
+              "https://cdn.platform.openai.com"
             ],
         connectSrc: [
           "'self'",
@@ -62,6 +64,8 @@ import { posthog, logEvent, logSecurity } from './lib/audit';
           "https://us.i.posthog.com",
           "https://us-assets.i.posthog.com",
           "https://*.posthog.com",
+          "https://api.openai.com",
+          "https://cdn.platform.openai.com"
         ],
         imgSrc: [
           "'self'",
@@ -72,7 +76,9 @@ import { posthog, logEvent, logSecurity } from './lib/audit';
         frameSrc: [
           "https://js.stripe.com",
           "https://accounts.google.com",
-          "https://*.firebaseapp.com"
+          "https://*.firebaseapp.com",
+          "https://cdn.platform.openai.com",
+          "https://platform.openai.com"
         ]
       }
     },
