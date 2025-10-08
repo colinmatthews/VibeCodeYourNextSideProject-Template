@@ -1,8 +1,6 @@
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
-import { useVercelUseChatRuntime } from "@assistant-ui/react-ai-sdk";
-import { useChat } from "@ai-sdk/react";
+import { useChatRuntime } from "@assistant-ui/react-ai-sdk";
 import { ReactNode } from "react";
-import { streamingFetch } from "@/lib/queryClient";
 
 interface Props {
   children: ReactNode;
@@ -12,17 +10,14 @@ interface Props {
 }
 
 export function AIRuntimeProvider({ children, threadId, initialMessages = [], onFinish }: Props) {
-  const chat = useChat({
-    api: "/api/ai/chat",
-    fetch: streamingFetch,
+  const runtime = useChatRuntime({
+    // @ts-expect-error - ChatInit typing mismatch between zod v3/v4
     body: threadId ? { threadId } : undefined,
     initialMessages: initialMessages,
     onFinish: () => {
       onFinish?.({ threadId });
     },
   });
-
-  const runtime = useVercelUseChatRuntime(chat as any);
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>

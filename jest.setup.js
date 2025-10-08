@@ -11,6 +11,11 @@ process.env.FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'test-proje
 process.env.FIREBASE_PRIVATE_KEY = process.env.FIREBASE_PRIVATE_KEY || 'test-key';
 process.env.FIREBASE_CLIENT_EMAIL = process.env.FIREBASE_CLIENT_EMAIL || 'test@test.com';
 
+// Mock nanoid for ESM compatibility
+jest.mock('nanoid', () => ({
+  nanoid: () => 'test-nanoid-id-' + Math.random().toString(36).substring(7)
+}));
+
 // Mock the database module before any imports
 const mockDbQuery = jest.fn().mockResolvedValue([]);
 
