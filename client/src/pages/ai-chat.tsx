@@ -31,6 +31,7 @@ const AIChat = () => {
   const [threadMessages, setThreadMessages] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [messagesThreadId, setMessagesThreadId] = useState<string | null>(null);
+  const [loadingMessages, setLoadingMessages] = useState(false);
   const [editingThreadId, setEditingThreadId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
 
@@ -64,9 +65,11 @@ const AIChat = () => {
       setThreadMessages([]);
       setMessagesThreadId(null);
       setEditingThreadId(null);
+      setLoadingMessages(false);
       return;
     }
-    // Clear first to ensure a clean swap
+    // Start loading and clear messages
+    setLoadingMessages(true);
     setThreadMessages([]);
     setMessagesThreadId(currentThreadId);
     setEditingThreadId(null);
@@ -124,7 +127,7 @@ const AIChat = () => {
           createdAt: string;
         }>;
       }>(response);
-      
+
       // Convert messages to the format expected by useChat (UIMessage format)
       const formattedMessages = data.messages.map((msg) => ({
         id: msg.id,
@@ -140,6 +143,8 @@ const AIChat = () => {
       console.error('Failed to fetch thread messages:', error);
       setThreadMessages([]);
       setMessagesThreadId(threadId);
+    } finally {
+      setLoadingMessages(false);
     }
   };
 
@@ -571,15 +576,24 @@ const AIChat = () => {
 
         <div className="flex-1 overflow-hidden">
           {currentThreadId ? (
-            <AIRuntimeProvider
-              key={currentThreadId}
-              threadId={currentThreadId}
-              initialMessages={messagesThreadId === currentThreadId ? threadMessages : []}
-              onFinish={handleFinish}
-            >
-              <Thread />
-              <CreateTodoToolUI />
-            </AIRuntimeProvider>
+            loadingMessages ? (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                <div className="text-center">
+                  <Clock className="h-12 w-12 mx-auto mb-4 animate-spin" />
+                  <p>Loading messages...</p>
+                </div>
+              </div>
+            ) : (
+              <AIRuntimeProvider
+                key={currentThreadId}
+                threadId={currentThreadId}
+                initialMessages={messagesThreadId === currentThreadId ? threadMessages : []}
+                onFinish={handleFinish}
+              >
+                <Thread />
+                <CreateTodoToolUI />
+              </AIRuntimeProvider>
+            )
           ) : (
             <div className="flex items-center justify-center h-full text-muted-foreground">
               <div className="text-center">
