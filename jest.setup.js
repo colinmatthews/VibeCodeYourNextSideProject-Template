@@ -363,7 +363,7 @@ MockStripe.errors = {
 
 jest.mock('stripe', () => MockStripe);
 
-// Mock SendGrid - prevent real API calls
+// Mock SendGrid - prevent real API calls and HTTP client instantiation
 const mockSendGridResponse = [
   {
     statusCode: 202,
@@ -380,24 +380,38 @@ const mockSendGridResponse = [
   }
 ];
 
+// Create a mock that doesn't instantiate any real HTTP clients
 const mockMailServiceInstance = {
   setApiKey: jest.fn(),
-  send: jest.fn().mockResolvedValue(mockSendGridResponse)
+  send: jest.fn().mockResolvedValue(mockSendGridResponse),
+  // Add other methods that might be called
+  setSubstitutionWrappers: jest.fn(),
+  setTimeout: jest.fn()
 };
 
-const MockMailService = jest.fn().mockImplementation(() => mockMailServiceInstance);
-// Ensure mock results are properly tracked
-MockMailService.mockImplementation(() => mockMailServiceInstance);
+// Mock the MailService class constructor to return our mock instance
+// This prevents the real @sendgrid/mail from creating HTTP clients
+const MockMailService = jest.fn(function() {
+  return mockMailServiceInstance;
+});
+
+// Attach prototype methods to prevent any instantiation issues
+MockMailService.prototype.setApiKey = jest.fn();
+MockMailService.prototype.send = jest.fn().mockResolvedValue(mockSendGridResponse);
+MockMailService.prototype.setSubstitutionWrappers = jest.fn();
+MockMailService.prototype.setTimeout = jest.fn();
 
 const mockSendGrid = {
-  MailService: MockMailService
+  MailService: MockMailService,
+  // Mock other exports if needed
+  default: MockMailService
 };
 
 // Export for test access
 global.mockSendGrid = mockSendGrid;
 global.mockMailServiceInstance = mockMailServiceInstance;
 
-jest.mock('@sendgrid/mail', () => mockSendGrid);
+jest.mock('@sendgrid/mail', () => mockSendGrid, { virtual: true });
 
 // Mock Firebase Admin
 jest.mock('firebase-admin/app', () => ({
