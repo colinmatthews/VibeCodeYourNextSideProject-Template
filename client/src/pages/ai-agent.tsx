@@ -5,12 +5,20 @@ import { MessageCircle, Zap, Clock, Info } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { apiGet, apiPost, apiJson } from "@/lib/queryClient";
 import { ChatKit, useChatKit } from "@openai/chatkit-react";
+import { TodoList } from "@/components/TodoList";
+import { useQueryClient } from "@tanstack/react-query";
 
 const AIAgent = () => {
   const { user } = useAuth();
   const [status, setStatus] = useState<'checking' | 'ready' | 'not_configured' | 'error'>('checking');
   const clientSecretRef = useRef<string | null>(null);
   const pendingRequestRef = useRef<Promise<string> | null>(null);
+  const queryClient = useQueryClient();
+
+  // Helper to refresh todos via React Query
+  const refreshTodos = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['items', user?.uid] });
+  }, [queryClient, user?.uid]);
 
   // Check ChatKit service status
   useEffect(() => {
@@ -82,11 +90,15 @@ const AIAgent = () => {
           case 'getTodos': {
             // Fetch todos from your Express API
             const response = await apiGet('/api/items');
-            const todos = await apiJson<Array<{ id: number; item: string; createdAt: string }>>(response);
+            const fetchedTodos = await apiJson<Array<{ id: number; item: string }>>(response);
+
+            // Refresh the React Query cache
+            refreshTodos();
+
             return {
               success: true,
-              todos: todos.map(t => ({ id: t.id, text: t.item, createdAt: t.createdAt })),
-              count: todos.length,
+              todos: fetchedTodos.map(t => ({ id: t.id, text: t.item })),
+              count: fetchedTodos.length,
             };
           }
 
@@ -101,13 +113,16 @@ const AIAgent = () => {
             }
 
             const response = await apiPost('/api/items', { item: todoText });
-            const created = await apiJson<{ id: number; item: string; createdAt: string }>(response);
+            const created = await apiJson<{ id: number; item: string }>(response);
+
+            // Refresh the React Query cache to update TodoList
+            refreshTodos();
+
             return {
               success: true,
               todo: {
                 id: created.id,
                 text: created.item,
-                createdAt: created.createdAt,
               },
             };
           }
@@ -239,34 +254,42 @@ const AIAgent = () => {
               AI Agent powered by OpenAI ChatKit
             </p>
             <p className="text-blue-700 dark:text-blue-300 text-xs mt-1">
-              This uses OpenAI's hosted agent infrastructure with visual tool configuration.
+              This uses OpenAI's hosted agent infrastructure with client tools that update todos in real-time.
               Compare with <a href="/ai-chat" className="underline hover:text-blue-900 dark:hover:text-blue-100">AI Chat</a> (custom implementation).
             </p>
           </div>
         </div>
       </div>
 
-      {/* ChatKit Component */}
-      <div className="flex-1 overflow-hidden">
-        {status === 'ready' ? (
-          <div className="h-full w-full">
-            <ChatKit control={chatkit.control} className="h-full w-full" />
-          </div>
-        ) : (
-          <div className="flex items-center justify-center h-full text-muted-foreground">
-            <div className="text-center">
-              <MessageCircle className="h-12 w-12 mx-auto mb-4" />
-              <p>Initializing AI Agent...</p>
-            </div>
-          </div>
-        )}
-      </div>
+      {/* Side-by-side layout: Todo List + Chat */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Todo List Sidebar */}
+        <TodoList onTodoChange={refreshTodos} />
 
-      {/* Footer */}
-      <div className="border-t p-3 text-center text-xs text-muted-foreground">
-        <p>
-          Powered by OpenAI ChatKit. Conversations are managed by OpenAI's infrastructure.
-        </p>
+        {/* ChatKit Component */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 overflow-hidden">
+            {status === 'ready' ? (
+              <div className="h-full w-full">
+                <ChatKit control={chatkit.control} className="h-full w-full" />
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                <div className="text-center">
+                  <MessageCircle className="h-12 w-12 mx-auto mb-4" />
+                  <p>Initializing AI Agent...</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="border-t p-3 text-center text-xs text-muted-foreground">
+            <p>
+              Powered by OpenAI ChatKit. Todos update automatically when the AI creates them.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
