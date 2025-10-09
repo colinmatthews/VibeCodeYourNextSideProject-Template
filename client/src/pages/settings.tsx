@@ -7,7 +7,7 @@ import { Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { updateUserPassword } from "@/lib/firebase";
 import { useUser } from "@/hooks/useUser";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -41,6 +41,13 @@ export default function Settings() {
 
   // Initialize emailNotifications from user data
   const [emailNotifications, setEmailNotifications] = useState(userData?.emailNotifications ?? false);
+
+  // Sync local state with fetched user data
+  useEffect(() => {
+    if (userData?.emailNotifications !== undefined) {
+      setEmailNotifications(userData.emailNotifications);
+    }
+  }, [userData?.emailNotifications]);
 
   // Check if user logged in with email/password
   const isEmailUser = firebaseUser?.providerData?.[0]?.providerId === 'password';
