@@ -1,6 +1,10 @@
 import type { Express } from "express";
 import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
 import { storage } from "../storage";
+import { randomUUID } from "crypto";
+
+const SESSION_COOKIE_NAME = "chatkit_session_id";
+const SESSION_COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
 
 export async function registerChatKitRoutes(app: Express) {
   // Create ChatKit session with user authentication
@@ -27,7 +31,13 @@ export async function registerChatKitRoutes(app: Express) {
         });
       }
 
-      // Get user information for context
+      // Resolve or generate session ID for continuity
+      let sessionId = req.cookies?.[SESSION_COOKIE_NAME];
+      if (!sessionId) {
+        sessionId = randomUUID();
+      }
+
+      // Get user information for metadata
       const userRecord = await storage.getUserByFirebaseId(userId);
 
       // Call OpenAI ChatKit API directly to create a session
@@ -48,11 +58,6 @@ export async function registerChatKitRoutes(app: Express) {
             id: process.env.OPENAI_CHATKIT_WORKFLOW_ID
           },
           user: userId, // Use Firebase UID as the ChatKit user ID
-          // Optional: You can add metadata here if needed
-          // metadata: {
-          //   email: userRecord?.email,
-          //   subscriptionType: userRecord?.subscriptionType || 'free',
-          // }
         }),
       });
 
@@ -71,10 +76,19 @@ export async function registerChatKitRoutes(app: Express) {
 
       const sessionData = await response.json();
 
+      // Set session cookie for continuity across page refreshes
+      res.cookie(SESSION_COOKIE_NAME, sessionId, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: SESSION_COOKIE_MAX_AGE * 1000, // Convert to milliseconds
+      });
+
       // Return the client secret token that the frontend needs
       res.json({
         clientToken: sessionData.client_secret,
         expiresAt: sessionData.expires_at,
+        sessionId, // Return session ID for debugging
       });
     } catch (error: any) {
       console.error("ChatKit session creation error:", error);
