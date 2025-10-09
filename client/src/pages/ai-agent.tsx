@@ -72,6 +72,58 @@ const AIAgent = () => {
       getClientSecret,
     },
     theme: 'light', // Can be 'light' or 'dark'
+
+    // Client tools: execute in browser, can call localhost APIs
+    onClientTool: async ({ name, params }) => {
+      console.log('[ChatKit] Client tool called:', name, params);
+
+      try {
+        switch (name) {
+          case 'getTodos': {
+            // Fetch todos from your Express API
+            const response = await apiGet('/api/items');
+            const todos = await apiJson<Array<{ id: number; item: string; createdAt: string }>>(response);
+            return {
+              success: true,
+              todos: todos.map(t => ({ id: t.id, text: t.item, createdAt: t.createdAt })),
+              count: todos.length,
+            };
+          }
+
+          case 'createTodo': {
+            // Create a new todo via your Express API
+            const todoText = params.text || params.item;
+            if (!todoText) {
+              return {
+                success: false,
+                error: 'Todo text is required',
+              };
+            }
+
+            const response = await apiPost('/api/items', { item: todoText });
+            const created = await apiJson<{ id: number; item: string; createdAt: string }>(response);
+            return {
+              success: true,
+              todo: {
+                id: created.id,
+                text: created.item,
+                createdAt: created.createdAt,
+              },
+            };
+          }
+
+          default:
+            throw new Error(`Unknown client tool: ${name}`);
+        }
+      } catch (error: any) {
+        console.error('[ChatKit] Client tool error:', error);
+        // Return error in a format the AI can understand
+        return {
+          success: false,
+          error: error.message || 'Failed to execute tool',
+        };
+      }
+    },
   });
 
   if (!user) {

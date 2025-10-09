@@ -139,10 +139,140 @@ That's it! ChatKit is now fully working.
 
 ---
 
+## Client Tools: Calling Your Backend APIs
+
+Client tools let your AI Agent call your Express backend APIs **directly from the browser**. This works on localhost and doesn't require ngrok or public URLs!
+
+### How Client Tools Work
+
+```
+User: "Add a todo: buy milk"
+    ↓
+ChatKit → OpenAI Agent
+    ↓
+OpenAI: "I need to call createTodo"
+    ↓
+ChatKit calls onClientTool in your browser
+    ↓
+Your browser: fetch('http://localhost:4000/api/items')
+    ↓
+Result sent back to OpenAI
+    ↓
+AI responds: "✅ Added 'buy milk' to your todos!"
+```
+
+### Available Client Tools
+
+Your ChatKit integration includes two client tools:
+
+#### 1. `getTodos`
+Fetches all todos for the authenticated user.
+- **Parameters**: None
+- **Returns**: `{ success: true, todos: [...], count: 5 }`
+
+#### 2. `createTodo`
+Creates a new todo item.
+- **Parameters**: `{ text: "Todo item text" }`
+- **Returns**: `{ success: true, todo: { id, text, createdAt } }`
+
+### Setting Up Client Tools in Agent Builder
+
+1. **Go to Agent Builder**: https://platform.openai.com/agent-builder
+2. **Open your workflow** (the one with your `OPENAI_CHATKIT_WORKFLOW_ID`)
+3. **Add tools** by clicking "Add Tool" or "Tools" section
+4. **Create `getTodos` tool**:
+   - **Name**: `getTodos`
+   - **Description**: "Fetch all todo items for the authenticated user"
+   - **Type**: **Client Tool** ✅ (important!)
+   - **Parameters**: (none)
+5. **Create `createTodo` tool**:
+   - **Name**: `createTodo`
+   - **Description**: "Create a new todo item for the user"
+   - **Type**: **Client Tool** ✅ (important!)
+   - **Parameters**:
+     - `text` (string, required): The todo item text
+6. **Update agent instructions** (optional but recommended):
+   ```
+   You are a helpful assistant that can manage todos.
+   When users ask to create a todo, use the createTodo tool.
+   When users ask to see their todos, use the getTodos tool.
+   Be friendly and concise in your responses.
+   ```
+7. **Publish** your workflow
+
+### Testing Client Tools
+
+Once configured, you can test:
+- "Show me my todos" → calls `getTodos`
+- "Add a todo: buy groceries" → calls `createTodo`
+- "Create 3 todos: work, gym, coding" → calls `createTodo` multiple times
+
+### Client Tools vs MCP Servers
+
+| Feature | Client Tools (Your Setup) | MCP Server |
+|---------|-------------------------|------------|
+| **Works on localhost?** | ✅ Yes | ❌ No (needs ngrok) |
+| **Execution location** | Browser | Your server |
+| **Setup complexity** | Low (~50 lines) | Medium (~150 lines) |
+| **Security** | Client-side (visible in DevTools) | Server-side (hidden) |
+| **Best for** | Development, rapid prototyping | Production, sensitive operations |
+
+### Code Implementation
+
+The client tools are implemented in `client/src/pages/ai-agent.tsx`:
+
+```typescript
+const chatkit = useChatKit({
+  api: { getClientSecret },
+  theme: 'light',
+
+  onClientTool: async ({ name, params }) => {
+    switch (name) {
+      case 'getTodos':
+        const response = await apiGet('/api/items');
+        const todos = await apiJson(response);
+        return { success: true, todos, count: todos.length };
+
+      case 'createTodo':
+        const created = await apiPost('/api/items', { item: params.text });
+        return { success: true, todo: created };
+
+      default:
+        throw new Error(`Unknown tool: ${name}`);
+    }
+  },
+});
+```
+
+### Adding More Client Tools
+
+To add more client tools (e.g., for Stripe, emails, files):
+
+1. **Add handler in `ai-agent.tsx`**:
+   ```typescript
+   case 'sendEmail':
+     await apiPost('/api/emails/send', {
+       to: params.to,
+       subject: params.subject,
+       body: params.body,
+     });
+     return { success: true };
+   ```
+
+2. **Configure in Agent Builder**:
+   - Add tool named `sendEmail`
+   - Mark as "Client Tool"
+   - Define parameters
+
+3. **Update agent instructions** to mention the new tool
+
+---
+
 ## Resources
 
 - **Agent Builder**: https://platform.openai.com/agent-builder
 - **ChatKit Docs**: https://openai.github.io/chatkit-js/
+- **ChatKit Client Tools**: https://openai.github.io/chatkit-js/guides/client-tools/
 - **OpenAI API Docs**: https://platform.openai.com/docs
 
 ---
@@ -159,3 +289,13 @@ Both are production-ready. Choose based on your needs:
 - Need speed? → AI Agent
 
 For most side projects and prototypes, **AI Agent (ChatKit) is the faster choice**.
+
+### Client Tools Enable Backend Integration
+
+With **Client Tools**, your ChatKit agent can now:
+- ✅ Query your PostgreSQL database (via your Express API)
+- ✅ Create todos, send emails, charge payments
+- ✅ Work on localhost (no ngrok needed for development)
+- ✅ Use your existing backend routes
+
+This gives you the **best of both worlds**: ChatKit's managed UI + your custom backend logic!
