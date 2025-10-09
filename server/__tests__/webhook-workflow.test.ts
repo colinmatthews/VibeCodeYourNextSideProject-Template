@@ -9,11 +9,11 @@ import './setup/mocks';
 describe('Webhook Workflow', () => {
   let app: express.Express;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     app = express();
     // Webhook endpoint needs raw body parsing for signature verification
     app.use('/api/webhook', express.raw({ type: 'application/json' }));
-    registerWebhookRoutes(app);
+    await registerWebhookRoutes(app);
   });
 
   beforeAll(() => {

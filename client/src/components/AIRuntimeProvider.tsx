@@ -1,6 +1,5 @@
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
-import { useVercelUseChatRuntime } from "@assistant-ui/react-ai-sdk";
-import { useChat } from "@ai-sdk/react";
+import { useDataStreamRuntime } from "@assistant-ui/react-data-stream";
 import { ReactNode } from "react";
 import { streamingFetch } from "@/lib/queryClient";
 
@@ -12,17 +11,18 @@ interface Props {
 }
 
 export function AIRuntimeProvider({ children, threadId, initialMessages = [], onFinish }: Props) {
-  const chat = useChat({
+  const runtime = useDataStreamRuntime({
     api: "/api/ai/chat",
-    fetch: streamingFetch,
     body: threadId ? { threadId } : undefined,
     initialMessages: initialMessages,
     onFinish: () => {
       onFinish?.({ threadId });
     },
+    headers: async () => {
+      const { getAuthHeaders } = await import("@/lib/queryClient");
+      return getAuthHeaders();
+    },
   });
-
-  const runtime = useVercelUseChatRuntime(chat as any);
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>

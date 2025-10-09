@@ -9,10 +9,10 @@ import './setup/mocks';
 describe('Authentication Workflow', () => {
   let app: express.Express;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     app = express();
     app.use(express.json());
-    registerUserRoutes(app);
+    await registerUserRoutes(app);
   });
 
   beforeEach(() => {

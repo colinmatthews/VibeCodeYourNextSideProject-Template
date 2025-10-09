@@ -82,12 +82,13 @@ export async function registerAIRoutes(app: Express) {
       }
       
       if (!process.env.OPENAI_API_KEY) {
-        return res.status(500).json({ 
-          error: "AI service not configured. Please add OPENAI_API_KEY to your environment variables." 
+        return res.status(500).json({
+          error: "AI service not configured. Please add OPENAI_API_KEY to your environment variables."
         });
       }
 
       console.log("Starting OpenAI stream...");
+
       // Choose model based on user subscription
       const userRecord = await storage.getUserByFirebaseId(userId);
       const isPro = userRecord?.subscriptionType === 'pro' || userRecord?.isPremium === true;
@@ -122,13 +123,15 @@ export async function registerAIRoutes(app: Express) {
         // Encourage reliable tool usage in v4
         toolChoice: 'auto',
         maxSteps: Math.max(2, maxSteps),
-        onStepFinish: (event: any) => {
+        onStepFinish: (event) => {
           try {
             console.log('[ai] step finished', {
               finishReason: event.finishReason,
               toolCalls: event.toolCalls?.map((c: any) => ({ name: c.toolName })) ?? [],
             });
-          } catch {}
+          } catch (err) {
+            // Ignore logging errors
+          }
         },
         tools: {
           createTodo: tool({
@@ -137,8 +140,8 @@ export async function registerAIRoutes(app: Express) {
               item: z.string().min(1).max(1000).describe("The todo item text"),
             }),
             execute: async ({ item }) => {
-              console.log('[createTodo] start', { item, userId });
               const currentUserId = userId;
+              console.log('[createTodo] start', { item, userId: currentUserId });
               // Enforce simple free-tier limit (mirror itemRoutes)
               const user = await storage.getUserByFirebaseId(currentUserId);
               const items = await storage.getItemsByUserId(currentUserId);
@@ -151,7 +154,6 @@ export async function registerAIRoutes(app: Express) {
                 console.log('[createTodo] success', { id: created.id });
                 return { ok: true, id: created.id, item: created.item, createdAt: new Date().toISOString() };
               } catch (err) {
-                console.error('[createTodo] error', err);
                 return { ok: false, error: 'Failed to create todo. Please try again.' };
               }
             },

@@ -54,7 +54,7 @@ export async function registerPaymentRoutes(app: Express) {
       const port = process.env.PORT || '5000';
       const allowedOrigins = isProd
         ? [process.env.FRONTEND_URL].filter(Boolean) as string[]
-        : ['http://localhost:5173', `http://localhost:${port}`, 'http://127.0.0.1:5173'];
+        : [`http://localhost:${port}`, 'http://localhost:5173', 'http://127.0.0.1:5173'];
 
       const isAllowed = (url: string | undefined): url is string => {
         if (!url) return false;

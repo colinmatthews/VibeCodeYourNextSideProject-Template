@@ -9,10 +9,10 @@ import './setup/mocks';
 describe('Payment Workflow', () => {
   let app: express.Express;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     app = express();
     app.use(express.json());
-    registerPaymentRoutes(app);
+    await registerPaymentRoutes(app);
   });
 
   beforeEach(() => {

@@ -132,13 +132,14 @@ export async function registerWebhookRoutes(app: Express) {
 
         // Invoice events (for subscription billing)
         case 'invoice.payment_succeeded':
-          const paidInvoice = event.data.object as Stripe.Invoice;
-          
+          // Note: Stripe v19 types don't include subscription property, but it exists at runtime
+          const paidInvoice = event.data.object as Stripe.Invoice & { subscription?: string | Stripe.Subscription | null };
+
           // Ensure subscription is marked as active
-          if (paidInvoice.subscription) {
-            const subscription = await stripe.subscriptions.retrieve(paidInvoice.subscription as string);
+          if (paidInvoice.subscription && typeof paidInvoice.subscription === 'string') {
+            const subscription = await stripe.subscriptions.retrieve(paidInvoice.subscription);
             const firebaseIdFromInvoice = subscription.metadata.firebaseId;
-            
+
             if (firebaseIdFromInvoice) {
               await storage.updateUser(firebaseIdFromInvoice, {
                 subscriptionType: 'pro'
@@ -148,14 +149,15 @@ export async function registerWebhookRoutes(app: Express) {
           break;
 
         case 'invoice.payment_failed':
-          const failedInvoice = event.data.object as Stripe.Invoice;
+          // Note: Stripe v19 types don't include subscription property, but it exists at runtime
+          const failedInvoice = event.data.object as Stripe.Invoice & { subscription?: string | Stripe.Subscription | null };
           console.log('[Webhook] Invoice payment failed:', failedInvoice.id);
-          
+
           // Optional: Handle failed invoice payments (send notification, etc.)
-          if (failedInvoice.subscription) {
-            const subscription = await stripe.subscriptions.retrieve(failedInvoice.subscription as string);
+          if (failedInvoice.subscription && typeof failedInvoice.subscription === 'string') {
+            const subscription = await stripe.subscriptions.retrieve(failedInvoice.subscription);
             const firebaseIdFromFailedInvoice = subscription.metadata.firebaseId;
-            
+
             if (firebaseIdFromFailedInvoice) {
               // Don't immediately downgrade - Stripe will retry payment
               console.log('[Webhook] Invoice payment failed for user:', firebaseIdFromFailedInvoice);
