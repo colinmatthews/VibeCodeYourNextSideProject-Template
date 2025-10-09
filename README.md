@@ -1,6 +1,65 @@
-# VibeCode Template - Stripe Checkout Integration
+# VibeCode Template - Full-Stack Side Project Starter
 
-This template now uses **Stripe Checkout** for a simplified payment flow instead of manual payment method management.
+A production-ready full-stack template for rapid side project development with React, TypeScript, Express, PostgreSQL, Firebase Auth, Stripe payments, and AI chat.
+
+## Quick Start
+
+### Prerequisites
+
+1. **Neon Database** (required)
+   - Sign up at [neon.tech](https://neon.tech) (free tier available)
+   - Create a new project and database
+   - Copy the connection string (it should look like `postgresql://user:pass@ep-xxxxx.region.aws.neon.tech/dbname`)
+
+   ⚠️ **Important**: This project uses `@neondatabase/serverless` which requires Neon's WebSocket support. Local PostgreSQL will not work without code modifications.
+
+2. **Firebase** (required)
+   - Create a project at [Firebase Console](https://console.firebase.google.com)
+   - Enable Authentication → Sign-in method → Enable Email/Password and Google
+   - Enable Storage
+   - Get your configuration:
+     - Go to Project Settings → General → Your apps
+     - Add a Web app if you haven't already
+     - Copy all the config values (apiKey, authDomain, projectId, etc.)
+     - Go to Project Settings → Service Accounts → Generate new private key
+     - Save the JSON file for server-side authentication
+
+### Installation
+
+```bash
+# 1. Install dependencies
+npm install
+
+# 2. Configure environment variables
+cp .env.example .env
+# Edit .env and fill in REQUIRED values (see .env.example for guidance)
+
+# 3. Initialize database
+npm run db:push
+
+# 4. Start development server
+npm run dev
+```
+
+The app will be available at `http://localhost:5000` (configurable via `PORT` env variable)
+
+### Required Environment Variables
+
+These must be configured for the app to run:
+
+- `DATABASE_URL` - Neon PostgreSQL connection string
+- `SESSION_SECRET` - Random string for session security
+- `GOOGLE_APPLICATION_CREDENTIALS` or `FIREBASE_SERVICE_ACCOUNT_KEY` - Firebase Admin SDK credentials
+- `VITE_FIREBASE_PROJECT_ID` - Your Firebase project ID
+- `VITE_FIREBASE_API_KEY` - Firebase web API key
+- `VITE_FIREBASE_AUTH_DOMAIN` - Firebase auth domain
+- `VITE_FIREBASE_MESSAGING_SENDER_ID` - Firebase messaging sender ID
+- `VITE_FIREBASE_APP_ID` - Firebase app ID
+- `FIREBASE_STORAGE_BUCKET` - Firebase storage bucket name
+
+See `.env.example` for complete configuration including optional services (Stripe, SendGrid, PostHog, OpenAI).
+
+---
 
 ## Stripe Integration
 

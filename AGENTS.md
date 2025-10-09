@@ -8,7 +8,7 @@
 - Build output in `dist/`; environment files: `.env`, `.env.example`, `.env.test`.
 
 ## Build, Test, Run
-- `npm run dev`: Start server with Vite dev client on port 5000.
+- `npm run dev`: Start server with Vite dev client on port 5000 (configurable via PORT env).
 - `npm run build`: Build client via Vite and bundle server to `dist/`.
 - `npm start`: Run production server from `dist/index.js`.
 - `npm test`: Run Jest tests (Node, TypeScript). Add `--coverage` for report.
