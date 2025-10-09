@@ -199,7 +199,7 @@ Deploy storage rules using the same patterns and tools as configured in the proj
 
 - Run `npm run check` to check for TypeScript errors
 - Ensure all environment variables are set
-- Check that ports 5000 is available
+- Check that port 5000 is available (or configure PORT env variable)
 
 ## Next Steps
 

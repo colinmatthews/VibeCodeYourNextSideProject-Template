@@ -270,7 +270,7 @@ If user wants a custom domain:
 ### App Won't Start
 - Check build logs in Render dashboard
 - Verify start command is correct
-- Ensure port 5000 is used (Render's default)
+- Ensure PORT environment variable is set correctly (Render auto-sets this)
 
 ### Database Connection Errors
 - Verify DATABASE_URL is correct (auto-filled by Render)

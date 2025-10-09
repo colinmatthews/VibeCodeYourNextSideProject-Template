@@ -12,6 +12,10 @@ import { sanitizeInputs } from './middleware/sanitize';
 import { optionalAuth } from './middleware/auth';
 
 const app = express();
+// ALWAYS serve the app on the configured port (default 5000)
+// this serves both the API and the client
+const PORT = parseInt(process.env.PORT || '5000', 10);
+
 
 // Trust proxy - required for Replit's infrastructure
 app.set('trust proxy', true);
@@ -188,6 +192,8 @@ import { posthog, logEvent, logSecurity } from './lib/audit';
     app.get('/ready', (_req, res) => res.status(200).json({ status: 'ready' }));
   }
 
+  
+
   // CORS configuration
   app.use(cors({
     origin: process.env.NODE_ENV === 'production' 
@@ -195,7 +201,7 @@ import { posthog, logEvent, logSecurity } from './lib/audit';
           process.env.FRONTEND_URL,
           `https://${process.env.REPL_SLUG}-${process.env.REPL_OWNER}.replit.app`
         ].filter((url): url is string => Boolean(url)) // Remove any undefined values with type predicate
-      : ['http://localhost:5173', 'http://localhost:5000', 'http://127.0.0.1:5173'], // Multiple dev origins in development
+      : ['http://localhost:5173', `http://localhost:${PORT}`, 'http://127.0.0.1:5173'], // Multiple dev origins in development
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'], 
     allowedHeaders: ['Content-Type', 'Authorization'],
@@ -358,10 +364,6 @@ function getProductionErrorMessage(status: number): string {
   } else {
     serveStatic(app);
   }
-
-  // ALWAYS serve the app on port 5000
-  // this serves both the API and the client
-  const PORT = parseInt(process.env.PORT || '5000', 10);
 
   server.listen(PORT, "0.0.0.0", () => {
     log(`serving on port ${PORT}`);
