@@ -65,7 +65,7 @@ function Router() {
           <Route path="/profile" component={Profile} />
           <Route path="/settings" component={Settings} />
           <Route path="/files" component={Files} />
-          <Route path="/ai-agent" component={AIAgent} />
+          <Route path="/ai-chat" component={AIAgent} />
           <Route component={NotFound} />
         </Switch>
       </div>
