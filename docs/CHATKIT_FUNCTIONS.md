@@ -13,12 +13,14 @@ Individual function definitions are stored in separate files for easy copy-pasti
 - `docs/agent-function-getTodos.json`
 - `docs/agent-function-createTodo.json`
 - `docs/agent-function-updateTodoStatus.json`
+- `docs/agent-function-deleteTodo.json`
 
 ### Available Functions
 
 1. **getTodos** - Fetch all todos with status and timestamps
 2. **createTodo** - Create a new todo (defaults to "open" status)
 3. **updateTodoStatus** - Change todo status (open → in_progress → completed)
+4. **deleteTodo** - Delete a todo by ID
 
 ## Setup Instructions
 
@@ -146,6 +148,36 @@ For each function, add it to your agent:
 }
 ```
 
+#### deleteTodo
+
+```json
+{
+  "name": "deleteTodo",
+  "description": "Delete a todo item by its ID. This permanently removes the todo from the user's list.",
+  "strict": false,
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "number",
+        "description": "The ID of the todo item to delete"
+      }
+    },
+    "additionalProperties": false,
+    "required": ["id"]
+  }
+}
+```
+
+**Returns:**
+```javascript
+{
+  success: true,
+  message: "Todo deleted successfully",
+  deletedId: number
+}
+```
+
 ## Status Workflow
 
 The todo system supports three statuses:
@@ -168,6 +200,7 @@ onClientTool: async ({ name, params }) => {
     case 'getTodos': // ...
     case 'createTodo': // ...
     case 'updateTodoStatus': // ...
+    case 'deleteTodo': // ...
   }
 }
 ```
@@ -200,5 +233,6 @@ Todos are stored with:
    - "Show me all my todos"
    - "Mark todo #1 as in progress"
    - "Complete todo #1"
+   - "Delete todo #2"
 
-The AI agent should be able to create, read, and update todos through the client tools.
+The AI agent should be able to create, read, update, and delete todos through the client tools.

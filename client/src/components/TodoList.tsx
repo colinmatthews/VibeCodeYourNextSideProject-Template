@@ -206,7 +206,10 @@ export function TodoList({ onTodoChange }: TodoListProps) {
                         "text-sm break-words",
                         todo.status === "completed" && "line-through text-muted-foreground"
                       )}>
-                        {todo.item}
+                        {todo.item}{" "}
+                        <span className="text-xs text-muted-foreground/60 font-normal">
+                          (#{todo.id})
+                        </span>
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">
                         {formatRelativeTime(todo.updatedAt)}

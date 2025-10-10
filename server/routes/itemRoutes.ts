@@ -17,7 +17,7 @@ const createItemSchema = z.object({
 });
 
 export async function registerItemRoutes(app: Express) {
-  app.get("/api/items", requireAuth, requiresOwnership, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/items", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user!.uid;
       const items = await storage.getItemsByUserId(userId);
