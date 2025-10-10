@@ -13,7 +13,6 @@ import Profile from "@/pages/profile";
 import Pricing from "@/pages/pricing";
 import Settings from "@/pages/settings";
 import Files from "@/pages/files";
-import AIChat from "@/pages/ai-chat";
 import AIAgent from "@/pages/ai-agent";
 
 class ErrorBoundary extends Component<
@@ -66,8 +65,6 @@ function Router() {
           <Route path="/profile" component={Profile} />
           <Route path="/settings" component={Settings} />
           <Route path="/files" component={Files} />
-          <Route path="/ai-chat" component={AIChat} />
-          <Route path="/ai-chat/:threadId" component={AIChat} />
           <Route path="/ai-agent" component={AIAgent} />
           <Route component={NotFound} />
         </Switch>
