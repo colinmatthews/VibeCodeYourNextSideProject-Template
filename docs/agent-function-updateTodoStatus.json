@@ -6,7 +6,7 @@
     "type": "object",
     "properties": {
       "id": {
-        "type": "number",
+        "type": "string",
         "description": "The ID of the todo item to update"
       },
       "status": {

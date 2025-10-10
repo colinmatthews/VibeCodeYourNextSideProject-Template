@@ -84,18 +84,11 @@ const AIChat = () => {
     // Error handler for detailed error diagnostics
     onError: ({ error }) => {
       console.error('[ChatKit ERROR]', error);
-      console.error('[ChatKit ERROR] Full details:', JSON.stringify(error, null, 2));
-    },
-
-    // Verbose logging for debugging
-    onLog: ({ name, data }) => {
-      console.log('[ChatKit LOG]', name, data);
     },
 
     // Client tools: execute in browser, can call localhost APIs
     onClientTool: async ({ name, params }) => {
       console.log('[ChatKit] Client tool called:', name, params);
-      console.log('[ChatKit] Client tool params:', JSON.stringify(params, null, 2));
 
       try {
         switch (name) {
@@ -113,7 +106,7 @@ const AIChat = () => {
             // Refresh the React Query cache
             refreshTodos();
 
-            const result = {
+            return {
               success: true,
               todos: fetchedTodos.map(t => ({
                 id: t.id,
@@ -124,8 +117,6 @@ const AIChat = () => {
               })),
               count: fetchedTodos.length,
             };
-            console.log('[ChatKit] getTodos result:', result);
-            return result;
           }
 
           case 'createTodo': {
@@ -150,7 +141,7 @@ const AIChat = () => {
             // Refresh the React Query cache to update TodoList
             refreshTodos();
 
-            const result = {
+            return {
               success: true,
               todo: {
                 id: created.id,
@@ -160,39 +151,28 @@ const AIChat = () => {
                 updatedAt: created.updatedAt,
               },
             };
-            console.log('[ChatKit] createTodo result:', result);
-            return result;
           }
 
           case 'updateTodoStatus': {
-            console.log('[ChatKit] updateTodoStatus - Starting execution');
             // Update todo status via your Express API
-            const todoId = params.id;
+            const todoId = Number(params.id); // Parse string to number
             const newStatus = params.status;
-            console.log('[ChatKit] updateTodoStatus - todoId:', todoId, 'newStatus:', newStatus);
 
-            if (!todoId || !newStatus) {
-              const errorResult = {
+            if (!todoId || isNaN(todoId) || !newStatus) {
+              return {
                 success: false,
-                error: 'Todo ID and status are required',
+                error: 'Valid Todo ID and status are required',
               };
-              console.log('[ChatKit] updateTodoStatus - Validation failed:', errorResult);
-              return errorResult;
             }
 
             if (!['open', 'in_progress', 'completed'].includes(newStatus)) {
-              const errorResult = {
+              return {
                 success: false,
                 error: 'Invalid status. Must be one of: open, in_progress, completed',
               };
-              console.log('[ChatKit] updateTodoStatus - Invalid status:', errorResult);
-              return errorResult;
             }
 
-            console.log('[ChatKit] updateTodoStatus - Calling API PATCH /api/items/' + todoId + '/status');
             const response = await apiPatch(`/api/items/${todoId}/status`, { status: newStatus });
-            console.log('[ChatKit] updateTodoStatus - API response received');
-
             const updated = await apiJson<{
               id: number;
               item: string;
@@ -200,12 +180,11 @@ const AIChat = () => {
               createdAt: string;
               updatedAt: string;
             }>(response);
-            console.log('[ChatKit] updateTodoStatus - Parsed response:', updated);
 
             // Refresh the React Query cache to update TodoList
             refreshTodos();
 
-            const result = {
+            return {
               success: true,
               todo: {
                 id: updated.id,
@@ -214,39 +193,29 @@ const AIChat = () => {
                 updatedAt: updated.updatedAt,
               },
             };
-            console.log('[ChatKit] updateTodoStatus - Final result:', result);
-            return result;
           }
 
           case 'deleteTodo': {
-            console.log('[ChatKit] deleteTodo - Starting execution');
             // Delete a todo via your Express API
-            const todoId = params.id;
-            console.log('[ChatKit] deleteTodo - todoId:', todoId);
+            const todoId = Number(params.id); // Parse string to number
 
-            if (!todoId) {
-              const errorResult = {
+            if (!todoId || isNaN(todoId)) {
+              return {
                 success: false,
-                error: 'Todo ID is required',
+                error: 'Valid Todo ID is required',
               };
-              console.log('[ChatKit] deleteTodo - Validation failed:', errorResult);
-              return errorResult;
             }
 
-            console.log('[ChatKit] deleteTodo - Calling API DELETE /api/items/' + todoId);
             await apiDelete(`/api/items/${todoId}`);
-            console.log('[ChatKit] deleteTodo - API response received');
 
             // Refresh the React Query cache to update TodoList
             refreshTodos();
 
-            const result = {
+            return {
               success: true,
               message: 'Todo deleted successfully',
               deletedId: todoId,
             };
-            console.log('[ChatKit] deleteTodo - Final result:', result);
-            return result;
           }
 
           default:
