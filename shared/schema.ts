@@ -26,10 +26,21 @@ export const users = pgTable("users", {
   stripeCustomerId: text("stripe_customer_id"),
 });
 
+export const ItemStatus = {
+  OPEN: "open",
+  IN_PROGRESS: "in_progress",
+  COMPLETED: "completed"
+} as const;
+
+export type ItemStatus = typeof ItemStatus[keyof typeof ItemStatus];
+
 export const items = pgTable("items", {
   id: serial("id").primaryKey(),
   item: text("item").notNull(),
   userId: text("user_id").notNull().references(() => users.firebaseId),
+  status: text("status", { enum: ["open", "in_progress", "completed"] }).notNull().default("open"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 export const files = pgTable("files", {
@@ -111,7 +122,13 @@ export const insertUserSchema = createInsertSchema(users, {
   emailNotifications: (schema) => schema.default(false),
 });
 
-export const insertItemSchema = createInsertSchema(items);
+export const insertItemSchema = createInsertSchema(items, {
+  status: (schema) => schema.default("open"),
+});
+
+export const updateItemStatusSchema = z.object({
+  status: z.enum(["open", "in_progress", "completed"]),
+});
 
 export const insertFileSchema = createInsertSchema(files);
 

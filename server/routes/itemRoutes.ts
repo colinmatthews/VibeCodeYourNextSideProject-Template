@@ -5,6 +5,7 @@ import { sendEmail } from "../mail";
 import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
 import { requiresOwnership, requiresItemOwnership } from "../middleware/authHelpers";
 import { handleError, errors } from "../lib/errors";
+import { updateItemStatusSchema } from "@shared/schema";
 
 // Validation schemas
 const itemIdSchema = z.object({
@@ -72,11 +73,27 @@ export async function registerItemRoutes(app: Express) {
     }
   });
 
+  app.patch("/api/items/:id/status", requireAuth, requiresItemOwnership, async (req: AuthenticatedRequest, res) => {
+    try {
+      // Validate item ID parameter
+      const { id } = itemIdSchema.parse(req.params);
+
+      // Validate status in request body
+      const { status } = updateItemStatusSchema.parse(req.body);
+
+      const updatedItem = await storage.updateItemStatus(id, status);
+      res.json(updatedItem);
+    } catch (error) {
+      console.error("Error updating item status:", error);
+      handleError(error, res);
+    }
+  });
+
   app.delete("/api/items/:id", requireAuth, requiresItemOwnership, async (req: AuthenticatedRequest, res) => {
     try {
       // Validate item ID parameter
       const { id } = itemIdSchema.parse(req.params);
-      
+
       await storage.deleteItem(id);
       res.status(204).send();
     } catch (error) {

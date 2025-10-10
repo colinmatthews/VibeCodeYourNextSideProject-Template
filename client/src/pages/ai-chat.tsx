@@ -8,7 +8,7 @@ import { ChatKit, useChatKit } from "@openai/chatkit-react";
 import { TodoList } from "@/components/TodoList";
 import { useQueryClient } from "@tanstack/react-query";
 
-const AIAgent = () => {
+const AIChat = () => {
   const { user } = useAuth();
   const [status, setStatus] = useState<'checking' | 'ready' | 'not_configured' | 'error'>('checking');
   const clientSecretRef = useRef<string | null>(null);
@@ -90,14 +90,26 @@ const AIAgent = () => {
           case 'getTodos': {
             // Fetch todos from your Express API
             const response = await apiGet('/api/items');
-            const fetchedTodos = await apiJson<Array<{ id: number; item: string }>>(response);
+            const fetchedTodos = await apiJson<Array<{
+              id: number;
+              item: string;
+              status: string;
+              createdAt: string;
+              updatedAt: string;
+            }>>(response);
 
             // Refresh the React Query cache
             refreshTodos();
 
             return {
               success: true,
-              todos: fetchedTodos.map(t => ({ id: t.id, text: t.item })),
+              todos: fetchedTodos.map(t => ({
+                id: t.id,
+                text: t.item,
+                status: t.status,
+                createdAt: t.createdAt,
+                updatedAt: t.updatedAt,
+              })),
               count: fetchedTodos.length,
             };
           }
@@ -113,7 +125,13 @@ const AIAgent = () => {
             }
 
             const response = await apiPost('/api/items', { item: todoText });
-            const created = await apiJson<{ id: number; item: string }>(response);
+            const created = await apiJson<{
+              id: number;
+              item: string;
+              status: string;
+              createdAt: string;
+              updatedAt: string;
+            }>(response);
 
             // Refresh the React Query cache to update TodoList
             refreshTodos();
@@ -123,6 +141,51 @@ const AIAgent = () => {
               todo: {
                 id: created.id,
                 text: created.item,
+                status: created.status,
+                createdAt: created.createdAt,
+                updatedAt: created.updatedAt,
+              },
+            };
+          }
+
+          case 'updateTodoStatus': {
+            // Update todo status via your Express API
+            const todoId = params.id;
+            const newStatus = params.status;
+
+            if (!todoId || !newStatus) {
+              return {
+                success: false,
+                error: 'Todo ID and status are required',
+              };
+            }
+
+            if (!['open', 'in_progress', 'completed'].includes(newStatus)) {
+              return {
+                success: false,
+                error: 'Invalid status. Must be one of: open, in_progress, completed',
+              };
+            }
+
+            const response = await apiPost(`/api/items/${todoId}/status`, { status: newStatus });
+            const updated = await apiJson<{
+              id: number;
+              item: string;
+              status: string;
+              createdAt: string;
+              updatedAt: string;
+            }>(response);
+
+            // Refresh the React Query cache to update TodoList
+            refreshTodos();
+
+            return {
+              success: true,
+              todo: {
+                id: updated.id,
+                text: updated.item,
+                status: updated.status,
+                updatedAt: updated.updatedAt,
               },
             };
           }
@@ -245,22 +308,6 @@ const AIAgent = () => {
 
   return (
     <div className="h-[calc(100vh-4rem)] flex flex-col">
-      {/* Info Banner */}
-      <div className="bg-blue-50 dark:bg-blue-950 border-b border-blue-200 dark:border-blue-800 p-3">
-        <div className="container mx-auto flex items-start gap-2">
-          <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-          <div className="text-sm">
-            <p className="text-blue-900 dark:text-blue-100 font-medium">
-              AI Agent powered by OpenAI ChatKit
-            </p>
-            <p className="text-blue-700 dark:text-blue-300 text-xs mt-1">
-              This uses OpenAI's hosted agent infrastructure with client tools that update todos in real-time.
-              Compare with <a href="/ai-chat" className="underline hover:text-blue-900 dark:hover:text-blue-100">AI Chat</a> (custom implementation).
-            </p>
-          </div>
-        </div>
-      </div>
-
       {/* Side-by-side layout: Todo List + Chat */}
       <div className="flex-1 flex overflow-hidden">
         {/* Todo List Sidebar */}
@@ -295,4 +342,4 @@ const AIAgent = () => {
   );
 };
 
-export default AIAgent;
+export default AIChat;

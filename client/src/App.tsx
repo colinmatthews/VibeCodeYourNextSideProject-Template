@@ -13,7 +13,7 @@ import Profile from "@/pages/profile";
 import Pricing from "@/pages/pricing";
 import Settings from "@/pages/settings";
 import Files from "@/pages/files";
-import AIAgent from "@/pages/ai-agent";
+import AIChat from "@/pages/ai-chat";
 
 class ErrorBoundary extends Component<
   { children: ReactNode },
@@ -65,7 +65,7 @@ function Router() {
           <Route path="/profile" component={Profile} />
           <Route path="/settings" component={Settings} />
           <Route path="/files" component={Files} />
-          <Route path="/ai-chat" component={AIAgent} />
+          <Route path="/ai-chat" component={AIChat} />
           <Route component={NotFound} />
         </Switch>
       </div>

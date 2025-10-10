@@ -14,7 +14,10 @@ CREATE TABLE "files" (
 CREATE TABLE "items" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"item" text NOT NULL,
-	"user_id" text NOT NULL
+	"user_id" text NOT NULL,
+	"status" text DEFAULT 'open' NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "users" (

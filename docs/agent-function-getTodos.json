@@ -1,0 +1,11 @@
+{
+  "name": "getTodos",
+  "description": "Fetch all todo items for the authenticated user. Returns todos with their current status (open, in_progress, or completed) and timestamps.",
+  "strict": false,
+  "parameters": {
+    "type": "object",
+    "properties": {},
+    "additionalProperties": false,
+    "required": []
+  }
+}

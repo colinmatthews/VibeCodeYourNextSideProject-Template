@@ -20,7 +20,9 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "db:check": "drizzle-kit check"
+    "db:check": "drizzle-kit check",
+    "db:wipe": "tsx scripts/reset-db.ts",
+    "db:reset": "npm run db:wipe && npm run db:push"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
