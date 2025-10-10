@@ -124,6 +124,17 @@ npm test -- --detectOpenHandles
 3. Use `waitFor` for async operations
 4. Test user interactions and error states
 
+## Console Output
+
+Console output (`console.log`, `console.error`, `console.warn`, `console.debug`) is suppressed during tests to keep output clean. This is configured in `jest.afterEnv.js`.
+
+To enable console output for debugging, uncomment the relevant lines in `jest.afterEnv.js`.
+
+## Jest Setup Files
+
+- **`jest.setup.js`** - Environment variables and module mocks (runs before Jest framework loads)
+- **`jest.afterEnv.js`** - Console suppression using Jest APIs (runs after Jest framework loads)
+
 ## Best Practices
 
 1. **Test behavior, not implementation**

@@ -7,9 +7,11 @@ import { apiGet, apiPost, apiPatch, apiDelete, apiJson } from "@/lib/queryClient
 import { ChatKit, useChatKit } from "@openai/chatkit-react";
 import { TodoList } from "@/components/TodoList";
 import { useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 
 const AIChat = () => {
   const { user } = useAuth();
+  const [, setLocation] = useLocation();
   const [status, setStatus] = useState<'checking' | 'ready' | 'not_configured' | 'error'>('checking');
   const clientSecretRef = useRef<string | null>(null);
   const pendingRequestRef = useRef<Promise<string> | null>(null);
@@ -121,7 +123,8 @@ const AIChat = () => {
 
           case 'createTodo': {
             // Create a new todo via your Express API
-            const todoText = params.text || params.item;
+            // Support both 'text' (standard) and 'item' (legacy) parameter names
+            const todoText = params.text ?? params.item;
             if (!todoText) {
               return {
                 success: false,
@@ -230,10 +233,23 @@ const AIChat = () => {
           errorStack: error.stack,
           fullError: error,
         });
+
+        // Provide specific error messages for common failure scenarios
+        let errorMessage = 'Failed to execute tool';
+        if (error.message?.includes('fetch') || error.message?.includes('network')) {
+          errorMessage = 'Network error: Unable to connect to server. Please check your connection.';
+        } else if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
+          errorMessage = 'Authentication error: Please log in again.';
+        } else if (error.message?.includes('403') || error.message?.includes('Forbidden')) {
+          errorMessage = 'Permission denied: You do not have access to this resource.';
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+
         // Return error in a format the AI can understand
         return {
           success: false,
-          error: error.message || 'Failed to execute tool',
+          error: errorMessage,
         };
       }
     },
@@ -253,7 +269,7 @@ const AIChat = () => {
             </CardHeader>
             <CardContent>
               <Button
-                onClick={() => window.location.href = '/login'}
+                onClick={() => setLocation('/login')}
                 className="w-full"
               >
                 Sign In to Chat

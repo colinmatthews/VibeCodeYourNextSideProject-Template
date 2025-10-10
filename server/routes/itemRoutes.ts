@@ -51,7 +51,7 @@ export async function registerItemRoutes(app: Express) {
         throw errors.forbidden("Item limit reached. Please upgrade to Pro plan.");
       }
 
-      const created = await storage.createItem({ userId, item });
+      const created = await storage.createItem({ userId, item, status: "open" });
       console.log("[Items] Item created:", created);
 
       // Send email notification if enabled

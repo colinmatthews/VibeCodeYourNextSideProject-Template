@@ -4,7 +4,27 @@ import { storage } from "../storage";
 import { randomUUID } from "crypto";
 
 const SESSION_COOKIE_NAME = "chatkit_session_id";
-const SESSION_COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
+const SESSION_COOKIE_MAX_AGE = 60 * 60 * 24 * 7; // 7 days
+const CHATKIT_API_BASE = process.env.CHATKIT_API_BASE || 'https://api.openai.com';
+const MAX_RETRIES = 2;
+const RETRY_DELAY_MS = 1000;
+
+/**
+ * Helper function to retry failed API calls
+ */
+async function fetchWithRetry(url: string, options: RequestInit, retries = MAX_RETRIES): Promise<Response> {
+  try {
+    const response = await fetch(url, options);
+    return response;
+  } catch (error) {
+    if (retries > 0) {
+      console.log(`[ChatKit] API call failed, retrying... (${MAX_RETRIES - retries + 1}/${MAX_RETRIES})`);
+      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+      return fetchWithRetry(url, options, retries - 1);
+    }
+    throw error;
+  }
+}
 
 export async function registerChatKitRoutes(app: Express) {
   // Create ChatKit session with user authentication
@@ -43,10 +63,10 @@ export async function registerChatKitRoutes(app: Express) {
       // Call OpenAI ChatKit API directly to create a session
       // This uses the REST API since the Node.js SDK doesn't have chatkit.sessions.create yet
       // Reference: https://github.com/openai/openai-chatkit-starter-app
-      const apiBase = process.env.CHATKIT_API_BASE || 'https://api.openai.com';
-      const sessionEndpoint = `${apiBase}/v1/chatkit/sessions`;
+      const sessionEndpoint = `${CHATKIT_API_BASE}/v1/chatkit/sessions`;
 
-      const response = await fetch(sessionEndpoint, {
+      console.log('[ChatKit] Creating session for user:', userId);
+      const response = await fetchWithRetry(sessionEndpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -63,7 +83,8 @@ export async function registerChatKitRoutes(app: Express) {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error('ChatKit session creation failed:', {
+        console.error('[ChatKit] Session creation failed:', {
+          userId,
           status: response.status,
           statusText: response.statusText,
           error: errorData,
@@ -75,6 +96,7 @@ export async function registerChatKitRoutes(app: Express) {
       }
 
       const sessionData = await response.json();
+      console.log('[ChatKit] Session created successfully for user:', userId);
 
       // Set session cookie for continuity across page refreshes
       res.cookie(SESSION_COOKIE_NAME, sessionId, {
@@ -91,7 +113,11 @@ export async function registerChatKitRoutes(app: Express) {
         sessionId, // Return session ID for debugging
       });
     } catch (error: any) {
-      console.error("ChatKit session creation error:", error);
+      console.error("[ChatKit] Session creation error:", {
+        userId: req.user?.uid,
+        error: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      });
       return res.status(500).json({
         error: 'Failed to create ChatKit session',
         details: process.env.NODE_ENV === 'development' ? error.message : undefined
