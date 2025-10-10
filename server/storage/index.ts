@@ -1,7 +1,7 @@
 import { UserStorage } from './UserStorage';
 import { ItemStorage } from './ItemStorage';
 import { FileStorage } from './FileStorage';
-import { type Item, type InsertItem, type ItemStatus, type User, type InsertUser, type File, type InsertFile, type AiThread, type InsertAiThread, type AiMessage, type InsertAiMessage } from "@shared/schema";
+import { type Item, type InsertItem, type ItemStatus, type User, type InsertUser, type File, type InsertFile } from "@shared/schema";
 
 interface UpdateUserData {
   firstName?: string;
@@ -9,11 +9,6 @@ interface UpdateUserData {
   emailNotifications?: boolean;
   subscriptionType?: "free" | "pro";
   stripeCustomerId?: string;
-}
-
-interface UpdateThreadData {
-  title?: string;
-  archived?: boolean;
 }
 
 export interface IStorage {
@@ -35,25 +30,6 @@ export interface IStorage {
   createFile(file: InsertFile): Promise<File>;
   deleteFile(id: number): Promise<void>;
   getFileByPath(path: string): Promise<File | undefined>;
-
-  // Thread operations
-  getThreadsByUserId(userId: string): Promise<AiThread[]>;
-  getActiveThreadsByUserId(userId: string): Promise<AiThread[]>;
-  getArchivedThreadsByUserId(userId: string): Promise<AiThread[]>;
-  getThreadById(id: string): Promise<AiThread | undefined>;
-  getThreadByIdAndUserId(id: string, userId: string): Promise<AiThread | undefined>;
-  createThread(thread: InsertAiThread): Promise<AiThread>;
-  updateThread(id: string, userId: string, data: UpdateThreadData): Promise<AiThread | undefined>;
-  deleteThread(id: string, userId: string): Promise<void>;
-
-  // Message operations
-  getMessagesByThreadId(threadId: string): Promise<AiMessage[]>;
-  getMessageById(id: string): Promise<AiMessage | undefined>;
-  createMessage(message: InsertAiMessage): Promise<AiMessage>;
-  createMessages(messages: InsertAiMessage[]): Promise<AiMessage[]>;
-  messageExistsByContent(threadId: string, role: 'user' | 'assistant' | 'system', content: string): Promise<boolean>;
-  deleteMessage(id: string): Promise<void>;
-  deleteMessagesByThreadId(threadId: string): Promise<void>;
 }
 
 export class PostgresStorage implements IStorage {
@@ -125,4 +101,4 @@ export class PostgresStorage implements IStorage {
  }
 
 export const storage = new PostgresStorage();
-export { UpdateUserData, UpdateThreadData };
+export { UpdateUserData };

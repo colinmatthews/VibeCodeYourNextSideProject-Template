@@ -89,7 +89,7 @@ const AIChat = () => {
     },
 
     // Client tools: execute in browser, can call localhost APIs
-    onClientTool: async ({ name, params }) => {
+    onClientTool: async ({ name, params }: { name: string; params: Record<string, any> }) => {
       console.log('[ChatKit] Client tool called:', name, params);
 
       try {
