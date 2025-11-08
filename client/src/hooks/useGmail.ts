@@ -2,6 +2,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "./useAuth";
 import { getQueryFn, apiGet, apiPost, apiJson } from "../lib/queryClient";
 import { useToast } from "./useToast";
+import { mockGmailStatus } from "../lib/mockData";
+
+// Demo mode flag - set to true to use mock data
+const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true";
 
 // ============================================================================
 // TYPES
@@ -39,18 +43,30 @@ export function useGmail() {
     refetch: refetchStatus,
   } = useQuery<GmailStatus>({
     queryKey: ["/api/gmail/status"],
-    queryFn: getQueryFn({ on401: "returnNull" }),
-    enabled: !!firebaseUser?.uid,
+    queryFn: DEMO_MODE
+      ? async () => mockGmailStatus
+      : getQueryFn({ on401: "returnNull" }),
+    enabled: DEMO_MODE || !!firebaseUser?.uid,
   });
 
   // Mutation: Get OAuth URL and redirect
   const connectGmail = useMutation({
     mutationFn: async () => {
+      if (DEMO_MODE) {
+        return { authUrl: "#" };
+      }
       const response = await apiGet("/api/gmail/connect");
       const data = await apiJson<GmailAuthUrl>(response);
       return data;
     },
     onSuccess: (data) => {
+      if (DEMO_MODE) {
+        toast({
+          title: "Demo Mode",
+          description: "Gmail is already connected in demo mode!",
+        });
+        return;
+      }
       // Redirect to Google OAuth page
       window.location.href = data.authUrl;
     },
@@ -66,6 +82,9 @@ export function useGmail() {
   // Mutation: Disconnect Gmail
   const disconnectGmail = useMutation({
     mutationFn: async () => {
+      if (DEMO_MODE) {
+        return { success: true };
+      }
       const response = await apiPost("/api/gmail/disconnect");
       return await apiJson(response);
     },
@@ -91,6 +110,11 @@ export function useGmail() {
   // Mutation: Scan inbox for subscriptions
   const scanInbox = useMutation({
     mutationFn: async () => {
+      if (DEMO_MODE) {
+        // Simulate scan delay
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        return { success: true, totalEmails: 125, processed: 125, newSubscriptions: 2 };
+      }
       const response = await apiPost("/api/gmail/scan");
       return await apiJson<ScanResult>(response);
     },
