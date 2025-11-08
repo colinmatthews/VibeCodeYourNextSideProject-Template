@@ -40,6 +40,9 @@ export default function Navbar() {
               <Link href="/">
                 <Button variant="ghost">Dashboard</Button>
               </Link>
+              <Link href="/subscriptions">
+                <Button variant="ghost">Subscriptions</Button>
+              </Link>
               <Link href="/ai-chat">
                 <Button variant="ghost">AI Chat</Button>
               </Link>

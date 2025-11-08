@@ -14,6 +14,7 @@ import Pricing from "@/pages/pricing";
 import Settings from "@/pages/settings";
 import Files from "@/pages/files";
 import AIChat from "@/pages/ai-chat";
+import Subscriptions from "@/pages/subscriptions";
 
 class ErrorBoundary extends Component<
   { children: ReactNode },
@@ -61,6 +62,7 @@ function Router() {
         <Switch>
           <Route path="/" component={Dashboard} />
           <Route path="/login" component={Login} />
+          <Route path="/subscriptions" component={Subscriptions} />
           <Route path="/pricing" component={Pricing} />
           <Route path="/profile" component={Profile} />
           <Route path="/settings" component={Settings} />
