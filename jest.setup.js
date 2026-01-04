@@ -11,9 +11,7 @@ process.env.SENDGRID_API_KEY = process.env.SENDGRID_API_KEY || 'SG.test_key';
 // Use a stable, verified sender for tests
 process.env.SENDGRID_FROM = process.env.SENDGRID_FROM || 'carlos@kindnessengineering.com';
 process.env.POSTHOG_API_KEY = process.env.POSTHOG_API_KEY || 'phc_test_key';
-process.env.FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'test-project';
-process.env.FIREBASE_PRIVATE_KEY = process.env.FIREBASE_PRIVATE_KEY || 'test-key';
-process.env.FIREBASE_CLIENT_EMAIL = process.env.FIREBASE_CLIENT_EMAIL || 'test@test.com';
+// Note: Firebase Admin env vars only needed for Firebase Storage (file uploads), not auth
 
 // Mock nanoid for ESM compatibility
 jest.mock('nanoid', () => ({
@@ -425,24 +423,15 @@ jest.mock('firebase-admin/app', () => ({
   cert: jest.fn()
 }));
 
-// Mock Firebase Auth (kept minimal for any legacy references, but not used for auth)
+// Mock Firebase Admin Auth - only kept to prevent import errors, not used for authentication
+// Authentication is handled by Replit Auth (see ./server/replit_integrations/auth mock below)
 jest.mock('firebase-admin/auth', () => ({
   getAuth: jest.fn(() => ({
-    verifyIdToken: jest.fn().mockResolvedValue({
-      uid: 'test-replit-user-id',
-      email: 'test@example.com',
-      email_verified: true
-    }),
-    getUser: jest.fn().mockResolvedValue({
-      uid: 'test-replit-user-id',
-      email: 'test@example.com',
-      displayName: 'Test User',
-      disabled: false,
-      emailVerified: true
-    }),
-    revokeRefreshTokens: jest.fn().mockResolvedValue(),
-    setCustomUserClaims: jest.fn().mockResolvedValue(),
-    deleteUser: jest.fn().mockResolvedValue()
+    verifyIdToken: jest.fn().mockRejectedValue(new Error('Firebase Auth not used')),
+    getUser: jest.fn().mockRejectedValue(new Error('Firebase Auth not used')),
+    revokeRefreshTokens: jest.fn().mockRejectedValue(new Error('Firebase Auth not used')),
+    setCustomUserClaims: jest.fn().mockRejectedValue(new Error('Firebase Auth not used')),
+    deleteUser: jest.fn().mockRejectedValue(new Error('Firebase Auth not used'))
   }))
 }));
 
