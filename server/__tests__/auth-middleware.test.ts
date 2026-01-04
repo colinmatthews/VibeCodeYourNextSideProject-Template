@@ -47,7 +47,7 @@ describe('Authentication Middleware', () => {
     // Setup default mock auth instance
     mockAuth = {
       verifyIdToken: jest.fn().mockResolvedValue({
-        uid: 'test-firebase-uid',
+        uid: 'test-replit-user-id',
         email: 'test@example.com',
         email_verified: true
       })
@@ -68,7 +68,7 @@ describe('Authentication Middleware', () => {
         expect(response.body).toEqual({
           message: 'Success',
           user: {
-            uid: 'test-firebase-uid',
+            uid: 'test-replit-user-id',
             email: 'test@example.com',
             email_verified: true
           }
@@ -371,7 +371,7 @@ describe('Authentication Middleware', () => {
         .expect(200);
 
       expect(response.body.user).toEqual({
-        uid: 'test-firebase-uid',
+        uid: 'test-replit-user-id',
         email: 'test@example.com',
         email_verified: true
       });
@@ -412,7 +412,7 @@ describe('Authentication Middleware', () => {
       
       responses.forEach(response => {
         expect(response.status).toBe(200);
-        expect(response.body.user.uid).toBe('test-firebase-uid');
+        expect(response.body.user.uid).toBe('test-replit-user-id');
       });
 
       expect(mockAuth.verifyIdToken).toHaveBeenCalledTimes(10);

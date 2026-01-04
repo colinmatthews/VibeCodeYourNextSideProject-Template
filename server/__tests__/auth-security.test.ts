@@ -70,7 +70,7 @@ describe('Authentication Security', () => {
     // Setup default mock auth instance
     mockAuth = {
       verifyIdToken: jest.fn().mockResolvedValue({
-        uid: 'test-firebase-uid',
+        uid: 'test-replit-user-id',
         email: 'test@example.com',
         email_verified: true
       })
@@ -88,7 +88,7 @@ describe('Authentication Security', () => {
       mockAuth.verifyIdToken.mockRejectedValue(tamperedError);
 
       const response = await request(app)
-        .get('/api/secure/profile/test-firebase-uid')
+        .get('/api/secure/profile/test-replit-user-id')
         .set('Authorization', 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.TAMPERED_PAYLOAD.signature')
         .expect(401);
 
@@ -101,7 +101,7 @@ describe('Authentication Security', () => {
     it('should reject replayed tokens', async () => {
       // First request succeeds
       const response1 = await request(app)
-        .get('/api/secure/profile/test-firebase-uid')
+        .get('/api/secure/profile/test-replit-user-id')
         .set('Authorization', 'Bearer valid_token_123')
         .expect(200);
 
@@ -113,7 +113,7 @@ describe('Authentication Security', () => {
 
       // Second request with same token should fail
       const response2 = await request(app)
-        .get('/api/secure/profile/test-firebase-uid')
+        .get('/api/secure/profile/test-replit-user-id')
         .set('Authorization', 'Bearer valid_token_123')
         .expect(401);
 
@@ -130,7 +130,7 @@ describe('Authentication Security', () => {
       mockAuth.verifyIdToken.mockRejectedValue(signatureError);
 
       const response = await request(app)
-        .get('/api/secure/profile/test-firebase-uid')
+        .get('/api/secure/profile/test-replit-user-id')
         .set('Authorization', 'Bearer valid.payload.INVALID_SIGNATURE')
         .expect(401);
 
@@ -151,7 +151,7 @@ describe('Authentication Security', () => {
         .expect(200);
 
       // Should process normally, ignoring injected tokens
-      expect(response.body.user).toBe('test-firebase-uid');
+      expect(response.body.user).toBe('test-replit-user-id');
       expect(response.body.data.authorization).toBe('Bearer malicious_token');
     });
 
@@ -165,7 +165,7 @@ describe('Authentication Security', () => {
       mockAuth.verifyIdToken.mockRejectedValue(specialCharError);
 
       const response = await request(app)
-        .get('/api/secure/profile/test-firebase-uid')
+        .get('/api/secure/profile/test-replit-user-id')
         .set('Authorization', `Bearer ${maliciousToken}`)
         .expect(401);
 
@@ -185,18 +185,18 @@ describe('Authentication Security', () => {
       };
 
       const response = await request(app)
-        .get('/api/secure/profile/test-firebase-uid')
+        .get('/api/secure/profile/test-replit-user-id')
         .set(maliciousHeaders)
         .expect(200);
 
       // Should use token-derived user, not header values
-      expect(response.body.authenticatedUser).toBe('test-firebase-uid');
+      expect(response.body.authenticatedUser).toBe('test-replit-user-id');
     });
 
     it('should validate all required claims', async () => {
       // Token with all required claims including uid
       const completeToken = {
-        uid: 'test-firebase-uid',
+        uid: 'test-replit-user-id',
         email: 'test@example.com',
         email_verified: true
       };
@@ -204,12 +204,12 @@ describe('Authentication Security', () => {
       mockAuth.verifyIdToken.mockResolvedValue(completeToken);
 
       const response = await request(app)
-        .get('/api/secure/profile/test-firebase-uid')
+        .get('/api/secure/profile/test-replit-user-id')
         .set('Authorization', 'Bearer complete_token')
         .expect(200);
 
       // Should have all required user data
-      expect(response.body.authenticatedUser).toBe('test-firebase-uid');
+      expect(response.body.authenticatedUser).toBe('test-replit-user-id');
     });
 
     it('should prevent user ID spoofing in requests', async () => {
@@ -229,13 +229,13 @@ describe('Authentication Security', () => {
       const maliciousUserAgent = '<script>alert("xss")</script>';
       
       const response = await request(app)
-        .get('/api/secure/profile/test-firebase-uid')
+        .get('/api/secure/profile/test-replit-user-id')
         .set('Authorization', 'Bearer valid_token')
         .set('User-Agent', maliciousUserAgent)
         .expect(200);
 
       // Should process normally, user agent shouldn't affect auth
-      expect(response.body.authenticatedUser).toBe('test-firebase-uid');
+      expect(response.body.authenticatedUser).toBe('test-replit-user-id');
     });
 
     it('should prevent privilege escalation attempts', async () => {
@@ -261,27 +261,27 @@ describe('Authentication Security', () => {
         .expect(200);
 
       // Should process normally (origin validation would be in CORS middleware)
-      expect(response.body.user).toBe('test-firebase-uid');
+      expect(response.body.user).toBe('test-replit-user-id');
     });
   });
 
   describe('Session Fixation Prevention', () => {
     it('should not accept pre-set session identifiers', async () => {
       const response = await request(app)
-        .get('/api/secure/profile/test-firebase-uid')
+        .get('/api/secure/profile/test-replit-user-id')
         .set('Authorization', 'Bearer valid_token')
         .set('X-Session-ID', 'attacker-controlled-session')
         .set('Cookie', 'sessionId=malicious_session')
         .expect(200);
 
       // Should ignore session headers and use token-based auth
-      expect(response.body.authenticatedUser).toBe('test-firebase-uid');
+      expect(response.body.authenticatedUser).toBe('test-replit-user-id');
     });
 
     it('should handle concurrent login attempts', async () => {
       const concurrentLogins = Array.from({ length: 5 }, (_, i) => 
         request(app)
-          .get('/api/secure/profile/test-firebase-uid')
+          .get('/api/secure/profile/test-replit-user-id')
           .set('Authorization', `Bearer concurrent_token_${i}`)
       );
 
@@ -290,7 +290,7 @@ describe('Authentication Security', () => {
       // All should succeed independently
       responses.forEach(response => {
         expect(response.status).toBe(200);
-        expect(response.body.authenticatedUser).toBe('test-firebase-uid');
+        expect(response.body.authenticatedUser).toBe('test-replit-user-id');
       });
     });
   });
@@ -330,7 +330,7 @@ describe('Authentication Security', () => {
         .send({ userInput: largePayload })
         .expect(200);
 
-      expect(response.body.user).toBe('test-firebase-uid');
+      expect(response.body.user).toBe('test-replit-user-id');
     });
 
     it('should handle malformed JSON payloads', async () => {
@@ -350,7 +350,7 @@ describe('Authentication Security', () => {
     it('should handle rapid authentication requests', async () => {
       const rapidRequests = Array.from({ length: 20 }, () =>
         request(app)
-          .get('/api/secure/profile/test-firebase-uid')
+          .get('/api/secure/profile/test-replit-user-id')
           .set('Authorization', 'Bearer rapid_token')
       );
 
@@ -370,7 +370,7 @@ describe('Authentication Security', () => {
 
       const failedRequests = Array.from({ length: 10 }, () =>
         request(app)
-          .get('/api/secure/profile/test-firebase-uid')
+          .get('/api/secure/profile/test-replit-user-id')
           .set('Authorization', 'Bearer broken_token')
       );
 
@@ -391,7 +391,7 @@ describe('Authentication Security', () => {
         .send({ action: 'sensitive_operation' })
         .expect(200);
 
-      expect(response.body.user).toBe('test-firebase-uid');
+      expect(response.body.user).toBe('test-replit-user-id');
     });
 
     it('should handle requests with suspicious referrers', async () => {
@@ -403,7 +403,7 @@ describe('Authentication Security', () => {
         .expect(200);
 
       // Should process normally (CSRF protection would be separate middleware)
-      expect(response.body.user).toBe('test-firebase-uid');
+      expect(response.body.user).toBe('test-replit-user-id');
     });
   });
 
@@ -411,7 +411,7 @@ describe('Authentication Security', () => {
     const mockOwnedFile = {
       id: 1,
       name: 'user-file.jpg',
-      userId: 'test-firebase-uid'
+      userId: 'test-replit-user-id'
     };
 
     const mockOtherFile = {
@@ -494,7 +494,7 @@ describe('Authentication Security', () => {
       mockAuth.verifyIdToken.mockRejectedValue(systemError);
 
       const response = await request(app)
-        .get('/api/secure/profile/test-firebase-uid')
+        .get('/api/secure/profile/test-replit-user-id')
         .set('Authorization', 'Bearer error_token')
         .expect(401);
 
@@ -534,7 +534,7 @@ describe('Authentication Security', () => {
       mockAuth.verifyIdToken.mockRejectedValue(confusionError);
 
       const response = await request(app)
-        .get('/api/secure/profile/test-firebase-uid')
+        .get('/api/secure/profile/test-replit-user-id')
         .set('Authorization', `Bearer ${jwtToken}`)
         .expect(401);
 
@@ -543,18 +543,18 @@ describe('Authentication Security', () => {
 
     it('should prevent subdomain cookie attacks', async () => {
       const response = await request(app)
-        .get('/api/secure/profile/test-firebase-uid')
+        .get('/api/secure/profile/test-replit-user-id')
         .set('Authorization', 'Bearer valid_token')
         .set('Cookie', 'auth_token=malicious_subdomain_cookie; firebase_token=attacker_token')
         .expect(200);
 
       // Should ignore cookies and use Authorization header
-      expect(response.body.authenticatedUser).toBe('test-firebase-uid');
+      expect(response.body.authenticatedUser).toBe('test-replit-user-id');
     });
 
     it('should handle unicode normalization attacks', async () => {
       // Unicode characters that might normalize to dangerous strings
-      const unicodeAttack = 'tеst-firebase-uid'; // Contains Cyrillic 'е' instead of Latin 'e'
+      const unicodeAttack = 'tеst-replit-user-id'; // Contains Cyrillic 'е' instead of Latin 'e'
       
       const response = await request(app)
         .get(`/api/secure/profile/${encodeURIComponent(unicodeAttack)}`)
@@ -567,12 +567,12 @@ describe('Authentication Security', () => {
 
     it('should prevent parameter pollution attacks', async () => {
       const response = await request(app)
-        .get('/api/secure/profile/test-firebase-uid?userId=attacker-uid&userId=test-firebase-uid')
+        .get('/api/secure/profile/test-replit-user-id?userId=attacker-uid&userId=test-replit-user-id')
         .set('Authorization', 'Bearer valid_token')
         .expect(200);
 
       // Should use URL parameter, not query parameter
-      expect(response.body.userId).toBe('test-firebase-uid');
+      expect(response.body.userId).toBe('test-replit-user-id');
     });
   });
 
@@ -594,7 +594,7 @@ describe('Authentication Security', () => {
       mockAuth.verifyIdToken.mockRejectedValue(suspiciousError);
 
       await request(app)
-        .get('/api/secure/profile/test-firebase-uid')
+        .get('/api/secure/profile/test-replit-user-id')
         .set('Authorization', 'Bearer suspicious_token_pattern')
         .expect(401);
 
@@ -611,7 +611,7 @@ describe('Authentication Security', () => {
       mockAuth.verifyIdToken.mockRejectedValue(authError);
 
       await request(app)
-        .get('/api/secure/profile/test-firebase-uid')
+        .get('/api/secure/profile/test-replit-user-id')
         .set('Authorization', 'Bearer sk_live_super_secret_token_do_not_log')
         .expect(401);
 
