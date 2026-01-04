@@ -9,6 +9,7 @@ module.exports = {
       testEnvironment: 'node',
       testMatch: ['<rootDir>/server/__tests__/**/*.test.ts'],
       setupFiles: ['<rootDir>/jest.setup.js'],
+      setupFilesAfterEnv: ['<rootDir>/jest.afterEnv.js'],
       moduleNameMapper: {
         '^@shared/(.*)$': '<rootDir>/shared/$1'
       },

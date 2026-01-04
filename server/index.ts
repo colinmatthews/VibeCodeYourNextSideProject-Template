@@ -4,6 +4,7 @@ import { randomUUID } from 'crypto';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import helmet from 'helmet';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import { setupExpressErrorHandler } from 'posthog-node';
 import { registerRoutes } from "./routes";
 import { registerWebhookRoutes } from "./routes/webhookRoutes";
@@ -44,7 +45,8 @@ import { posthog, logEvent, logSecurity } from './lib/audit';
               "https://js.stripe.com",
               "https://apis.google.com",
               "https://accounts.google.com",
-              "https://us-assets.i.posthog.com"
+              "https://us-assets.i.posthog.com",
+              "https://cdn.platform.openai.com"
             ]
           : [
               "'self'",
@@ -52,7 +54,8 @@ import { posthog, logEvent, logSecurity } from './lib/audit';
               "https://js.stripe.com",
               "https://apis.google.com",
               "https://accounts.google.com",
-              "https://us-assets.i.posthog.com"
+              "https://us-assets.i.posthog.com",
+              "https://cdn.platform.openai.com"
             ],
         connectSrc: [
           "'self'",
@@ -66,6 +69,8 @@ import { posthog, logEvent, logSecurity } from './lib/audit';
           "https://us.i.posthog.com",
           "https://us-assets.i.posthog.com",
           "https://*.posthog.com",
+          "https://api.openai.com",
+          "https://cdn.platform.openai.com"
         ],
         imgSrc: [
           "'self'",
@@ -76,7 +81,9 @@ import { posthog, logEvent, logSecurity } from './lib/audit';
         frameSrc: [
           "https://js.stripe.com",
           "https://accounts.google.com",
-          "https://*.firebaseapp.com"
+          "https://*.firebaseapp.com",
+          "https://cdn.platform.openai.com",
+          "https://platform.openai.com"
         ]
       }
     },
@@ -211,6 +218,9 @@ import { posthog, logEvent, logSecurity } from './lib/audit';
   // Now apply global JSON parsing middleware for all other routes
   app.use(express.json({ limit: '10mb' })); // Set body size limit
   app.use(express.urlencoded({ extended: false, limit: '10mb' }));
+
+  // Cookie parser for session management
+  app.use(cookieParser());
 
   // Apply XSS sanitization to all API routes (except webhooks)
   app.use('/api', (req, res, next) => {

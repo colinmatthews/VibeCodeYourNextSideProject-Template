@@ -5,6 +5,7 @@ import { sendEmail } from "../mail";
 import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
 import { requiresOwnership, requiresItemOwnership } from "../middleware/authHelpers";
 import { handleError, errors } from "../lib/errors";
+import { updateItemStatusSchema } from "@shared/schema";
 
 // Validation schemas
 const itemIdSchema = z.object({
@@ -16,7 +17,7 @@ const createItemSchema = z.object({
 });
 
 export async function registerItemRoutes(app: Express) {
-  app.get("/api/items", requireAuth, requiresOwnership, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/items", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user!.uid;
       const items = await storage.getItemsByUserId(userId);
@@ -50,7 +51,7 @@ export async function registerItemRoutes(app: Express) {
         throw errors.forbidden("Item limit reached. Please upgrade to Pro plan.");
       }
 
-      const created = await storage.createItem({ userId, item });
+      const created = await storage.createItem({ userId, item, status: "open" });
       console.log("[Items] Item created:", created);
 
       // Send email notification if enabled
@@ -72,11 +73,27 @@ export async function registerItemRoutes(app: Express) {
     }
   });
 
+  app.patch("/api/items/:id/status", requireAuth, requiresItemOwnership, async (req: AuthenticatedRequest, res) => {
+    try {
+      // Validate item ID parameter
+      const { id } = itemIdSchema.parse(req.params);
+
+      // Validate status in request body
+      const { status } = updateItemStatusSchema.parse(req.body);
+
+      const updatedItem = await storage.updateItemStatus(id, status);
+      res.json(updatedItem);
+    } catch (error) {
+      console.error("Error updating item status:", error);
+      handleError(error, res);
+    }
+  });
+
   app.delete("/api/items/:id", requireAuth, requiresItemOwnership, async (req: AuthenticatedRequest, res) => {
     try {
       // Validate item ID parameter
       const { id } = itemIdSchema.parse(req.params);
-      
+
       await storage.deleteItem(id);
       res.status(204).send();
     } catch (error) {

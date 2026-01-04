@@ -1,269 +1,259 @@
-import { Thread } from "@/components/assistant-ui/thread";
-import { AIRuntimeProvider } from "@/components/AIRuntimeProvider";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { MessageCircle, Zap, Clock, Menu, PlusCircle, Archive, Trash2, Check, X } from "lucide-react";
-import { useState, useEffect, useMemo } from "react";
-import { nanoid } from "nanoid";
-import { apiGet, apiPost, apiRequest, apiJson } from "@/lib/queryClient";
-import { useLocation, useRoute } from "wouter";
-import * as ContextMenu from "@radix-ui/react-context-menu";
-import { CreateTodoToolUI } from "@/components/tools/CreateTodoToolUI";
-
-interface ThreadData {
-  id: string;
-  title: string;
-  createdAt: Date;
-  updatedAt: Date;
-  archived: boolean;
-}
+import { MessageCircle, Zap, Clock, Info } from "lucide-react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { apiGet, apiPost, apiPatch, apiDelete, apiJson } from "@/lib/queryClient";
+import { ChatKit, useChatKit } from "@openai/chatkit-react";
+import { TodoList } from "@/components/TodoList";
+import { useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 
 const AIChat = () => {
   const { user } = useAuth();
-  const [aiStatus, setAiStatus] = useState<'checking' | 'ready' | 'not_configured' | 'error'>('checking');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [threads, setThreads] = useState<ThreadData[]>([]);
   const [, setLocation] = useLocation();
-  const [match, params] = useRoute("/ai-chat/:threadId");
-  const currentThreadId = (match ? (params as any).threadId : null) as string | null;
-  const [loading, setLoading] = useState(false);
-  const [threadMessages, setThreadMessages] = useState<any[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
-  const [messagesThreadId, setMessagesThreadId] = useState<string | null>(null);
-  const [loadingMessages, setLoadingMessages] = useState(false);
-  const [editingThreadId, setEditingThreadId] = useState<string | null>(null);
-  const [editingTitle, setEditingTitle] = useState("");
+  const [status, setStatus] = useState<'checking' | 'ready' | 'not_configured' | 'error'>('checking');
+  const clientSecretRef = useRef<string | null>(null);
+  const pendingRequestRef = useRef<Promise<string> | null>(null);
+  const queryClient = useQueryClient();
 
-  // Check AI service status
+  // Helper to refresh todos via React Query
+  const refreshTodos = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['items', user?.uid] });
+  }, [queryClient, user?.uid]);
+
+  // Check ChatKit service status
   useEffect(() => {
-    const checkAIStatus = async () => {
+    const checkStatus = async () => {
       try {
-        const response = await apiGet('/api/ai/status');
-        const data = await apiJson<{ status: string }>(response);
-        setAiStatus(data.status === 'ready' ? 'ready' : 'not_configured');
+        const response = await apiGet('/api/chatkit/status');
+        const data = await apiJson<{ status: string; workflowId?: string }>(response);
+        setStatus(data.status === 'ready' ? 'ready' : 'not_configured');
       } catch (error) {
-        console.error('Failed to check AI status:', error);
-        setAiStatus('error');
+        console.error('Failed to check ChatKit status:', error);
+        setStatus('error');
       }
     };
 
-    if (user) checkAIStatus();
+    if (user) checkStatus();
   }, [user]);
 
-  // Fetch threads on mount
-  useEffect(() => {
-    if (user) {
-      fetchThreads();
+  // Function to get client secret (for ChatKit API)
+  // Use useCallback to prevent re-creation on every render
+  const getClientSecret = useCallback(async (currentSecret: string | null): Promise<string> => {
+    // If we already have a valid secret, return it
+    if (currentSecret) {
+      return currentSecret;
     }
-  }, [user]);
 
-  // Fetch messages when thread changes (clear immediately to avoid stale branches)
-  useEffect(() => {
-    if (!user) return;
-    if (!currentThreadId) {
-      setThreadMessages([]);
-      setMessagesThreadId(null);
-      setEditingThreadId(null);
-      setLoadingMessages(false);
-      return;
+    // If we have a cached secret, return it
+    if (clientSecretRef.current) {
+      return clientSecretRef.current;
     }
-    // Start loading and clear messages
-    setLoadingMessages(true);
-    setThreadMessages([]);
-    setMessagesThreadId(currentThreadId);
-    setEditingThreadId(null);
-    fetchThreadMessages(currentThreadId);
-  }, [user, currentThreadId]);
 
-  const fetchThreads = async () => {
-    try {
-      setLoading(true);
-      const response = await apiGet('/api/ai/threads');
-      const data = await apiJson<{
-        threads: Array<{ remoteId: string; title: string; createdAt: string; updatedAt: string }>;
-        archivedThreads: Array<{ remoteId: string; title: string; createdAt: string; updatedAt: string }>;
-      }>(response);
-      
-      const allThreads: ThreadData[] = [
-        ...data.threads.map((t) => ({
-          id: t.remoteId,
-          title: t.title,
-          createdAt: new Date(t.createdAt),
-          updatedAt: new Date(t.updatedAt),
-          archived: false,
-        })),
-        ...data.archivedThreads.map((t) => ({
-          id: t.remoteId,
-          title: t.title,
-          createdAt: new Date(t.createdAt),
-          updatedAt: new Date(t.updatedAt),
-          archived: true,
-        })),
-      ];
-      // Sort by most recent update
-      allThreads.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
-      setThreads(allThreads);
-      
-      // If URL has no threadId, navigate to the first thread (if any)
-      if (!currentThreadId && allThreads.length > 0) {
-        setLocation(`/ai-chat/${allThreads[0].id}`);
+    // If there's already a pending request, wait for it
+    if (pendingRequestRef.current) {
+      return pendingRequestRef.current;
+    }
+
+    // Create new request
+    const request = (async () => {
+      try {
+        const response = await apiPost('/api/chatkit/session', {});
+        const data = await apiJson<{ clientToken: string }>(response);
+        clientSecretRef.current = data.clientToken;
+        return data.clientToken;
+      } catch (error) {
+        console.error('Failed to get client secret:', error);
+        pendingRequestRef.current = null;
+        throw error;
+      } finally {
+        pendingRequestRef.current = null;
       }
-    } catch (error) {
-      console.error('Failed to fetch threads:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    })();
 
-  const fetchThreadMessages = async (threadId: string) => {
-    try {
-      const response = await apiGet(`/api/ai/threads/${threadId}/messages`);
-      const data = await apiJson<{
-        messages: Array<{
-          id: string;
-          role: 'user' | 'assistant';
-          content: Array<{ text: string }> | string;
-          createdAt: string;
-        }>;
-      }>(response);
+    pendingRequestRef.current = request;
+    return request;
+  }, []);
 
-      // Convert messages to the format expected by useChat (UIMessage format)
-      const formattedMessages = data.messages.map((msg) => ({
-        id: msg.id,
-        role: msg.role as 'user' | 'assistant',
-        content: Array.isArray(msg.content) ? msg.content[0].text : msg.content,
-        createdAt: new Date(msg.createdAt)
-      }));
-      // Sort messages by timestamp to ensure proper order
-      formattedMessages.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-      setThreadMessages(formattedMessages);
-      setMessagesThreadId(threadId);
-    } catch (error) {
-      console.error('Failed to fetch thread messages:', error);
-      setThreadMessages([]);
-      setMessagesThreadId(threadId);
-    } finally {
-      setLoadingMessages(false);
-    }
-  };
+  // Initialize ChatKit with the hosted API config
+  const chatkit = useChatKit({
+    api: {
+      getClientSecret,
+    },
+    theme: 'light', // Can be 'light' or 'dark'
 
-  // On chat generation finish, refresh the current thread's title and timestamps
-  const handleFinish = async () => {
-    if (!currentThreadId) return;
-    try {
-      setRefreshing(true);
-      // Fetch just the current thread
-      const res = await apiGet(`/api/ai/threads/${currentThreadId}`);
-      const t = await apiJson<{ remoteId: string; title: string; status: string; createdAt: string; updatedAt: string }>(res);
-      setThreads(prev => {
-        const updated = prev.map((th) => th.id === t.remoteId ? {
-          id: t.remoteId,
-          title: t.title,
-          createdAt: new Date(t.createdAt),
-          updatedAt: new Date(t.updatedAt),
-          archived: th.archived,
-        } : th);
-        // Reorder by updatedAt desc so the active thread floats up if needed
-        const toTime = (v: Date | string) => (v instanceof Date ? v : new Date(v)).getTime();
-        return [...updated].sort((a, b) => toTime(b.updatedAt) - toTime(a.updatedAt));
-      });
-    } catch (e) {
-      // Non-fatal; UI will converge on next list fetch
-    } finally {
-      setRefreshing(false);
-    }
-  };
+    // Error handler for detailed error diagnostics
+    onError: ({ error }) => {
+      console.error('[ChatKit ERROR]', error);
+    },
 
-  const createNewThread = async () => {
-    try {
-      const response = await apiPost('/api/ai/threads', { title: 'New Chat' });
-      const thread = await apiJson<{
-        remoteId: string;
-        title: string;
-        createdAt: string;
-        updatedAt: string;
-      }>(response);
-      
-      const newThread = {
-        id: thread.remoteId,
-        title: thread.title,
-        createdAt: new Date(thread.createdAt),
-        updatedAt: new Date(thread.updatedAt),
-        archived: false
-      };
-      setThreads(prev => [newThread, ...prev]);
-      setLocation(`/ai-chat/${newThread.id}`);
-    } catch (error) {
-      console.error('Failed to create thread:', error);
-    }
-  };
+    // Client tools: execute in browser, can call localhost APIs
+    onClientTool: async ({ name, params }: { name: string; params: Record<string, any> }) => {
+      console.log('[ChatKit] Client tool called:', name, params);
 
-  const archiveThread = async (threadId: string) => {
-    try {
-      await apiRequest('PATCH', `/api/ai/threads/${threadId}`, { archived: true });
-      
-      setThreads(prev => prev.map(t => 
-        t.id === threadId ? { ...t, archived: true } : t
-      ));
-    } catch (error) {
-      console.error('Failed to archive thread:', error);
-    }
-  };
+      try {
+        switch (name) {
+          case 'getTodos': {
+            // Fetch todos from your Express API
+            const response = await apiGet('/api/items');
+            const fetchedTodos = await apiJson<Array<{
+              id: number;
+              item: string;
+              status: string;
+              createdAt: string;
+              updatedAt: string;
+            }>>(response);
 
-  const unarchiveThread = async (threadId: string) => {
-    try {
-      await apiRequest('PATCH', `/api/ai/threads/${threadId}`, { archived: false });
+            // Refresh the React Query cache
+            refreshTodos();
 
-      setThreads(prev => prev.map(t =>
-        t.id === threadId ? { ...t, archived: false } : t
-      ));
-    } catch (error) {
-      console.error('Failed to restore thread:', error);
-    }
-  };
+            return {
+              success: true,
+              todos: fetchedTodos.map(t => ({
+                id: t.id,
+                text: t.item,
+                status: t.status,
+                createdAt: t.createdAt,
+                updatedAt: t.updatedAt,
+              })),
+              count: fetchedTodos.length,
+            };
+          }
 
-  const deleteThread = async (threadId: string) => {
-    try {
-      await apiRequest('DELETE', `/api/ai/threads/${threadId}`);
-      
-      setThreads(prev => prev.filter(t => t.id !== threadId));
-      
-      if (currentThreadId === threadId) {
-        const remainingThreads = threads.filter(t => t.id !== threadId);
-        if (remainingThreads.length > 0) {
-          setLocation(`/ai-chat/${remainingThreads[0].id}`);
-        } else {
-          setLocation(`/ai-chat`);
+          case 'createTodo': {
+            // Create a new todo via your Express API
+            // Support both 'text' (standard) and 'item' (legacy) parameter names
+            const todoText = params.text ?? params.item;
+            if (!todoText) {
+              return {
+                success: false,
+                error: 'Todo text is required',
+              };
+            }
+
+            const response = await apiPost('/api/items', { item: todoText });
+            const created = await apiJson<{
+              id: number;
+              item: string;
+              status: string;
+              createdAt: string;
+              updatedAt: string;
+            }>(response);
+
+            // Refresh the React Query cache to update TodoList
+            refreshTodos();
+
+            return {
+              success: true,
+              todo: {
+                id: created.id,
+                text: created.item,
+                status: created.status,
+                createdAt: created.createdAt,
+                updatedAt: created.updatedAt,
+              },
+            };
+          }
+
+          case 'updateTodoStatus': {
+            // Update todo status via your Express API
+            const todoId = Number(params.id); // Parse string to number
+            const newStatus = params.status;
+
+            if (!todoId || isNaN(todoId) || !newStatus) {
+              return {
+                success: false,
+                error: 'Valid Todo ID and status are required',
+              };
+            }
+
+            if (!['open', 'in_progress', 'completed'].includes(newStatus)) {
+              return {
+                success: false,
+                error: 'Invalid status. Must be one of: open, in_progress, completed',
+              };
+            }
+
+            const response = await apiPatch(`/api/items/${todoId}/status`, { status: newStatus });
+            const updated = await apiJson<{
+              id: number;
+              item: string;
+              status: string;
+              createdAt: string;
+              updatedAt: string;
+            }>(response);
+
+            // Refresh the React Query cache to update TodoList
+            refreshTodos();
+
+            return {
+              success: true,
+              todo: {
+                id: updated.id,
+                text: updated.item,
+                status: updated.status,
+                updatedAt: updated.updatedAt,
+              },
+            };
+          }
+
+          case 'deleteTodo': {
+            // Delete a todo via your Express API
+            const todoId = Number(params.id); // Parse string to number
+
+            if (!todoId || isNaN(todoId)) {
+              return {
+                success: false,
+                error: 'Valid Todo ID is required',
+              };
+            }
+
+            await apiDelete(`/api/items/${todoId}`);
+
+            // Refresh the React Query cache to update TodoList
+            refreshTodos();
+
+            return {
+              success: true,
+              message: 'Todo deleted successfully',
+              deletedId: todoId,
+            };
+          }
+
+          default:
+            throw new Error(`Unknown client tool: ${name}`);
         }
-      }
-    } catch (error) {
-      console.error('Failed to delete thread:', error);
-    }
-  };
+      } catch (error: any) {
+        console.error('[ChatKit] Client tool error:', error);
+        console.error('[ChatKit] Client tool error details:', {
+          name,
+          params,
+          errorMessage: error.message,
+          errorStack: error.stack,
+          fullError: error,
+        });
 
-  const saveThreadRename = async (threadId: string) => {
-    const newTitle = editingTitle.trim();
-    if (!newTitle) return;
-    try {
-      const res = await apiRequest('PATCH', `/api/ai/threads/${threadId}`, { title: newTitle });
-      const updated = await apiJson<{ remoteId: string; title: string; status: string; createdAt: string; updatedAt: string }>(res);
-      setThreads(prev => {
-        const next = prev.map(t => t.id === updated.remoteId ? {
-          id: updated.remoteId,
-          title: updated.title,
-          createdAt: new Date(updated.createdAt),
-          updatedAt: new Date(updated.updatedAt),
-          archived: t.archived
-        } : t);
-        next.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
-        return next;
-      });
-      setEditingThreadId(null);
-    } catch (e) {
-      console.error('Failed to rename thread:', e);
-    }
-  };
+        // Provide specific error messages for common failure scenarios
+        let errorMessage = 'Failed to execute tool';
+        if (error.message?.includes('fetch') || error.message?.includes('network')) {
+          errorMessage = 'Network error: Unable to connect to server. Please check your connection.';
+        } else if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
+          errorMessage = 'Authentication error: Please log in again.';
+        } else if (error.message?.includes('403') || error.message?.includes('Forbidden')) {
+          errorMessage = 'Permission denied: You do not have access to this resource.';
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+
+        // Return error in a format the AI can understand
+        return {
+          success: false,
+          error: errorMessage,
+        };
+      }
+    },
+  });
 
   if (!user) {
     return (
@@ -272,14 +262,14 @@ const AIChat = () => {
           <Card>
             <CardHeader className="text-center">
               <MessageCircle className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <CardTitle>AI Chat Assistant</CardTitle>
+              <CardTitle>AI Agent</CardTitle>
               <CardDescription>
-                Please log in to start chatting with your AI assistant
+                Please log in to chat with the AI Agent powered by OpenAI ChatKit
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button 
-                onClick={() => window.location.href = '/login'}
+              <Button
+                onClick={() => setLocation('/login')}
                 className="w-full"
               >
                 Sign In to Chat
@@ -291,16 +281,16 @@ const AIChat = () => {
     );
   }
 
-  if (aiStatus === 'checking') {
+  if (status === 'checking') {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-md mx-auto">
           <Card>
             <CardHeader className="text-center">
               <Clock className="h-12 w-12 mx-auto mb-4 text-muted-foreground animate-spin" />
-              <CardTitle>Loading AI Assistant</CardTitle>
+              <CardTitle>Loading AI Agent</CardTitle>
               <CardDescription>
-                Checking AI service status...
+                Checking configuration...
               </CardDescription>
             </CardHeader>
           </Card>
@@ -309,25 +299,28 @@ const AIChat = () => {
     );
   }
 
-  if (aiStatus === 'not_configured') {
+  if (status === 'not_configured') {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-md mx-auto">
           <Card>
             <CardHeader className="text-center">
               <Zap className="h-12 w-12 mx-auto mb-4 text-yellow-500" />
-              <CardTitle>AI Service Not Configured</CardTitle>
+              <CardTitle>ChatKit Not Configured</CardTitle>
               <CardDescription>
-                The AI chat feature requires an OpenAI API key to be configured. 
-                Please contact your administrator to set up the AI service.
+                The AI Agent feature requires OpenAI ChatKit to be configured.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-2 text-sm text-muted-foreground">
                 <p><strong>For developers:</strong></p>
-                <p>Add your OpenAI API key to the <code>.env</code> file:</p>
-                <code className="block bg-muted p-2 rounded">
-                  OPENAI_API_KEY="sk-your-api-key-here"
+                <ol className="list-decimal list-inside space-y-1">
+                  <li>Create an agent in <a href="https://platform.openai.com/agent-builder" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">OpenAI Agent Builder</a></li>
+                  <li>Copy your Workflow ID</li>
+                  <li>Add to <code className="bg-muted px-1 rounded">.env</code>:</li>
+                </ol>
+                <code className="block bg-muted p-2 rounded mt-2">
+                  OPENAI_CHATKIT_WORKFLOW_ID="wf_your_id_here"
                 </code>
               </div>
             </CardContent>
@@ -337,20 +330,20 @@ const AIChat = () => {
     );
   }
 
-  if (aiStatus === 'error') {
+  if (status === 'error') {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-md mx-auto">
           <Card>
             <CardHeader className="text-center">
               <MessageCircle className="h-12 w-12 mx-auto mb-4 text-red-500" />
-              <CardTitle>AI Service Unavailable</CardTitle>
+              <CardTitle>Service Unavailable</CardTitle>
               <CardDescription>
-                The AI chat service is temporarily unavailable. Please try again later.
+                The AI Agent service is temporarily unavailable. Please try again later.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button 
+              <Button
                 onClick={() => window.location.reload()}
                 variant="outline"
                 className="w-full"
@@ -365,250 +358,35 @@ const AIChat = () => {
   }
 
   return (
-    <div className="h-[calc(100vh-4rem)] flex">
-      {/* Thread Sidebar */}
-      <div className={`bg-muted/30 border-r transition-all duration-300 flex flex-col ${
-        sidebarOpen ? 'w-80' : 'w-0'
-      } overflow-hidden`}>
-        <div className="p-4 border-b">
-          <Button 
-            onClick={createNewThread}
-            className="w-full"
-            size="sm"
-          >
-            <PlusCircle className="h-4 w-4 mr-2" />
-            New Chat
-          </Button>
-        </div>
-        
-        <div className="flex-1 overflow-y-auto p-4">
-          <div className="space-y-1">
-            {threads.filter(t => !t.archived).map(thread => (
-              <ContextMenu.Root key={thread.id}>
-                <ContextMenu.Trigger asChild>
-                  <div
-                    className={`p-2 rounded-lg cursor-pointer hover:bg-muted transition-colors ${
-                      currentThreadId === thread.id ? 'bg-muted' : ''
-                    }`}
-                    onClick={() => setLocation(`/ai-chat/${thread.id}`)}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      {editingThreadId === thread.id ? (
-                        <div className="flex items-center gap-1 flex-1">
-                          <input
-                            value={editingTitle}
-                            onChange={(e) => setEditingTitle(e.target.value.slice(0, 120))}
-                            onClick={(e) => e.stopPropagation()}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') { e.stopPropagation(); saveThreadRename(thread.id); }
-                              if (e.key === 'Escape') { e.stopPropagation(); setEditingThreadId(null); }
-                            }}
-                            className="border rounded px-2 py-1 text-sm w-full"
-                            placeholder="Thread title"
-                            autoFocus
-                          />
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => { e.stopPropagation(); saveThreadRename(thread.id); }}
-                            className="h-6 px-2"
-                            aria-label="Save name"
-                          >
-                            <Check className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => { e.stopPropagation(); setEditingThreadId(null); }}
-                            className="h-6 px-2"
-                            aria-label="Cancel rename"
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <span className="text-sm truncate flex-1" title={thread.title}>
-                          {thread.title}
-                        </span>
-                      )}
-                      <div className="flex items-center space-x-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteThread(thread.id);
-                          }}
-                          className="h-6 w-6 p-0"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </ContextMenu.Trigger>
-                <ContextMenu.Content className="rounded-md border bg-popover p-1 text-sm shadow-md">
-                  <ContextMenu.Item
-                    className="cursor-pointer select-none rounded px-2 py-1.5 hover:bg-muted"
-                    onSelect={() => { setEditingThreadId(thread.id); setEditingTitle(thread.title); }}
-                  >
-                    Rename
-                  </ContextMenu.Item>
-                  <ContextMenu.Item
-                    className="cursor-pointer select-none rounded px-2 py-1.5 hover:bg-muted"
-                    onSelect={() => archiveThread(thread.id)}
-                  >
-                    Archive
-                  </ContextMenu.Item>
-                </ContextMenu.Content>
-              </ContextMenu.Root>
-            ))}
-          </div>
-          
-          {threads.filter(t => t.archived).length > 0 && (
-            <>
-              <div className="mt-4 mb-2">
-                <h3 className="text-xs font-semibold text-muted-foreground">Archived</h3>
-              </div>
-              <div className="space-y-1">
-                {threads.filter(t => t.archived).map(thread => (
-                  <ContextMenu.Root key={thread.id}>
-                    <ContextMenu.Trigger asChild>
-                      <div
-                        className={`p-2 rounded-lg cursor-pointer hover:bg-muted transition-colors opacity-60 ${
-                          currentThreadId === thread.id ? 'bg-muted' : ''
-                        }`}
-                        onClick={() => setLocation(`/ai-chat/${thread.id}`)}
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          {editingThreadId === thread.id ? (
-                            <div className="flex items-center gap-1 flex-1">
-                              <input
-                                value={editingTitle}
-                                onChange={(e) => setEditingTitle(e.target.value.slice(0, 120))}
-                                onClick={(e) => e.stopPropagation()}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') { e.stopPropagation(); saveThreadRename(thread.id); }
-                                  if (e.key === 'Escape') { e.stopPropagation(); setEditingThreadId(null); }
-                                }}
-                                className="border rounded px-2 py-1 text-sm w-full"
-                                placeholder="Thread title"
-                                autoFocus
-                              />
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={(e) => { e.stopPropagation(); saveThreadRename(thread.id); }}
-                                className="h-6 px-2"
-                                aria-label="Save name"
-                              >
-                                <Check className="h-3 w-3" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={(e) => { e.stopPropagation(); setEditingThreadId(null); }}
-                                className="h-6 px-2"
-                                aria-label="Cancel rename"
-                              >
-                                <X className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          ) : (
-                            <span className="text-sm truncate flex-1" title={thread.title}>
-                              {thread.title}
-                            </span>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteThread(thread.id);
-                            }}
-                            className="h-6 w-6 p-0"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </div>
-                    </ContextMenu.Trigger>
-                    <ContextMenu.Content className="rounded-md border bg-popover p-1 text-sm shadow-md">
-                      <ContextMenu.Item
-                        className="cursor-pointer select-none rounded px-2 py-1.5 hover:bg-muted"
-                        onSelect={() => { setEditingThreadId(thread.id); setEditingTitle(thread.title); }}
-                      >
-                        Rename
-                      </ContextMenu.Item>
-                      <ContextMenu.Item
-                        className="cursor-pointer select-none rounded px-2 py-1.5 hover:bg-muted"
-                        onSelect={() => unarchiveThread(thread.id)}
-                      >
-                        Restore
-                      </ContextMenu.Item>
-                    </ContextMenu.Content>
-                  </ContextMenu.Root>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      </div>
+    <div className="h-[calc(100vh-4rem)] flex flex-col">
+      {/* Side-by-side layout: Todo List + Chat */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Todo List Sidebar */}
+        <TodoList onTodoChange={refreshTodos} />
 
-      {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col">
-        <div className="border-b p-2">
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-            >
-              <Menu className="h-4 w-4" />
-            </Button>
-            <div className="min-w-0 flex-1">
-              <h1 className="text-base font-medium truncate">
-                {currentThreadId ? (threads.find(t => t.id === currentThreadId)?.title || "Chat") : "Chat"}
-              </h1>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-hidden">
-          {currentThreadId ? (
-            loadingMessages ? (
-              <div className="flex items-center justify-center h-full text-muted-foreground">
-                <div className="text-center">
-                  <Clock className="h-12 w-12 mx-auto mb-4 animate-spin" />
-                  <p>Loading messages...</p>
-                </div>
+        {/* ChatKit Component */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 overflow-hidden">
+            {status === 'ready' ? (
+              <div className="h-full w-full">
+                <ChatKit control={chatkit.control} className="h-full w-full" />
               </div>
             ) : (
-              <AIRuntimeProvider
-                key={currentThreadId}
-                threadId={currentThreadId}
-                initialMessages={messagesThreadId === currentThreadId ? threadMessages : []}
-                onFinish={handleFinish}
-              >
-                <Thread />
-                <CreateTodoToolUI />
-              </AIRuntimeProvider>
-            )
-          ) : (
-            <div className="flex items-center justify-center h-full text-muted-foreground">
-              <div className="text-center">
-                <MessageCircle className="h-12 w-12 mx-auto mb-4" />
-                <p>Create a new chat to get started</p>
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                <div className="text-center">
+                  <MessageCircle className="h-12 w-12 mx-auto mb-4" />
+                  <p>Initializing AI Agent...</p>
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
 
-        <div className="border-t p-3 text-center text-xs text-muted-foreground">
-          <p>
-            AI responses are generated by OpenAI and may not always be accurate. 
-            Use responsibly and verify important information.
-          </p>
+          {/* Footer */}
+          <div className="border-t p-3 text-center text-xs text-muted-foreground">
+            <p>
+              Powered by OpenAI ChatKit. Todos update automatically when the AI creates them.
+            </p>
+          </div>
         </div>
       </div>
     </div>

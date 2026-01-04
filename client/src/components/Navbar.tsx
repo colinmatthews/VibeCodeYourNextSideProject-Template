@@ -3,11 +3,26 @@ import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { auth } from "@/lib/firebase";
 import { useEffect, useState } from "react";
-import { CardHeader } from "@/components/ui/card"; // Added import for CardHeader
+
+interface NavLinkProps {
+  href: string;
+  isActive: boolean;
+  children: React.ReactNode;
+}
+
+function NavLink({ href, isActive, children }: NavLinkProps) {
+  return (
+    <Link href={href}>
+      <Button variant={isActive ? "secondary" : "ghost"}>
+        {children}
+      </Button>
+    </Link>
+  );
+}
 
 export default function Navbar() {
   const [user, setUser] = useState(auth.currentUser);
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
@@ -25,27 +40,27 @@ export default function Navbar() {
     <nav className="border-b bg-background">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <Link href="/" className="flex items-center">
-          <img 
-            src="/placeholder-logo.svg" 
-            alt="Your Logo" 
-            className="h-8" 
+          <img
+            src="/placeholder-logo.svg"
+            alt="Your Logo"
+            className="h-8"
           />
         </Link>
         <div className="flex items-center gap-4">
-          <Link href="/pricing">
-            <Button variant="ghost">Pricing</Button>
-          </Link>
+          <NavLink href="/pricing" isActive={location === "/pricing"}>
+            Pricing
+          </NavLink>
           {user ? (
             <>
-              <Link href="/">
-                <Button variant="ghost">Dashboard</Button>
-              </Link>
-              <Link href="/ai-chat">
-                <Button variant="ghost">AI Chat</Button>
-              </Link>
-              <Link href="/settings">
-                <Button variant="ghost">Settings</Button>
-              </Link>
+              <NavLink href="/" isActive={location === "/"}>
+                Dashboard
+              </NavLink>
+              <NavLink href="/ai-chat" isActive={location === "/ai-chat"}>
+                AI Chat
+              </NavLink>
+              <NavLink href="/settings" isActive={location === "/settings"}>
+                Settings
+              </NavLink>
               <Button onClick={handleSignOut} variant="outline">Sign Out</Button>
             </>
           ) : (
