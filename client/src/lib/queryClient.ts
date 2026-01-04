@@ -41,6 +41,10 @@ export async function apiPut(url: string, data?: unknown): Promise<Response> {
   return apiRequest('PUT', url, data);
 }
 
+export async function apiPatch(url: string, data?: unknown): Promise<Response> {
+  return apiRequest('PATCH', url, data);
+}
+
 export async function apiDelete(url: string): Promise<Response> {
   return apiRequest('DELETE', url);
 }

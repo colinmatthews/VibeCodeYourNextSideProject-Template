@@ -1,3 +1,7 @@
+// This file runs BEFORE the Jest test framework is installed
+// Use this for environment variables and module mocks only
+// For Jest APIs (jest.fn, expect, beforeEach), use jest.afterEnv.js instead
+
 // Mock environment variables for tests
 process.env.DATABASE_URL = process.env.DATABASE_URL || 'postgresql://test:test@localhost:5432/test_db';
 process.env.NODE_ENV = 'test';

@@ -1,0 +1,24 @@
+{
+  "name": "updateTodoStatus",
+  "description": "Update the status of an existing todo item. Valid statuses are: 'open' (not started), 'in_progress' (actively working on), or 'completed' (finished).",
+  "strict": false,
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "description": "The ID of the todo item to update"
+      },
+      "status": {
+        "type": "string",
+        "enum": ["open", "in_progress", "completed"],
+        "description": "The new status for the todo item"
+      }
+    },
+    "additionalProperties": false,
+    "required": [
+      "id",
+      "status"
+    ]
+  }
+}

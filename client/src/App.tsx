@@ -65,7 +65,6 @@ function Router() {
           <Route path="/settings" component={Settings} />
           <Route path="/files" component={Files} />
           <Route path="/ai-chat" component={AIChat} />
-          <Route path="/ai-chat/:threadId" component={AIChat} />
           <Route component={NotFound} />
         </Switch>
       </div>
