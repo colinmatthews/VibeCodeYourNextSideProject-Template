@@ -59,12 +59,8 @@ import { posthog, logEvent, logSecurity } from './lib/audit';
         connectSrc: [
           "'self'",
           "https://api.stripe.com",
-          "https://firebasestorage.googleapis.com",
-          "https://identitytoolkit.googleapis.com",
-          "https://securetoken.googleapis.com",
           "https://accounts.google.com",
           "https://www.googleapis.com",
-          "https://*.firebaseapp.com",
           "https://us.i.posthog.com",
           "https://us-assets.i.posthog.com",
           "https://*.posthog.com",
@@ -74,13 +70,11 @@ import { posthog, logEvent, logSecurity } from './lib/audit';
         imgSrc: [
           "'self'",
           "data:",
-          "https://firebasestorage.googleapis.com",
           "https://*.googleusercontent.com"
         ],
         frameSrc: [
           "https://js.stripe.com",
           "https://accounts.google.com",
-          "https://*.firebaseapp.com",
           "https://cdn.platform.openai.com",
           "https://platform.openai.com"
         ]
@@ -292,24 +286,6 @@ import { posthog, logEvent, logSecurity } from './lib/audit';
       });
     }
 
-    // Handle multer errors (file upload)
-    if (err.code === 'LIMIT_FILE_SIZE') {
-      const requestId = (res as any)?.locals?.requestId;
-      logEvent('api.error', { requestId, method: req.method, path: req.path, status: 413, code: 'payload_too_large' });
-      return res.status(413).json({
-        error: 'File too large',
-        requestId
-      });
-    }
-
-    if (err.code === 'LIMIT_UNEXPECTED_FILE') {
-      const requestId = (res as any)?.locals?.requestId;
-      logEvent('api.error', { requestId, method: req.method, path: req.path, status: 400, code: 'unexpected_file_field' });
-      return res.status(400).json({
-        error: 'Unexpected file field',
-        requestId
-      });
-    }
     const requestId = (res as any)?.locals?.requestId;
     logEvent('api.error', { requestId, method: req.method, path: req.path, status, code: err.code || 'internal_error' });
     res.status(status).json({ error: message, requestId });

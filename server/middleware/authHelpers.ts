@@ -48,64 +48,6 @@ export function requiresOwnership(
 }
 
 /**
- * Middleware to verify ownership of a specific file
- * Checks that the authenticated user owns the file by ID
- */
-export async function requiresFileOwnership(
-  req: AuthenticatedRequest,
-  res: Response,
-  next: NextFunction
-) {
-  const userId = getUserId(req);
-  
-  if (!userId) {
-    logSecurity('access_denied', { reason: 'no_user', path: req.path, method: req.method, ip: req.ip });
-    return res.status(401).json({
-      error: 'Authentication required',
-      code: 'auth/no-token'
-    });
-  }
-
-  const fileId = Number(req.params.id);
-  
-  if (isNaN(fileId)) {
-    logSecurity('access_denied', { reason: 'invalid_file_id', path: req.path, method: req.method, userId });
-    return res.status(400).json({
-      error: 'Invalid file ID'
-    });
-  }
-
-  try {
-    const file = await storage.getFileById(fileId);
-    
-    if (!file) {
-      logSecurity('access_denied', { reason: 'file_not_found', path: req.path, method: req.method, userId, fileId });
-      return res.status(404).json({
-        error: 'File not found'
-      });
-    }
-
-    // Verify the authenticated user owns this file
-    if (file.userId !== userId) {
-      logSecurity('access_denied', { reason: 'not_owner', path: req.path, method: req.method, userId, fileOwnerId: file.userId, fileId });
-      return res.status(403).json({
-        error: 'Access denied: You can only access your own files',
-        code: 'auth/access-denied'
-      });
-    }
-
-    // Add file to request for use in route handler
-    (req as any).file = file;
-    next();
-  } catch (error) {
-    console.error('Error checking file ownership:', error);
-    return res.status(500).json({
-      error: 'Failed to verify file ownership'
-    });
-  }
-}
-
-/**
  * Middleware to verify ownership of a specific item
  * Checks that the authenticated user owns the item by ID
  */

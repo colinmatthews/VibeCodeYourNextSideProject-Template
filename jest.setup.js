@@ -11,7 +11,6 @@ process.env.SENDGRID_API_KEY = process.env.SENDGRID_API_KEY || 'SG.test_key';
 // Use a stable, verified sender for tests
 process.env.SENDGRID_FROM = process.env.SENDGRID_FROM || 'carlos@kindnessengineering.com';
 process.env.POSTHOG_API_KEY = process.env.POSTHOG_API_KEY || 'phc_test_key';
-// Note: Firebase Admin env vars only needed for Firebase Storage (file uploads), not auth
 
 // Mock nanoid for ESM compatibility
 jest.mock('nanoid', () => ({
@@ -103,13 +102,8 @@ jest.mock('./server/storage/index', () => ({
     upsertUser: jest.fn(),
     getItemsByUserId: jest.fn().mockResolvedValue([]),
     createItem: jest.fn(),
-    deleteItem: jest.fn(),
-    getFilesByUserId: jest.fn().mockResolvedValue([]),
-    getFileById: jest.fn(),
-    getFileByIdAndUserId: jest.fn(),
-    createFile: jest.fn(),
-    deleteFile: jest.fn(),
-    getFileByPath: jest.fn()
+    updateItemStatus: jest.fn(),
+    deleteItem: jest.fn()
   }
 }));
 
@@ -415,69 +409,6 @@ global.mockSendGrid = mockSendGrid;
 global.mockMailServiceInstance = mockMailServiceInstance;
 
 jest.mock('@sendgrid/mail', () => mockSendGrid, { virtual: true });
-
-// Mock Firebase Admin (only needed for Firebase Storage, not auth)
-jest.mock('firebase-admin/app', () => ({
-  initializeApp: jest.fn(),
-  getApps: jest.fn(() => []),
-  cert: jest.fn()
-}));
-
-// Mock Firebase Admin Auth - only kept to prevent import errors, not used for authentication
-// Authentication is handled by Replit Auth (see ./server/replit_integrations/auth mock below)
-jest.mock('firebase-admin/auth', () => ({
-  getAuth: jest.fn(() => ({
-    verifyIdToken: jest.fn().mockRejectedValue(new Error('Firebase Auth not used')),
-    getUser: jest.fn().mockRejectedValue(new Error('Firebase Auth not used')),
-    revokeRefreshTokens: jest.fn().mockRejectedValue(new Error('Firebase Auth not used')),
-    setCustomUserClaims: jest.fn().mockRejectedValue(new Error('Firebase Auth not used')),
-    deleteUser: jest.fn().mockRejectedValue(new Error('Firebase Auth not used'))
-  }))
-}));
-
-jest.mock('firebase-admin/storage', () => ({
-  getStorage: jest.fn(() => ({
-    bucket: jest.fn(() => ({
-      file: jest.fn(() => ({
-        createWriteStream: jest.fn(() => ({
-          on: jest.fn(),
-          end: jest.fn(),
-          destroy: jest.fn()
-        })),
-        createReadStream: jest.fn(() => ({
-          on: jest.fn(),
-          pipe: jest.fn()
-        })),
-        delete: jest.fn().mockResolvedValue([]),
-        exists: jest.fn().mockResolvedValue([true]),
-        getSignedUrl: jest.fn().mockResolvedValue(['https://mock-url.com'])
-      }))
-    }))
-  }))
-}));
-
-// Mock Firebase Storage Service with realistic signed URLs
-jest.mock('./server/lib/firebaseStorage', () => {
-  const timestamp = Date.now();
-  const randomId = Math.random().toString(36).substring(7);
-  return {
-    firebaseStorage: {
-      uploadFile: jest.fn().mockResolvedValue({
-        name: `${timestamp}-${randomId}.jpg`,
-        originalName: 'original.jpg',
-        path: `users/test-replit-user-id/files/${timestamp}-${randomId}.jpg`,
-        url: `https://storage.googleapis.com/bucket-name/users/test-replit-user-id/files/${timestamp}-${randomId}.jpg?GoogleAccessId=service-account%40project.iam.gserviceaccount.com&Expires=1641321600&Signature=abc123def456ghi789jkl012mno345pqr678stu901vwx234yz`,
-        size: 1024,
-        type: 'image/jpeg'
-      }),
-      createDownloadStream: jest.fn().mockReturnValue(
-        require('stream').Readable.from('mock file content')
-      ),
-      deleteFile: jest.fn().mockResolvedValue(true),
-      fileExists: jest.fn().mockResolvedValue(true)
-    }
-  };
-});
 
 // Mock Auth Middleware - uses Replit session-based auth pattern
 jest.mock('./server/middleware/auth', () => ({

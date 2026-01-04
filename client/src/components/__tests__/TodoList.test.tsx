@@ -2,22 +2,16 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TodoList } from '../TodoList';
 import { apiRequest } from '@/lib/queryClient';
-import { auth } from '@/lib/firebase';
 
 // Mock dependencies
 jest.mock('@/lib/queryClient');
-jest.mock('@/lib/firebase', () => ({
-  auth: {
-    currentUser: {
-      uid: 'test-user-123',
-      getIdToken: jest.fn().mockResolvedValue('test-token'),
-    },
-  },
-}));
 
-jest.mock('@/lib/auth', () => ({
+// Mock Replit Auth hook
+jest.mock('@/hooks/use-auth', () => ({
   useAuth: () => ({
-    user: { uid: 'test-user-123' },
+    user: { id: 'test-user-123' },
+    isLoading: false,
+    logout: jest.fn(),
   }),
 }));
 

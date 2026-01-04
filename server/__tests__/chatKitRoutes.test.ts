@@ -7,13 +7,16 @@ import { storage } from '../storage';
 // Mock dependencies
 jest.mock('../storage');
 jest.mock('../middleware/auth', () => ({
-  requireAuth: (req: any, res: any, next: any) => {
-    if (!req.user) {
+  AuthenticatedRequest: class {},
+  getUserId: (req: any) => req.user?.claims?.sub || null
+}));
+jest.mock('../replit_integrations/auth', () => ({
+  isAuthenticated: (req: any, res: any, next: any) => {
+    if (!req.user?.claims?.sub) {
       return res.status(401).json({ error: 'Authentication required', code: 'auth/no-token' });
     }
     next();
-  },
-  AuthenticatedRequest: class {}
+  }
 }));
 
 // Mock fetch globally
@@ -31,9 +34,15 @@ describe('ChatKit Routes', () => {
     app.use(express.json());
     app.use(cookieParser());
 
-    // Add mock user to requests
+    // Add mock user to requests (Replit Auth session format)
     app.use((req: any, res, next) => {
-      req.user = { uid: 'test-user-123' };
+      req.user = {
+        claims: {
+          sub: 'test-user-123',
+          email: 'test@example.com'
+        }
+      };
+      req.isAuthenticated = () => true;
       next();
     });
 
@@ -49,12 +58,11 @@ describe('ChatKit Routes', () => {
   describe('POST /api/chatkit/session', () => {
     it('should create a ChatKit session successfully', async () => {
       const mockUserRecord = {
-        id: 1,
-        firebaseId: 'test-user-123',
+        id: 'test-user-123',
         email: 'test@example.com',
       };
 
-      (storage.getUserByFirebaseId as jest.Mock).mockResolvedValue(mockUserRecord);
+      (storage.getUserById as jest.Mock).mockResolvedValue(mockUserRecord);
 
       const mockSessionResponse = {
         client_secret: 'test-client-secret',
@@ -123,9 +131,8 @@ describe('ChatKit Routes', () => {
     });
 
     it('should handle OpenAI API errors gracefully', async () => {
-      (storage.getUserByFirebaseId as jest.Mock).mockResolvedValue({
-        id: 1,
-        firebaseId: 'test-user-123',
+      (storage.getUserById as jest.Mock).mockResolvedValue({
+        id: 'test-user-123',
         email: 'test@example.com',
       });
 
@@ -145,9 +152,8 @@ describe('ChatKit Routes', () => {
     });
 
     it('should retry on network failures', async () => {
-      (storage.getUserByFirebaseId as jest.Mock).mockResolvedValue({
-        id: 1,
-        firebaseId: 'test-user-123',
+      (storage.getUserById as jest.Mock).mockResolvedValue({
+        id: 'test-user-123',
         email: 'test@example.com',
       });
 

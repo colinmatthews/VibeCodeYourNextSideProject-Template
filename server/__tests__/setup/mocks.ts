@@ -73,22 +73,16 @@ export const mockPostHogNode = {
   }))
 };
 
-// Firebase Storage mock is defined in global jest.setup.js
-
 // Import the storage mock from the global jest setup
 // Note: this will be the same mock instance that routes will use
 export const mockStorage = require('../../storage/index').storage;
-
-// Import the Firebase Storage mock from the global jest setup
-export const mockFirebaseStorage = require('../../lib/firebaseStorage').firebaseStorage;
 
 // Import the Stripe mock from jest.setup.js (will be same instance as routes)
 const StripeClass = require('stripe');
 export const mockStripeInstance = new StripeClass();
 
-// SendGrid mock is now applied in jest.setup.js
+// Apply mocks
 jest.mock('posthog-node', () => mockPostHogNode);
-// Firebase Storage mock is now in global jest.setup.js
 
 // Export reset function for test cleanup
 export const resetAllMocks = () => {
@@ -98,25 +92,20 @@ export const resetAllMocks = () => {
   if (mockStorage.getUserById) mockStorage.getUserById.mockResolvedValue(null);
   if (mockStorage.getUserByEmail) mockStorage.getUserByEmail.mockResolvedValue(null);
   if (mockStorage.getItemsByUserId) mockStorage.getItemsByUserId.mockResolvedValue([]);
-  if (mockStorage.getFilesByUserId) mockStorage.getFilesByUserId.mockResolvedValue([]);
-  if (mockStorage.getFileById) mockStorage.getFileById.mockResolvedValue(null);
   if (mockStorage.createUser) mockStorage.createUser.mockResolvedValue({ id: 'test-replit-user-id' });
   if (mockStorage.updateUser) mockStorage.updateUser.mockResolvedValue({ id: 'test-replit-user-id' });
   if (mockStorage.upsertUser) mockStorage.upsertUser.mockResolvedValue({ id: 'test-replit-user-id' });
   if (mockStorage.createItem) mockStorage.createItem.mockResolvedValue({ id: 1, item: 'test', userId: 'test-replit-user-id' });
+  if (mockStorage.updateItemStatus) mockStorage.updateItemStatus.mockResolvedValue({ id: 1, item: 'test', userId: 'test-replit-user-id', status: 'completed' });
   if (mockStorage.deleteItem) mockStorage.deleteItem.mockResolvedValue(undefined);
-  if (mockStorage.createFile) mockStorage.createFile.mockResolvedValue({ id: 1, name: 'test.jpg', userId: 'test-replit-user-id' });
-  if (mockStorage.deleteFile) mockStorage.deleteFile.mockResolvedValue(undefined);
-  if (mockStorage.getFileByPath) mockStorage.getFileByPath.mockResolvedValue(null);
-  if (mockStorage.getFileByIdAndUserId) mockStorage.getFileByIdAndUserId.mockResolvedValue(null);
-  
+
   // Reset SendGrid mock defaults
   if ((global as any).mockMailServiceInstance) {
     (global as any).mockMailServiceInstance.send.mockResolvedValue(mockSendGridResponse);
     (global as any).mockMailServiceInstance.setApiKey.mockClear();
     (global as any).mockMailServiceInstance.send.mockClear();
   }
-  
+
   // Reset Stripe mock defaults
   mockStripeInstance.customers.create.mockResolvedValue({
     id: 'cus_test123',
@@ -197,18 +186,4 @@ export const resetAllMocks = () => {
     return_url: 'https://example.com/account',
     url: 'https://billing.stripe.com/p/session/test_YWNjdF8xTEJEMjlBN3g5RFFuVUpy'
   });
-
-  // Reset Firebase Storage mock defaults with realistic signed URLs
-  const timestamp = Date.now();
-  const randomId = Math.random().toString(36).substring(7);
-  mockFirebaseStorage.uploadFile.mockResolvedValue({
-    name: `${timestamp}-${randomId}.jpg`,
-    originalName: 'original.jpg',
-    path: `users/test-replit-user-id/files/${timestamp}-${randomId}.jpg`,
-    url: `https://storage.googleapis.com/bucket-name/users/test-replit-user-id/files/${timestamp}-${randomId}.jpg?GoogleAccessId=service-account%40project.iam.gserviceaccount.com&Expires=1641321600&Signature=abc123def456ghi789jkl012mno345pqr678stu901vwx234yz`,
-    size: 1024,
-    type: 'image/jpeg'
-  });
-  mockFirebaseStorage.fileExists.mockResolvedValue(true);
-  mockFirebaseStorage.deleteFile.mockResolvedValue(true);
 };

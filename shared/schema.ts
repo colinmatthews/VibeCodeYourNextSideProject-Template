@@ -1,5 +1,5 @@
 
-import { pgTable, text, serial, boolean, timestamp, integer, varchar, jsonb, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, boolean, timestamp, varchar, jsonb, index } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -60,19 +60,6 @@ export const items = pgTable("items", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-export const files = pgTable("files", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  originalName: text("original_name").notNull(),
-  path: text("path").notNull(),
-  url: text("url").notNull(),
-  size: integer("size").notNull(),
-  type: text("type").notNull(),
-  userId: text("user_id").notNull().references(() => users.id),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
-
 export const aiThreads = pgTable("ai_threads", {
   id: text("id").primaryKey(),
   title: text("title").notNull().default("New Chat"),
@@ -92,20 +79,12 @@ export const aiMessages = pgTable("ai_messages", {
 
 export const usersRelations = relations(users, ({ many }) => ({
   items: many(items),
-  files: many(files),
   aiThreads: many(aiThreads),
 }));
 
 export const itemsRelations = relations(items, ({ one }) => ({
   user: one(users, {
     fields: [items.userId],
-    references: [users.id],
-  }),
-}));
-
-export const filesRelations = relations(files, ({ one }) => ({
-  user: one(users, {
-    fields: [files.userId],
     references: [users.id],
   }),
 }));
@@ -148,8 +127,6 @@ export const updateItemStatusSchema = z.object({
   status: z.enum(["open", "in_progress", "completed"]),
 });
 
-export const insertFileSchema = createInsertSchema(files);
-
 export const insertAiThreadSchema = createInsertSchema(aiThreads, {
   title: (schema) => schema.default("New Chat"),
   archived: (schema) => schema.default(false),
@@ -163,9 +140,6 @@ export type User = typeof users.$inferSelect;
 // @ts-expect-error - Zod v3/v4 typing conflict with drizzle-zod
 export type InsertItem = z.infer<typeof insertItemSchema>;
 export type Item = typeof items.$inferSelect;
-// @ts-expect-error - Zod v3/v4 typing conflict with drizzle-zod
-export type InsertFile = z.infer<typeof insertFileSchema>;
-export type File = typeof files.$inferSelect;
 // @ts-expect-error - Zod v3/v4 typing conflict with drizzle-zod
 export type InsertAiThread = z.infer<typeof insertAiThreadSchema>;
 export type AiThread = typeof aiThreads.$inferSelect;

@@ -4,7 +4,6 @@ import { setupAuth, registerAuthRoutes } from '../replit_integrations/auth';
 import { registerUserRoutes } from './userRoutes';
 import { registerItemRoutes } from './itemRoutes';
 import { registerPaymentRoutes } from './paymentRoutes';
-import { registerFileRoutes } from './fileRoutes';
 import { registerChatKitRoutes } from './chatKitRoutes';
 
 export async function registerRoutes(app: Express) {
@@ -18,7 +17,6 @@ export async function registerRoutes(app: Express) {
   await registerUserRoutes(app);
   await registerItemRoutes(app);
   await registerPaymentRoutes(app);
-  await registerFileRoutes(app);
   await registerChatKitRoutes(app);
 
   return server;
