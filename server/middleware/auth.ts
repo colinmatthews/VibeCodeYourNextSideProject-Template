@@ -1,33 +1,18 @@
 import { Request, Response, NextFunction } from 'express';
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getAuth } from 'firebase-admin/auth';
 import { logSecurity } from '../lib/audit';
-
-// Initialize Firebase Admin SDK
-if (getApps().length === 0) {
-  // In production, use service account key
-  // In development, Firebase Admin SDK can use Application Default Credentials
-  if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
-    initializeApp({
-      credential: cert(serviceAccount),
-      projectId: process.env.VITE_FIREBASE_PROJECT_ID,
-      storageBucket: process.env.FIREBASE_STORAGE_BUCKET || `${process.env.VITE_FIREBASE_PROJECT_ID}.firebasestorage.app`
-    });
-  } else {
-    // For development, you can use the Firebase project ID
-    initializeApp({
-      projectId: process.env.VITE_FIREBASE_PROJECT_ID,
-      storageBucket: process.env.FIREBASE_STORAGE_BUCKET || `${process.env.VITE_FIREBASE_PROJECT_ID}.firebasestorage.app`
-    });
-  }
-}
 
 export interface AuthenticatedRequest extends Request {
   user?: {
-    uid: string;
-    email?: string;
-    email_verified?: boolean;
+    claims?: {
+      sub: string;
+      email?: string;
+      first_name?: string;
+      last_name?: string;
+      profile_image_url?: string;
+    };
+    access_token?: string;
+    refresh_token?: string;
+    expires_at?: number;
   };
 }
 
@@ -37,84 +22,7 @@ export interface AuthError {
 }
 
 /**
- * Middleware to verify Firebase ID tokens and extract user information
- */
-export async function verifyFirebaseToken(
-  req: AuthenticatedRequest,
-  res: Response,
-  next: NextFunction
-) {
-  try {
-    const authHeader = req.headers.authorization;
-    
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    logSecurity('auth_failed', { reason: 'no_token', path: req.path, method: req.method, ip: req.ip });
-    return res.status(401).json({
-      error: 'Authentication required',
-      code: 'auth/no-token'
-    });
-  }
-
-    const idToken = authHeader.split('Bearer ')[1];
-    
-  if (!idToken) {
-    logSecurity('auth_failed', { reason: 'empty_token', path: req.path, method: req.method, ip: req.ip });
-    return res.status(401).json({
-      error: 'Authentication required',
-      code: 'auth/no-token'
-    });
-  }
-
-    // Verify the Firebase ID token
-    const decodedToken = await getAuth().verifyIdToken(idToken);
-    
-    // Add user information to request object
-    req.user = {
-      uid: decodedToken.uid,
-      email: decodedToken.email,
-      email_verified: decodedToken.email_verified
-    };
-
-    next();
-  } catch (error: any) {
-    console.error('Firebase token verification error:', error);
-    
-    // Handle specific Firebase Auth errors
-    if (error.code === 'auth/id-token-expired') {
-      logSecurity('auth_failed', { reason: 'expired', path: req.path, method: req.method, ip: req.ip });
-      return res.status(401).json({
-        error: 'Authentication token has expired',
-        code: 'auth/expired-token'
-      });
-    }
-    
-    if (error.code === 'auth/id-token-revoked') {
-      logSecurity('auth_failed', { reason: 'revoked', path: req.path, method: req.method, ip: req.ip });
-      return res.status(401).json({
-        error: 'Authentication token has been revoked',
-        code: 'auth/invalid-token'
-      });
-    }
-    
-    if (error.code === 'auth/invalid-id-token') {
-      logSecurity('auth_failed', { reason: 'invalid', path: req.path, method: req.method, ip: req.ip });
-      return res.status(401).json({
-        error: 'Invalid authentication token',
-        code: 'auth/invalid-token'
-      });
-    }
-
-    // Generic authentication error
-    logSecurity('auth_failed', { reason: 'generic', path: req.path, method: req.method, ip: req.ip });
-    return res.status(401).json({
-      error: 'Authentication failed',
-      code: 'auth/invalid-token'
-    });
-  }
-}
-
-/**
- * Middleware that requires authentication
+ * Middleware that requires authentication using Replit Auth session
  * Use this for endpoints that need user authentication
  */
 export function requireAuth(
@@ -122,46 +30,45 @@ export function requireAuth(
   res: Response,
   next: NextFunction
 ) {
-  return verifyFirebaseToken(req, res, next);
+  const user = req.user as any;
+
+  if (!req.isAuthenticated || !req.isAuthenticated() || !user?.expires_at) {
+    logSecurity('auth_failed', { reason: 'not_authenticated', path: req.path, method: req.method, ip: req.ip });
+    return res.status(401).json({
+      error: 'Authentication required',
+      code: 'auth/no-token'
+    });
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  if (now > user.expires_at) {
+    logSecurity('auth_failed', { reason: 'expired', path: req.path, method: req.method, ip: req.ip });
+    return res.status(401).json({
+      error: 'Authentication token has expired',
+      code: 'auth/expired-token'
+    });
+  }
+
+  next();
 }
 
 /**
  * Optional authentication middleware
  * Use this for endpoints where authentication is optional
  */
-export async function optionalAuth(
+export function optionalAuth(
   req: AuthenticatedRequest,
   res: Response,
   next: NextFunction
 ) {
-  const authHeader = req.headers.authorization;
-  
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    // No token provided, continue without authentication
-    return next();
-  }
+  // With Replit Auth, the session is automatically handled
+  // Just continue - user info will be available if authenticated
+  next();
+}
 
-  const idToken = authHeader.split('Bearer ')[1];
-  
-  if (!idToken) {
-    // Empty token, continue without authentication  
-    return next();
-  }
-
-  try {
-    // Try to verify the Firebase ID token
-    const decodedToken = await getAuth().verifyIdToken(idToken);
-    
-    // Add user information to request object
-    req.user = {
-      uid: decodedToken.uid,
-      email: decodedToken.email,
-      email_verified: decodedToken.email_verified
-    };
-
-    next();
-  } catch (error) {
-    // Token verification failed, continue without authentication
-    next();
-  }
+/**
+ * Helper to get user ID from request
+ */
+export function getUserId(req: AuthenticatedRequest): string | undefined {
+  return req.user?.claims?.sub;
 }

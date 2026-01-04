@@ -2,7 +2,8 @@ import type { Express } from "express";
 import { storage } from "../storage/index";
 import { insertUserSchema } from "@shared/schema";
 import Stripe from "stripe";
-import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
+import { isAuthenticated } from "../replit_integrations/auth";
+import { AuthenticatedRequest, getUserId } from "../middleware/auth";
 import { requiresOwnership, requiresUserExists } from "../middleware/authHelpers";
 import { z } from "zod";
 import { PostHog } from 'posthog-node';
@@ -15,12 +16,12 @@ const posthog = posthogKey
   : null;
 
 // Helper function to identify user in PostHog
-const identifyUserInPostHog = (email: string, firebaseId: string, additionalProperties?: Record<string, any>) => {
+const identifyUserInPostHog = (email: string, userId: string, additionalProperties?: Record<string, any>) => {
   if (!posthog) return;
   posthog.identify({
     distinctId: email,
     properties: {
-      firebaseId,
+      userId,
       email,
       ...additionalProperties
     }
@@ -35,102 +36,20 @@ const updateProfileSchema = z.object({
 });
 
 export async function registerUserRoutes(app: Express) {
-  // Login endpoint for token verification and user session creation
-  app.post("/api/login", requireAuth, async (req: AuthenticatedRequest, res) => {
-    try {
-      const firebaseId = req.user!.uid;
-      const email = req.user!.email;
-
-      // Check if user exists in our database
-      let user = await storage.getUserByFirebaseId(firebaseId);
-      
-      if (!user) {
-        // Create a basic user profile if none exists
-        user = await storage.createUser({
-          firebaseId,
-          email: email || '',
-          firstName: '',
-          lastName: '',
-          address: '',
-          city: '',
-          state: '',
-          postalCode: '',
-          isPremium: false,
-          subscriptionType: 'free',
-          emailNotifications: false
-        });
-
-        // Identify new user in PostHog
-        if (email) {
-          identifyUserInPostHog(email, firebaseId, {
-            subscriptionType: 'free',
-            isPremium: false,
-            isNewUser: true
-          });
-          
-          // Track user registration event
-          if (posthog) {
-            posthog.capture({
-              distinctId: email,
-              event: 'user_registered',
-              properties: {
-                firebaseId,
-                subscriptionType: 'free',
-                method: 'firebase_auth'
-              }
-            });
-          }
-        }
-      } else {
-        // Identify returning user in PostHog
-        if (email) {
-          identifyUserInPostHog(email, firebaseId, {
-            subscriptionType: user.subscriptionType,
-            isPremium: user.isPremium,
-            firstName: user.firstName,
-            lastName: user.lastName
-          });
-          
-          // Track login event
-          if (posthog) {
-            posthog.capture({
-              distinctId: email,
-              event: 'user_logged_in',
-              properties: {
-                firebaseId,
-                subscriptionType: user.subscriptionType
-              }
-            });
-          }
-        }
-      }
-
-      // Return user info for client
-      res.json({
-        firebaseId: user.firebaseId,
-        email: user.email,
-        subscriptionType: user.subscriptionType,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        emailNotifications: user.emailNotifications,
-        isPremium: user.isPremium
-      });
-    } catch (error) {
-      console.error("Login error:", error);
-      res.status(500).json({ error: "Login failed" });
-    }
-  });
-
   // Check and create Stripe customer if needed
-  app.post("/api/users/ensure-stripe", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/users/ensure-stripe", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const stripe = getStripeClient();
       if (!stripe) {
         return res.status(503).json({ error: "Payments service not configured" });
       }
 
-      const firebaseId = req.user!.uid;
-      const email = req.user!.email;
+      const userId = getUserId(req);
+      const email = req.user?.claims?.email;
+
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
 
       if (!email) {
         return res.status(400).json({ error: "User email is required" });
@@ -138,20 +57,21 @@ export async function registerUserRoutes(app: Express) {
 
       let stripeCustomerId;
       let customer;
-      const existingUser = await storage.getUserByFirebaseId(firebaseId);
+      const existingUser = await storage.getUserById(userId);
 
       if (!existingUser) {
         customer = await stripe.customers.create({
           email,
-          metadata: { firebaseId }
+          metadata: { userId }
         });
         stripeCustomerId = customer.id;
 
-        const newUser = await storage.createUser({
-          firebaseId,
+        await storage.upsertUser({
+          id: userId,
           email,
-          firstName: "",
-          lastName: "",
+          firstName: req.user?.claims?.first_name || "",
+          lastName: req.user?.claims?.last_name || "",
+          profileImageUrl: req.user?.claims?.profile_image_url,
           address: "",
           city: "",
           state: "",
@@ -172,10 +92,12 @@ export async function registerUserRoutes(app: Express) {
         customer = await stripe.customers.create({
           email,
           metadata: {
-            firebaseId,
+            userId,
           },
         });
         stripeCustomerId = customer.id;
+        
+        await storage.updateUser(userId, { stripeCustomerId });
       }
 
       return res.json({ stripeCustomerId });
@@ -185,7 +107,7 @@ export async function registerUserRoutes(app: Express) {
     }
   });
 
-  app.post("/api/users", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/users", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const stripe = getStripeClient();
       if (!stripe) {
@@ -193,27 +115,31 @@ export async function registerUserRoutes(app: Express) {
       }
 
       const userInput = req.body;
-      const firebaseId = req.user!.uid;
-      const authenticatedEmail = req.user!.email;
+      const userId = getUserId(req);
+      const authenticatedEmail = req.user?.claims?.email;
+
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
 
       // Ensure the user is creating their own profile
-      if (userInput.firebaseId && userInput.firebaseId !== firebaseId) {
+      if (userInput.id && userInput.id !== userId) {
         return res.status(403).json({ error: "Access denied: You can only create your own profile" });
       }
 
       // Use authenticated user's data
       const user = insertUserSchema.parse({
         ...userInput,
-        firebaseId,
+        id: userId,
         email: authenticatedEmail || userInput.email
       });
       
-      const fullName = `${user.firstName} ${user.lastName}`;
+      const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
 
-      // Check if user exists by firebase ID or email
+      // Check if user exists by ID or email
       const [existingUserById, existingUserByEmail] = await Promise.all([
-        storage.getUserByFirebaseId(user.firebaseId),
-        storage.getUserByEmail(user.email)
+        storage.getUserById(userId),
+        user.email ? storage.getUserByEmail(user.email) : undefined
       ]);
 
       if (existingUserById) {
@@ -226,28 +152,28 @@ export async function registerUserRoutes(app: Express) {
 
       // Create new user
       const customer = await stripe.customers.create({
-        email: user.email,
-        name: fullName,
+        email: user.email || undefined,
+        name: fullName || undefined,
         metadata: {
-          firebaseId: user.firebaseId,
+          userId: user.id!,
         },
-        shipping: {
+        shipping: user.address ? {
           name: fullName,
           address: {
             line1: user.address,
-            city: user.city,
-            state: user.state,
-            postal_code: user.postalCode,
+            city: user.city || undefined,
+            state: user.state || undefined,
+            postal_code: user.postalCode || undefined,
             country: 'US'
           }
-        },
-        address: {
+        } : undefined,
+        address: user.address ? {
           line1: user.address,
-          city: user.city,
-          state: user.state,
-          postal_code: user.postalCode,
+          city: user.city || undefined,
+          state: user.state || undefined,
+          postal_code: user.postalCode || undefined,
           country: 'US'
-        }
+        } : undefined
       });
 
       // Create user with Stripe customer ID
@@ -267,20 +193,24 @@ export async function registerUserRoutes(app: Express) {
     }
   });
 
-  app.patch("/api/users/profile", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.patch("/api/users/profile", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       // Validate request body
       const validatedData = updateProfileSchema.parse(req.body);
       const { firstName, lastName, emailNotifications } = validatedData;
-      const firebaseId = req.user!.uid;
+      const userId = getUserId(req);
 
-      const user = await storage.getUserByFirebaseId(firebaseId);
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      const user = await storage.getUserById(userId);
 
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
 
-      const updatedUser = await storage.updateUser(user.firebaseId, {
+      const updatedUser = await storage.updateUser(user.id, {
         ...(firstName !== undefined && { firstName }),
         ...(lastName !== undefined && { lastName }),
         ...(emailNotifications !== undefined && { emailNotifications }),
@@ -293,23 +223,29 @@ export async function registerUserRoutes(app: Express) {
     }
   });
 
-  app.get("/api/users/profile", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/users/profile", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const firebaseId = req.user!.uid;
-      const user = await storage.getUserByFirebaseId(firebaseId);
+      const userId = getUserId(req);
+      
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+      
+      const user = await storage.getUserById(userId);
       
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
       
       res.json({
-        firebaseId: user.firebaseId,
+        id: user.id,
         email: user.email,
         subscriptionType: user.subscriptionType,
         firstName: user.firstName,
         lastName: user.lastName,
         emailNotifications: user.emailNotifications,
-        isPremium: user.isPremium
+        isPremium: user.isPremium,
+        profileImageUrl: user.profileImageUrl
       });
     } catch (error) {
       console.error("Error fetching user:", error);

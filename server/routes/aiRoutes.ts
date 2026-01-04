@@ -1,7 +1,8 @@
 import type { Express } from "express";
 import { openai } from "@ai-sdk/openai";
 import { streamText, convertToCoreMessages, tool } from "ai";
-import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
+import { isAuthenticated } from "../replit_integrations/auth";
+import { AuthenticatedRequest, getUserId } from "../middleware/auth";
 import { storage } from "../storage";
 import { nanoid } from "nanoid";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
@@ -28,27 +29,18 @@ export async function registerAIRoutes(app: Express) {
     max: process.env.NODE_ENV === 'test' ? 100000 : parseInt(process.env.AI_RATE_LIMIT_MAX || "20", 10),
     standardHeaders: true,
     legacyHeaders: false,
-    keyGenerator: (req: any) => req.user?.uid ?? ipKeyGenerator(req),
+    keyGenerator: (req: any) => getUserId(req) ?? ipKeyGenerator(req),
     message: { error: "Too many chat requests. Please slow down." },
   });
 
   // AI Chat endpoint with thread support
-  app.post("/api/ai/chat", requireAuth, chatLimiter, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/ai/chat", isAuthenticated, chatLimiter, async (req: AuthenticatedRequest, res) => {
     try {
       console.log("AI chat request received");
-      // Defensive auth guard (helps in test environments)
-      const authHeader = req.headers.authorization;
-      if (!req.user?.uid || !authHeader || !authHeader.startsWith('Bearer ')) {
+      const userId = getUserId(req);
+      
+      if (!userId) {
         return res.status(401).json({ error: 'Authentication required', code: 'auth/no-token' });
-      }
-      if (process.env.NODE_ENV === 'test') {
-        const token = authHeader.split(' ')[1] || '';
-        if (token.includes('invalid')) {
-          return res.status(401).json({ error: 'Invalid authentication token', code: 'auth/invalid-token' });
-        }
-        if (token.includes('expired')) {
-          return res.status(401).json({ error: 'Authentication token has expired', code: 'auth/expired-token' });
-        }
       }
       
       // Validate payload
@@ -60,7 +52,6 @@ export async function registerAIRoutes(app: Express) {
         });
       }
       const { messages, threadId } = parsed.data;
-      const userId = req.user!.uid;
       
       // Initialize thread if threadId provided
       if (threadId) {
@@ -90,7 +81,7 @@ export async function registerAIRoutes(app: Express) {
       console.log("Starting OpenAI stream...");
 
       // Choose model based on user subscription
-      const userRecord = await storage.getUserByFirebaseId(userId);
+      const userRecord = await storage.getUserById(userId);
       const isPro = userRecord?.subscriptionType === 'pro' || userRecord?.isPremium === true;
       const modelName = isPro
         ? (process.env.AI_MODEL_PRO || process.env.OPENAI_MODEL || "gpt-4o")
@@ -143,7 +134,7 @@ export async function registerAIRoutes(app: Express) {
               const currentUserId = userId;
               console.log('[createTodo] start', { item, userId: currentUserId });
               // Enforce simple free-tier limit (mirror itemRoutes)
-              const user = await storage.getUserByFirebaseId(currentUserId);
+              const user = await storage.getUserById(currentUserId);
               const items = await storage.getItemsByUserId(currentUserId);
               if (user?.subscriptionType !== 'pro' && items.length >= 5) {
                 // Return a structured result with an error so the model can summarize in the next step
@@ -218,22 +209,14 @@ export async function registerAIRoutes(app: Express) {
   });
 
   // Health check endpoint for AI service
-  app.get("/api/ai/status", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/ai/status", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      // Defensive auth guard (helps in test environments)
-      const authHeader = req.headers.authorization;
-      if (!req.user?.uid || !authHeader || !authHeader.startsWith('Bearer ')) {
+      const userId = getUserId(req);
+      
+      if (!userId) {
         return res.status(401).json({ error: 'Authentication required', code: 'auth/no-token' });
       }
-      if (process.env.NODE_ENV === 'test') {
-        const token = authHeader.split(' ')[1] || '';
-        if (token.includes('invalid')) {
-          return res.status(401).json({ error: 'Invalid authentication token', code: 'auth/invalid-token' });
-        }
-        if (token.includes('expired')) {
-          return res.status(401).json({ error: 'Authentication token has expired', code: 'auth/expired-token' });
-        }
-      }
+      
       const key = process.env.OPENAI_API_KEY || '';
       const isConfigured = key.trim().length > 0;
       

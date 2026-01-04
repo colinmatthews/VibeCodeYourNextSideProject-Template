@@ -1,12 +1,13 @@
 import type { Express } from "express";
 import { storage } from "../storage/index";
 import Stripe from "stripe";
-import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
+import { isAuthenticated } from "../replit_integrations/auth";
+import { AuthenticatedRequest, getUserId } from "../middleware/auth";
 import { getStripeClient } from "../lib/stripe";
 
 export async function registerPaymentRoutes(app: Express) {
   // New Stripe Checkout endpoint - replaces complex payment method flow
-  app.post("/api/create-checkout-session", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/create-checkout-session", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const stripe = getStripeClient();
       if (!stripe) {
@@ -15,11 +16,15 @@ export async function registerPaymentRoutes(app: Express) {
 
       console.log('[Checkout] Creating checkout session');
       const { mode = 'subscription', priceId, successUrl, cancelUrl } = req.body;
-      const firebaseId = req.user!.uid;
+      const userId = getUserId(req);
 
-      let user = await storage.getUserByFirebaseId(firebaseId);
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      let user = await storage.getUserById(userId);
       if (!user) {
-        console.error('[Checkout] User not found:', firebaseId);
+        console.error('[Checkout] User not found:', userId);
         return res.status(400).json({ error: "User not found" });
       }
 
@@ -28,15 +33,15 @@ export async function registerPaymentRoutes(app: Express) {
       if (!customerId) {
         console.log('[Checkout] Creating new Stripe customer');
         const customer = await stripe.customers.create({
-          email: user.email,
+          email: user.email || undefined,
           metadata: {
-            firebaseId: user.firebaseId,
+            userId: user.id,
           }
         });
         customerId = customer.id;
         
         // Update user with Stripe customer ID
-        await storage.updateUser(firebaseId, {
+        await storage.updateUser(userId, {
           stripeCustomerId: customerId
         });
         console.log('[Checkout] Created new Stripe customer:', customerId);
@@ -85,7 +90,7 @@ export async function registerPaymentRoutes(app: Express) {
         success_url: isAllowed(successUrl) ? successUrl : defaultSuccess,
         cancel_url: isAllowed(cancelUrl) ? cancelUrl : defaultCancel,
         metadata: {
-          firebaseId: user.firebaseId,
+          userId: user.id,
         },
         // Allow promotion codes
         allow_promotion_codes: true,
@@ -99,7 +104,7 @@ export async function registerPaymentRoutes(app: Express) {
       if (mode === 'subscription') {
         sessionParams.subscription_data = {
           metadata: {
-            firebaseId: user.firebaseId,
+            userId: user.id,
           },
         };
       }
@@ -124,17 +129,21 @@ export async function registerPaymentRoutes(app: Express) {
   });
 
   // Create Stripe Customer Portal session for subscription management
-  app.post('/api/create-portal-session', requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post('/api/create-portal-session', isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       const stripe = getStripeClient();
       if (!stripe) {
         return res.status(503).json({ error: 'Payments service not configured' });
       }
 
-      const firebaseId = req.user!.uid;
+      const userId = getUserId(req);
+      
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
 
       // Get user data to find their Stripe customer ID
-      const user = await storage.getUserByFirebaseId(firebaseId);
+      const user = await storage.getUserById(userId);
       if (!user || !user.stripeCustomerId) {
         return res.status(404).json({ error: 'Customer not found or no Stripe customer ID' });
       }

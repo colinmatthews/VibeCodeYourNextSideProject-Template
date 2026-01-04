@@ -1,5 +1,5 @@
 import { Response, NextFunction } from 'express';
-import { AuthenticatedRequest } from './auth';
+import { AuthenticatedRequest, getUserId } from './auth';
 import { storage } from '../storage/index';
 import { logSecurity } from '../lib/audit';
 
@@ -12,7 +12,9 @@ export function requiresOwnership(
   res: Response,
   next: NextFunction
 ) {
-  if (!req.user) {
+  const userId = getUserId(req);
+  
+  if (!userId) {
     logSecurity('access_denied', { reason: 'no_user', path: req.path, method: req.method, ip: req.ip });
     return res.status(401).json({
       error: 'Authentication required',
@@ -22,20 +24,20 @@ export function requiresOwnership(
 
   // Check userId from various sources (params, query, body)
   const resourceUserId = req.params.userId || 
-                        req.params.firebaseId || 
+                        req.params.id || 
                         req.query.userId?.toString() || 
                         req.body.userId;
 
   if (!resourceUserId) {
-    logSecurity('access_denied', { reason: 'missing_user_id', path: req.path, method: req.method, userId: req.user.uid });
+    logSecurity('access_denied', { reason: 'missing_user_id', path: req.path, method: req.method, userId });
     return res.status(400).json({
       error: 'User ID is required'
     });
   }
 
   // Verify the authenticated user matches the resource owner
-  if (req.user.uid !== resourceUserId) {
-    logSecurity('access_denied', { reason: 'mismatch_user', path: req.path, method: req.method, userId: req.user.uid, resourceUserId });
+  if (userId !== resourceUserId) {
+    logSecurity('access_denied', { reason: 'mismatch_user', path: req.path, method: req.method, userId, resourceUserId });
     return res.status(403).json({
       error: 'Access denied: You can only access your own resources',
       code: 'auth/access-denied'
@@ -54,7 +56,9 @@ export async function requiresFileOwnership(
   res: Response,
   next: NextFunction
 ) {
-  if (!req.user) {
+  const userId = getUserId(req);
+  
+  if (!userId) {
     logSecurity('access_denied', { reason: 'no_user', path: req.path, method: req.method, ip: req.ip });
     return res.status(401).json({
       error: 'Authentication required',
@@ -65,7 +69,7 @@ export async function requiresFileOwnership(
   const fileId = Number(req.params.id);
   
   if (isNaN(fileId)) {
-    logSecurity('access_denied', { reason: 'invalid_file_id', path: req.path, method: req.method, userId: req.user.uid });
+    logSecurity('access_denied', { reason: 'invalid_file_id', path: req.path, method: req.method, userId });
     return res.status(400).json({
       error: 'Invalid file ID'
     });
@@ -75,15 +79,15 @@ export async function requiresFileOwnership(
     const file = await storage.getFileById(fileId);
     
     if (!file) {
-      logSecurity('access_denied', { reason: 'file_not_found', path: req.path, method: req.method, userId: req.user.uid, fileId });
+      logSecurity('access_denied', { reason: 'file_not_found', path: req.path, method: req.method, userId, fileId });
       return res.status(404).json({
         error: 'File not found'
       });
     }
 
     // Verify the authenticated user owns this file
-    if (file.userId !== req.user.uid) {
-      logSecurity('access_denied', { reason: 'not_owner', path: req.path, method: req.method, userId: req.user.uid, fileOwnerId: file.userId, fileId });
+    if (file.userId !== userId) {
+      logSecurity('access_denied', { reason: 'not_owner', path: req.path, method: req.method, userId, fileOwnerId: file.userId, fileId });
       return res.status(403).json({
         error: 'Access denied: You can only access your own files',
         code: 'auth/access-denied'
@@ -110,7 +114,9 @@ export async function requiresItemOwnership(
   res: Response,
   next: NextFunction
 ) {
-  if (!req.user) {
+  const userId = getUserId(req);
+  
+  if (!userId) {
     return res.status(401).json({
       error: 'Authentication required',
       code: 'auth/no-token'
@@ -127,7 +133,7 @@ export async function requiresItemOwnership(
 
   try {
     // Get all items for the user to check ownership
-    const userItems = await storage.getItemsByUserId(req.user.uid);
+    const userItems = await storage.getItemsByUserId(userId);
     const item = userItems.find(item => item.id === itemId);
     
     if (!item) {
@@ -155,7 +161,9 @@ export async function requiresUserExists(
   res: Response,
   next: NextFunction
 ) {
-  if (!req.user) {
+  const userId = getUserId(req);
+  
+  if (!userId) {
     return res.status(401).json({
       error: 'Authentication required',
       code: 'auth/no-token'
@@ -163,7 +171,7 @@ export async function requiresUserExists(
   }
 
   try {
-    const user = await storage.getUserByFirebaseId(req.user.uid);
+    const user = await storage.getUserById(userId);
     
     if (!user) {
       return res.status(404).json({
@@ -183,15 +191,15 @@ export async function requiresUserExists(
 }
 
 /**
- * Helper to extract and validate Firebase UID from request
+ * Helper to extract user ID from request
  */
-export function extractFirebaseUid(req: AuthenticatedRequest): string | null {
-  return req.user?.uid || null;
+export function extractUserId(req: AuthenticatedRequest): string | null {
+  return getUserId(req) || null;
 }
 
 /**
  * Helper to check if authenticated user matches the target user ID
  */
 export function isOwner(req: AuthenticatedRequest, targetUserId: string): boolean {
-  return req.user?.uid === targetUserId;
+  return getUserId(req) === targetUserId;
 }

@@ -28,21 +28,21 @@ describe('File Workflow', () => {
           id: 1,
           name: `${timestamp}-${randomId}.jpg`,
           originalName: 'photo1.jpg',
-          path: `users/test-firebase-uid/files/${timestamp}-${randomId}.jpg`,
-          url: `https://storage.googleapis.com/bucket-name/users/test-firebase-uid/files/${timestamp}-${randomId}.jpg?GoogleAccessId=service-account%40project.iam.gserviceaccount.com&Expires=1641321600&Signature=abc123def456ghi789jkl012mno345pqr678stu901vwx234yz`,
+          path: `users/test-replit-user-id/files/${timestamp}-${randomId}.jpg`,
+          url: `https://storage.googleapis.com/bucket-name/users/test-replit-user-id/files/${timestamp}-${randomId}.jpg?GoogleAccessId=service-account%40project.iam.gserviceaccount.com&Expires=1641321600&Signature=abc123def456ghi789jkl012mno345pqr678stu901vwx234yz`,
           size: 1024,
           type: 'image/jpeg',
-          userId: 'test-firebase-uid'
+          userId: 'test-replit-user-id'
         },
         {
           id: 2,
           name: `${timestamp + 1000}-${randomId}2.pdf`,
           originalName: 'document.pdf',
-          path: `users/test-firebase-uid/files/${timestamp + 1000}-${randomId}2.pdf`,
-          url: `https://storage.googleapis.com/bucket-name/users/test-firebase-uid/files/${timestamp + 1000}-${randomId}2.pdf?GoogleAccessId=service-account%40project.iam.gserviceaccount.com&Expires=1641321600&Signature=def456ghi789jkl012mno345pqr678stu901vwx234yza`,
+          path: `users/test-replit-user-id/files/${timestamp + 1000}-${randomId}2.pdf`,
+          url: `https://storage.googleapis.com/bucket-name/users/test-replit-user-id/files/${timestamp + 1000}-${randomId}2.pdf?GoogleAccessId=service-account%40project.iam.gserviceaccount.com&Expires=1641321600&Signature=def456ghi789jkl012mno345pqr678stu901vwx234yza`,
           size: 2048,
           type: 'application/pdf',
-          userId: 'test-firebase-uid'
+          userId: 'test-replit-user-id'
         }
       ];
 
@@ -52,7 +52,7 @@ describe('File Workflow', () => {
         .get('/api/files')
         .expect(200);
 
-      expect(mockStorage.getFilesByUserId).toHaveBeenCalledWith('test-firebase-uid');
+      expect(mockStorage.getFilesByUserId).toHaveBeenCalledWith('test-replit-user-id');
       expect(response.body).toEqual(mockFiles);
     });
 
@@ -81,15 +81,15 @@ describe('File Workflow', () => {
     it('should upload file successfully for free user within limits', async () => {
       // Setup: Free user with space available
       const freeUser = {
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         email: 'test@example.com',
         subscriptionType: 'free',
         isPremium: false
       };
 
       const existingFiles = [
-        { id: 1, size: 1024, userId: 'test-firebase-uid' },
-        { id: 2, size: 2048, userId: 'test-firebase-uid' }
+        { id: 1, size: 1024, userId: 'test-replit-user-id' },
+        { id: 2, size: 2048, userId: 'test-replit-user-id' }
       ]; // Total: 3072 bytes, under 100MB limit
 
       mockStorage.getUserByFirebaseId.mockResolvedValue(freeUser);
@@ -100,7 +100,7 @@ describe('File Workflow', () => {
       const mockUploadResponse = {
         name: expect.stringMatching(/^\d+-[a-zA-Z0-9]+\.jpg$/),
         originalName: 'original.jpg',
-        path: expect.stringMatching(/^users\/test-firebase-uid\/files\/\d+-[a-zA-Z0-9]+\.jpg$/),
+        path: expect.stringMatching(/^users\/test-replit-user-id\/files\/\d+-[a-zA-Z0-9]+\.jpg$/),
         url: expect.stringMatching(/^https:\/\/storage\.googleapis\.com\/bucket-name\/.*\?GoogleAccessId=.*&Expires=.*&Signature=.*/),
         size: 1024,
         type: 'image/jpeg'
@@ -108,7 +108,7 @@ describe('File Workflow', () => {
       
       const createdFile = {
         id: 3,
-        userId: 'test-firebase-uid',
+        userId: 'test-replit-user-id',
         ...mockUploadResponse
       };
 
@@ -128,15 +128,15 @@ describe('File Workflow', () => {
           originalname: 'test.jpg',
           mimetype: 'image/jpeg'
         }),
-        'test-firebase-uid'
+        'test-replit-user-id'
       );
 
       // Verify database record creation with realistic mock data patterns
       expect(mockStorage.createFile).toHaveBeenCalledWith({
-        userId: 'test-firebase-uid',
+        userId: 'test-replit-user-id',
         name: expect.stringMatching(/^\d+-[a-zA-Z0-9]+\.jpg$/),
         originalName: 'original.jpg',
-        path: expect.stringMatching(/^users\/test-firebase-uid\/files\/\d+-[a-zA-Z0-9]+\.jpg$/),
+        path: expect.stringMatching(/^users\/test-replit-user-id\/files\/\d+-[a-zA-Z0-9]+\.jpg$/),
         url: expect.stringMatching(/^https:\/\/storage\.googleapis\.com\/bucket-name\/.*\?GoogleAccessId=.*&Expires=.*&Signature=.*/),
         size: 1024,
         type: 'image/jpeg'
@@ -144,7 +144,7 @@ describe('File Workflow', () => {
 
       expect(response.body).toEqual(expect.objectContaining({
         id: 3,
-        userId: 'test-firebase-uid',
+        userId: 'test-replit-user-id',
         originalName: 'original.jpg',
         size: 1024,
         type: 'image/jpeg'
@@ -154,7 +154,7 @@ describe('File Workflow', () => {
     it('should upload file successfully for pro user with higher limits', async () => {
       // Setup: Pro user
       const proUser = {
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         email: 'test@example.com',
         subscriptionType: 'pro',
         isPremium: true
@@ -163,7 +163,7 @@ describe('File Workflow', () => {
       const existingFiles = Array.from({ length: 50 }, (_, i) => ({
         id: i + 1,
         size: 10 * 1024 * 1024, // 10MB each
-        userId: 'test-firebase-uid'
+        userId: 'test-replit-user-id'
       })); // Total: 50 files, 500MB
 
       mockStorage.getUserByFirebaseId.mockResolvedValue(proUser);
@@ -173,7 +173,7 @@ describe('File Workflow', () => {
       const largeFileUploadResponse = {
         name: expect.stringMatching(/^\d+-[a-zA-Z0-9]+\.jpg$/),
         originalName: 'large.jpg',
-        path: expect.stringMatching(/^users\/test-firebase-uid\/files\/\d+-[a-zA-Z0-9]+\.jpg$/),
+        path: expect.stringMatching(/^users\/test-replit-user-id\/files\/\d+-[a-zA-Z0-9]+\.jpg$/),
         url: expect.stringMatching(/^https:\/\/storage\.googleapis\.com\/bucket-name\/.*\?GoogleAccessId=.*&Expires=.*&Signature=.*/),
         size: 40 * 1024 * 1024, // 40MB file
         type: 'image/jpeg'
@@ -181,7 +181,7 @@ describe('File Workflow', () => {
       
       const createdFile = {
         id: 51,
-        userId: 'test-firebase-uid',
+        userId: 'test-replit-user-id',
         ...largeFileUploadResponse
       };
 
@@ -197,7 +197,7 @@ describe('File Workflow', () => {
 
       expect(response.body).toEqual(expect.objectContaining({
         id: 51,
-        userId: 'test-firebase-uid',
+        userId: 'test-replit-user-id',
         originalName: 'large.jpg',
         size: 40 * 1024 * 1024,
         type: 'image/jpeg'
@@ -207,7 +207,7 @@ describe('File Workflow', () => {
     it('should reject upload when free user exceeds file count limit', async () => {
       // Setup: Free user at file limit
       const freeUser = {
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         email: 'test@example.com',
         subscriptionType: 'free'
       };
@@ -215,7 +215,7 @@ describe('File Workflow', () => {
       const existingFiles = Array.from({ length: 10 }, (_, i) => ({
         id: i + 1,
         size: 1024,
-        userId: 'test-firebase-uid'
+        userId: 'test-replit-user-id'
       })); // Already at 10 file limit
 
       mockStorage.getUserByFirebaseId.mockResolvedValue(freeUser);
@@ -242,7 +242,7 @@ describe('File Workflow', () => {
     it('should reject upload when file size exceeds limit', async () => {
       // Setup: Free user trying to upload large file
       const freeUser = {
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         email: 'test@example.com',
         subscriptionType: 'free'
       };
@@ -267,13 +267,13 @@ describe('File Workflow', () => {
     it('should reject upload when total storage exceeds limit', async () => {
       // Setup: Free user at storage limit
       const freeUser = {
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         email: 'test@example.com',
         subscriptionType: 'free'
       };
 
       const existingFiles = [
-        { id: 1, size: 99 * 1024 * 1024, userId: 'test-firebase-uid' } // 99MB
+        { id: 1, size: 99 * 1024 * 1024, userId: 'test-replit-user-id' } // 99MB
       ];
 
       mockStorage.getUserByFirebaseId.mockResolvedValue(freeUser);
@@ -295,7 +295,7 @@ describe('File Workflow', () => {
 
     it('should reject unsupported file types', async () => {
       const freeUser = {
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         email: 'test@example.com',
         subscriptionType: 'free'
       };
@@ -316,7 +316,7 @@ describe('File Workflow', () => {
 
     it('should handle Firebase Storage upload errors', async () => {
       const freeUser = {
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         email: 'test@example.com',
         subscriptionType: 'free'
       };
@@ -358,11 +358,11 @@ describe('File Workflow', () => {
         id: 1,
         name: `${timestamp}-${randomId}.jpg`,
         originalName: 'photo.jpg',
-        path: `users/test-firebase-uid/files/${timestamp}-${randomId}.jpg`,
-        url: `https://storage.googleapis.com/bucket-name/users/test-firebase-uid/files/${timestamp}-${randomId}.jpg?GoogleAccessId=service-account%40project.iam.gserviceaccount.com&Expires=1641321600&Signature=abc123def456ghi789jkl012mno345pqr678stu901vwx234yz`,
+        path: `users/test-replit-user-id/files/${timestamp}-${randomId}.jpg`,
+        url: `https://storage.googleapis.com/bucket-name/users/test-replit-user-id/files/${timestamp}-${randomId}.jpg?GoogleAccessId=service-account%40project.iam.gserviceaccount.com&Expires=1641321600&Signature=abc123def456ghi789jkl012mno345pqr678stu901vwx234yz`,
         size: 1024,
         type: 'image/jpeg',
-        userId: 'test-firebase-uid'
+        userId: 'test-replit-user-id'
       };
 
       // Mock file lookup for this test
@@ -389,10 +389,10 @@ describe('File Workflow', () => {
     it('should handle file not found in storage', async () => {
       const mockFile = {
         id: 1,
-        path: 'users/test-firebase-uid/files/1641234567890-missing.jpg',
+        path: 'users/test-replit-user-id/files/1641234567890-missing.jpg',
         originalName: 'missing.jpg',
         type: 'image/jpeg',
-        userId: 'test-firebase-uid'
+        userId: 'test-replit-user-id'
       };
 
       mockStorage.getFileById.mockResolvedValue(mockFile);
@@ -417,8 +417,8 @@ describe('File Workflow', () => {
         id: 1,
         name: '1641234567890-abc123def.jpg',
         originalName: 'photo.jpg',
-        path: 'users/test-firebase-uid/files/1641234567890-abc123def.jpg',
-        userId: 'test-firebase-uid'
+        path: 'users/test-replit-user-id/files/1641234567890-abc123def.jpg',
+        userId: 'test-replit-user-id'
       };
 
       // Mock file lookup for ownership middleware
@@ -446,8 +446,8 @@ describe('File Workflow', () => {
     it('should continue with database deletion even if Firebase Storage deletion fails', async () => {
       const mockFile = {
         id: 1,
-        path: 'users/test-firebase-uid/files/1641234567890-abc123def.jpg',
-        userId: 'test-firebase-uid'
+        path: 'users/test-replit-user-id/files/1641234567890-abc123def.jpg',
+        userId: 'test-replit-user-id'
       };
 
       // Mock file lookup for ownership middleware
@@ -475,7 +475,7 @@ describe('File Workflow', () => {
   describe('File Validation and Security', () => {
     it('should validate file extensions against MIME types', async () => {
       const freeUser = {
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         email: 'test@example.com',
         subscriptionType: 'free'
       };
@@ -498,7 +498,7 @@ describe('File Workflow', () => {
     it('should enforce user ownership for all file operations', async () => {
       // This would be handled by middleware in real implementation
       // Test verifies that user ID is consistently used
-      const userId = 'test-firebase-uid';
+      const userId = 'test-replit-user-id';
 
       await request(app).get('/api/files');
       expect(mockStorage.getFilesByUserId).toHaveBeenCalledWith(userId);

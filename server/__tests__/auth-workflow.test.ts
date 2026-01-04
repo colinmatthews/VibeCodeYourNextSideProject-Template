@@ -25,7 +25,7 @@ describe('Authentication Workflow', () => {
       mockStorage.getUserByFirebaseId.mockResolvedValue(null);
       
       const newUser = {
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         email: 'test@example.com',
         firstName: '',
         lastName: '',
@@ -42,7 +42,7 @@ describe('Authentication Workflow', () => {
 
       // Verify user creation
       expect(mockStorage.createUser).toHaveBeenCalledWith({
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         email: 'test@example.com',
         firstName: '',
         lastName: '',
@@ -60,7 +60,7 @@ describe('Authentication Workflow', () => {
 
       // Verify response
       expect(response.body).toEqual({
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         email: 'test@example.com',
         subscriptionType: 'free',
         firstName: '',
@@ -73,7 +73,7 @@ describe('Authentication Workflow', () => {
     it('should track existing user login in PostHog', async () => {
       // Setup: Existing user
       const existingUser = {
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         email: 'test@example.com',
         firstName: 'John',
         lastName: 'Doe',
@@ -115,7 +115,7 @@ describe('Authentication Workflow', () => {
       mockStorage.getUserByFirebaseId.mockResolvedValue(null);
       
       const newUser = {
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         email: 'test@example.com',
         stripeCustomerId: 'cus_test123',
         subscriptionType: 'free'
@@ -130,12 +130,12 @@ describe('Authentication Workflow', () => {
       // Verify Stripe customer creation
       expect(mockStripeInstance.customers.create).toHaveBeenCalledWith({
         email: 'test@example.com',
-        metadata: { firebaseId: 'test-firebase-uid' }
+        metadata: { id: 'test-replit-user-id' }
       });
 
       // Verify user creation with Stripe customer ID
       expect(mockStorage.createUser).toHaveBeenCalledWith({
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         email: 'test@example.com',
         firstName: '',
         lastName: '',
@@ -157,7 +157,7 @@ describe('Authentication Workflow', () => {
     it('should return existing Stripe customer ID when user exists', async () => {
       // Setup: Existing user with Stripe customer
       const existingUser = {
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         email: 'test@example.com',
         stripeCustomerId: 'cus_existing123'
       };
@@ -196,7 +196,7 @@ describe('Authentication Workflow', () => {
     it('should update user profile successfully', async () => {
       // Setup: Existing user
       const existingUser = {
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         email: 'test@example.com',
         firstName: 'John',
         lastName: 'Doe'
@@ -220,7 +220,7 @@ describe('Authentication Workflow', () => {
         .expect(200);
 
       // Verify update call
-      expect(mockStorage.updateUser).toHaveBeenCalledWith('test-firebase-uid', {
+      expect(mockStorage.updateUser).toHaveBeenCalledWith('test-replit-user-id', {
         firstName: 'Jane',
         emailNotifications: true
       });
@@ -260,7 +260,7 @@ describe('Authentication Workflow', () => {
     it('should retrieve user profile successfully', async () => {
       // Setup: Existing user
       const existingUser = {
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         email: 'test@example.com',
         firstName: 'John',
         lastName: 'Doe',
@@ -276,7 +276,7 @@ describe('Authentication Workflow', () => {
         .expect(200);
 
       expect(response.body).toEqual({
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         email: 'test@example.com',
         subscriptionType: 'pro',
         firstName: 'John',

@@ -56,18 +56,18 @@ describe('Authorization & Ownership', () => {
     describe('URL Parameter Ownership', () => {
       it('should allow access to own user profile', async () => {
         const response = await request(app)
-          .get('/api/users/test-firebase-uid/profile')
+          .get('/api/users/test-replit-user-id/profile')
           .expect(200);
 
         expect(response.body).toEqual({
           message: 'Profile accessed',
-          userId: 'test-firebase-uid'
+          userId: 'test-replit-user-id'
         });
       });
 
       it('should deny access to other user profiles', async () => {
         const response = await request(app)
-          .get('/api/users/other-firebase-uid/profile')
+          .get('/api/users/other-replit-user-id/profile')
           .expect(403);
 
         expect(response.body).toEqual({
@@ -95,10 +95,10 @@ describe('Authorization & Ownership', () => {
       it('should allow access when body userId matches authenticated user', async () => {
         const response = await request(app)
           .post('/api/user-data')
-          .send({ userId: 'test-firebase-uid', data: 'test' })
+          .send({ userId: 'test-replit-user-id', data: 'test' })
           .expect(200);
 
-        expect(response.body.userId).toBe('test-firebase-uid');
+        expect(response.body.userId).toBe('test-replit-user-id');
       });
 
       it('should deny access when body userId does not match', async () => {
@@ -117,10 +117,10 @@ describe('Authorization & Ownership', () => {
     describe('Query Parameter Ownership', () => {
       it('should allow access when query userId matches authenticated user', async () => {
         const response = await request(app)
-          .get('/api/user-query?userId=test-firebase-uid&filter=active')
+          .get('/api/user-query?userId=test-replit-user-id&filter=active')
           .expect(200);
 
-        expect(response.body.userId).toBe('test-firebase-uid');
+        expect(response.body.userId).toBe('test-replit-user-id');
       });
 
       it('should deny access when query userId does not match', async () => {
@@ -136,16 +136,16 @@ describe('Authorization & Ownership', () => {
     });
 
     describe('Firebase ID Parameter Ownership', () => {
-      it('should handle firebaseId parameter as alias for userId', async () => {
-        app.get('/api/firebase/:firebaseId/data', requireAuth, requiresOwnership, (req: any, res) => {
-          res.json({ message: 'Firebase ID accessed', firebaseId: req.params.firebaseId });
+      it('should handle id parameter as alias for userId', async () => {
+        app.get('/api/firebase/:id/data', requireAuth, requiresOwnership, (req: any, res) => {
+          res.json({ message: 'Firebase ID accessed', id: req.params.id });
         });
 
         const response = await request(app)
-          .get('/api/firebase/test-firebase-uid/data')
+          .get('/api/firebase/test-replit-user-id/data')
           .expect(200);
 
-        expect(response.body.firebaseId).toBe('test-firebase-uid');
+        expect(response.body.id).toBe('test-replit-user-id');
       });
     });
   });
@@ -155,11 +155,11 @@ describe('Authorization & Ownership', () => {
       id: 1,
       name: 'test-file.jpg',
       originalName: 'original.jpg',
-      path: 'users/test-firebase-uid/files/test-file.jpg',
+      path: 'users/test-replit-user-id/files/test-file.jpg',
       url: 'https://storage.example.com/test-file.jpg',
       size: 1024,
       type: 'image/jpeg',
-      userId: 'test-firebase-uid'
+      userId: 'test-replit-user-id'
     };
 
     it('should allow access to owned files', async () => {
@@ -176,7 +176,7 @@ describe('Authorization & Ownership', () => {
     it('should deny access to files owned by other users', async () => {
       const otherUserFile = {
         ...mockFile,
-        userId: 'other-firebase-uid'
+        userId: 'other-replit-user-id'
       };
 
       mockStorage.getFileById.mockResolvedValue(otherUserFile);
@@ -251,12 +251,12 @@ describe('Authorization & Ownership', () => {
       {
         id: 1,
         item: 'Test item 1',
-        userId: 'test-firebase-uid'
+        userId: 'test-replit-user-id'
       },
       {
         id: 2,
         item: 'Test item 2',
-        userId: 'test-firebase-uid'
+        userId: 'test-replit-user-id'
       }
     ];
 
@@ -268,7 +268,7 @@ describe('Authorization & Ownership', () => {
         .expect(200);
 
       expect(response.body.item).toEqual(mockItems[0]);
-      expect(mockStorage.getItemsByUserId).toHaveBeenCalledWith('test-firebase-uid');
+      expect(mockStorage.getItemsByUserId).toHaveBeenCalledWith('test-replit-user-id');
     });
 
     it('should deny access to items owned by other users', async () => {
@@ -340,7 +340,7 @@ describe('Authorization & Ownership', () => {
 
   describe('User Existence Validation', () => {
     const mockUserProfile = {
-      firebaseId: 'test-firebase-uid',
+      id: 'test-replit-user-id',
       email: 'test@example.com',
       firstName: 'Test',
       lastName: 'User',
@@ -355,7 +355,7 @@ describe('Authorization & Ownership', () => {
         .expect(200);
 
       expect(response.body.userProfile).toEqual(mockUserProfile);
-      expect(mockStorage.getUserByFirebaseId).toHaveBeenCalledWith('test-firebase-uid');
+      expect(mockStorage.getUserByFirebaseId).toHaveBeenCalledWith('test-replit-user-id');
     });
 
     it('should deny access when user does not exist', async () => {
@@ -406,7 +406,7 @@ describe('Authorization & Ownership', () => {
   describe('Permission Level Enforcement', () => {
     describe('Free User Limitations', () => {
       const freeUser = {
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         email: 'free@example.com',
         subscriptionType: 'free',
         isPremium: false
@@ -417,7 +417,7 @@ describe('Authorization & Ownership', () => {
         const existingItems = Array.from({ length: 5 }, (_, i) => ({
           id: i + 1,
           item: `Item ${i + 1}`,
-          userId: 'test-firebase-uid'
+          userId: 'test-replit-user-id'
         }));
 
         mockStorage.getUserByFirebaseId.mockResolvedValue(freeUser);
@@ -455,7 +455,7 @@ describe('Authorization & Ownership', () => {
           id: i + 1,
           name: `file${i + 1}.jpg`,
           size: 1024,
-          userId: 'test-firebase-uid'
+          userId: 'test-replit-user-id'
         }));
 
         mockStorage.getUserByFirebaseId.mockResolvedValue(freeUser);
@@ -488,7 +488,7 @@ describe('Authorization & Ownership', () => {
 
       it('should enforce free user storage limits', async () => {
         const existingFiles = [
-          { id: 1, size: 99 * 1024 * 1024, userId: 'test-firebase-uid' } // 99MB
+          { id: 1, size: 99 * 1024 * 1024, userId: 'test-replit-user-id' } // 99MB
         ];
 
         mockStorage.getUserByFirebaseId.mockResolvedValue(freeUser);
@@ -526,7 +526,7 @@ describe('Authorization & Ownership', () => {
 
     describe('Pro User Extended Access', () => {
       const proUser = {
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         email: 'pro@example.com',
         subscriptionType: 'pro',
         isPremium: true
@@ -537,7 +537,7 @@ describe('Authorization & Ownership', () => {
           id: i + 1,
           name: `file${i + 1}.jpg`,
           size: 10 * 1024 * 1024, // 10MB each
-          userId: 'test-firebase-uid'
+          userId: 'test-replit-user-id'
         }));
 
         mockStorage.getUserByFirebaseId.mockResolvedValue(proUser);
@@ -574,7 +574,7 @@ describe('Authorization & Ownership', () => {
 
       it('should allow pro users extended storage limits', async () => {
         const existingFiles = [
-          { id: 1, size: 500 * 1024 * 1024, userId: 'test-firebase-uid' } // 500MB
+          { id: 1, size: 500 * 1024 * 1024, userId: 'test-replit-user-id' } // 500MB
         ];
 
         mockStorage.getUserByFirebaseId.mockResolvedValue(proUser);
@@ -614,7 +614,7 @@ describe('Authorization & Ownership', () => {
       it('should handle subscription downgrades', async () => {
         // User was pro but subscription expired
         const downgradeUser = {
-          firebaseId: 'test-firebase-uid',
+          id: 'test-replit-user-id',
           email: 'downgrade@example.com',
           subscriptionType: 'free', // Changed from pro to free
           isPremium: false
@@ -624,7 +624,7 @@ describe('Authorization & Ownership', () => {
         const excessItems = Array.from({ length: 10 }, (_, i) => ({
           id: i + 1,
           item: `Item ${i + 1}`,
-          userId: 'test-firebase-uid'
+          userId: 'test-replit-user-id'
         }));
 
         mockStorage.getUserByFirebaseId.mockResolvedValue(downgradeUser);
@@ -727,7 +727,7 @@ describe('Authorization & Ownership', () => {
     it('should handle concurrent ownership checks', async () => {
       const mockFile = {
         id: 1,
-        userId: 'test-firebase-uid'
+        userId: 'test-replit-user-id'
       };
 
       mockStorage.getFileById.mockResolvedValue(mockFile);
@@ -755,12 +755,12 @@ describe('Authorization & Ownership', () => {
         .mockResolvedValueOnce(user1File)
         .mockResolvedValueOnce(user2File);
 
-      // First request should fail (user-1's file accessed by test-firebase-uid)
+      // First request should fail (user-1's file accessed by test-replit-user-id)
       const response1 = await request(app)
         .get('/api/files/1')
         .expect(403);
 
-      // Second request should also fail (user-2's file accessed by test-firebase-uid)  
+      // Second request should also fail (user-2's file accessed by test-replit-user-id)  
       const response2 = await request(app)
         .get('/api/files/2')
         .expect(403);

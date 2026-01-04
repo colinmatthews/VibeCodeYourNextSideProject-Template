@@ -9,7 +9,6 @@ import { registerRoutes } from "./routes";
 import { registerWebhookRoutes } from "./routes/webhookRoutes";
 import { setupVite, serveStatic, log } from "./vite";
 import { sanitizeInputs } from './middleware/sanitize';
-import { optionalAuth } from './middleware/auth';
 
 const app = express();
 // ALWAYS serve the app on the configured port (default 5000)
@@ -166,9 +165,7 @@ import { posthog, logEvent, logSecurity } from './lib/audit';
     }
   });
 
-  // Apply optional auth before limiter so per-user keys can be used
-  app.use('/api', optionalAuth);
-  // Apply rate limiting to API routes (per-user when available, else IP)
+  // Apply rate limiting to API routes
   app.use('/api', limiter);
 
   // Lightweight health and readiness endpoints

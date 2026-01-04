@@ -11,8 +11,8 @@ interface UpdateUserData {
 }
 
 export class UserStorage {
-  async getUserByFirebaseId(firebaseId: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.firebaseId, firebaseId));
+  async getUserById(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
   }
 
@@ -26,20 +26,26 @@ export class UserStorage {
     return newUser;
   }
 
-  async updateUser(firebaseId: string, data: UpdateUserData): Promise<User> {
-    const [updatedUser] = await db
-      .update(users)
-      .set(data)
-      .where(eq(users.firebaseId, firebaseId))
+  async upsertUser(userData: InsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(userData)
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          ...userData,
+          updatedAt: new Date(),
+        },
+      })
       .returning();
-    return updatedUser;
+    return user;
   }
 
-  async updateUserById(userId: string, data: UpdateUserData): Promise<User> {
+  async updateUser(id: string, data: UpdateUserData): Promise<User> {
     const [updatedUser] = await db
       .update(users)
-      .set(data)
-      .where(eq(users.firebaseId, userId))
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(users.id, id))
       .returning();
     return updatedUser;
   }

@@ -1,6 +1,6 @@
 
-import { pgTable, text, serial, boolean, timestamp, integer } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { pgTable, text, serial, boolean, timestamp, integer, varchar, jsonb, index } from "drizzle-orm/pg-core";
+import { relations, sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -11,11 +11,26 @@ export const SubscriptionType = {
 
 export type SubscriptionType = typeof SubscriptionType[keyof typeof SubscriptionType];
 
+// Session storage table for Replit Auth
+// (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
+export const sessions = pgTable(
+  "sessions",
+  {
+    sid: varchar("sid").primaryKey(),
+    sess: jsonb("sess").notNull(),
+    expire: timestamp("expire").notNull(),
+  },
+  (table) => [index("IDX_session_expire").on(table.expire)]
+);
+
+// User storage table for Replit Auth
+// (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
 export const users = pgTable("users", {
-  firebaseId: text("firebase_id").primaryKey(),
-  email: text("email").notNull(),
-  firstName: text("first_name").notNull().default(""),
-  lastName: text("last_name").notNull().default(""),
+  id: varchar("id").primaryKey(),
+  email: varchar("email").unique(),
+  firstName: varchar("first_name"),
+  lastName: varchar("last_name"),
+  profileImageUrl: varchar("profile_image_url"),
   address: text("address").notNull().default(""),
   city: text("city").notNull().default(""),
   state: text("state").notNull().default(""),
@@ -24,12 +39,14 @@ export const users = pgTable("users", {
   subscriptionType: text("subscription_type", { enum: ["free", "pro"] }).notNull().default("free"),
   emailNotifications: boolean("email_notifications").notNull().default(false),
   stripeCustomerId: text("stripe_customer_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const items = pgTable("items", {
   id: serial("id").primaryKey(),
   item: text("item").notNull(),
-  userId: text("user_id").notNull().references(() => users.firebaseId),
+  userId: text("user_id").notNull().references(() => users.id),
 });
 
 export const files = pgTable("files", {
@@ -40,7 +57,7 @@ export const files = pgTable("files", {
   url: text("url").notNull(),
   size: integer("size").notNull(),
   type: text("type").notNull(),
-  userId: text("user_id").notNull().references(() => users.firebaseId),
+  userId: text("user_id").notNull().references(() => users.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -48,7 +65,7 @@ export const files = pgTable("files", {
 export const aiThreads = pgTable("ai_threads", {
   id: text("id").primaryKey(),
   title: text("title").notNull().default("New Chat"),
-  userId: text("user_id").notNull().references(() => users.firebaseId),
+  userId: text("user_id").notNull().references(() => users.id),
   archived: boolean("archived").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -71,21 +88,21 @@ export const usersRelations = relations(users, ({ many }) => ({
 export const itemsRelations = relations(items, ({ one }) => ({
   user: one(users, {
     fields: [items.userId],
-    references: [users.firebaseId],
+    references: [users.id],
   }),
 }));
 
 export const filesRelations = relations(files, ({ one }) => ({
   user: one(users, {
     fields: [files.userId],
-    references: [users.firebaseId],
+    references: [users.id],
   }),
 }));
 
 export const aiThreadsRelations = relations(aiThreads, ({ one, many }) => ({
   user: one(users, {
     fields: [aiThreads.userId],
-    references: [users.firebaseId],
+    references: [users.id],
   }),
   messages: many(aiMessages),
 }));
@@ -98,10 +115,11 @@ export const aiMessagesRelations = relations(aiMessages, ({ one }) => ({
 }));
 
 export const insertUserSchema = createInsertSchema(users, {
-  firebaseId: (schema) => schema,
-  email: (schema) => schema.email(),
-  firstName: (schema) => schema.default(""),
-  lastName: (schema) => schema.default(""),
+  id: (schema) => schema,
+  email: (schema) => schema.email().optional(),
+  firstName: (schema) => schema.optional(),
+  lastName: (schema) => schema.optional(),
+  profileImageUrl: (schema) => schema.optional(),
   address: (schema) => schema.default(""),
   city: (schema) => schema.default(""),
   state: (schema) => schema.default(""),
@@ -137,3 +155,6 @@ export type AiThread = typeof aiThreads.$inferSelect;
 // @ts-expect-error - Zod v3/v4 typing conflict with drizzle-zod
 export type InsertAiMessage = z.infer<typeof insertAiMessageSchema>;
 export type AiMessage = typeof aiMessages.$inferSelect;
+
+// Re-export for Replit Auth compatibility
+export type UpsertUser = InsertUser;

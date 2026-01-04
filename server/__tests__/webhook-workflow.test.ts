@@ -42,7 +42,7 @@ describe('Webhook Workflow', () => {
           mode: 'subscription',
           payment_status: 'paid',
           metadata: {
-            firebaseId: 'test-firebase-uid'
+            id: 'test-replit-user-id'
           },
           subscription: 'sub_test123'
         }
@@ -59,7 +59,7 @@ describe('Webhook Workflow', () => {
           id: 'cs_test_expired123',
           object: 'checkout.session',
           metadata: {
-            firebaseId: 'test-firebase-uid'
+            id: 'test-replit-user-id'
           }
         }
       }
@@ -76,7 +76,7 @@ describe('Webhook Workflow', () => {
           object: 'subscription',
           status: 'active',
           metadata: {
-            firebaseId: 'test-firebase-uid'
+            id: 'test-replit-user-id'
           }
         }
       }
@@ -93,7 +93,7 @@ describe('Webhook Workflow', () => {
           object: 'subscription',
           status: 'active',
           metadata: {
-            firebaseId: 'test-firebase-uid'
+            id: 'test-replit-user-id'
           }
         }
       }
@@ -110,7 +110,7 @@ describe('Webhook Workflow', () => {
           object: 'subscription',
           status: 'canceled',
           metadata: {
-            firebaseId: 'test-firebase-uid'
+            id: 'test-replit-user-id'
           }
         }
       }
@@ -238,7 +238,7 @@ describe('Webhook Workflow', () => {
       mockConstructEvent(mockEvents.checkoutSessionCompleted);
       
       mockStorage.updateUser.mockResolvedValue({
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         subscriptionType: 'pro'
       });
 
@@ -249,7 +249,7 @@ describe('Webhook Workflow', () => {
         .expect(200);
 
       // Verify user subscription was updated
-      expect(mockStorage.updateUser).toHaveBeenCalledWith('test-firebase-uid', {
+      expect(mockStorage.updateUser).toHaveBeenCalledWith('test-replit-user-id', {
         subscriptionType: 'pro'
       });
 
@@ -400,7 +400,7 @@ describe('Webhook Workflow', () => {
       mockConstructEvent(mockEvents.subscriptionUpdated);
 
       mockStorage.updateUser.mockResolvedValue({
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         subscriptionType: 'pro'
       });
 
@@ -410,7 +410,7 @@ describe('Webhook Workflow', () => {
         .set('stripe-signature', signature)
         .expect(200);
 
-      expect(mockStorage.updateUser).toHaveBeenCalledWith('test-firebase-uid', {
+      expect(mockStorage.updateUser).toHaveBeenCalledWith('test-replit-user-id', {
         subscriptionType: 'pro'
       });
 
@@ -432,7 +432,7 @@ describe('Webhook Workflow', () => {
       mockConstructEvent(canceledEvent);
 
       mockStorage.updateUser.mockResolvedValue({
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         subscriptionType: 'free'
       });
 
@@ -442,7 +442,7 @@ describe('Webhook Workflow', () => {
         .set('stripe-signature', signature)
         .expect(200);
 
-      expect(mockStorage.updateUser).toHaveBeenCalledWith('test-firebase-uid', {
+      expect(mockStorage.updateUser).toHaveBeenCalledWith('test-replit-user-id', {
         subscriptionType: 'free'
       });
 
@@ -464,7 +464,7 @@ describe('Webhook Workflow', () => {
       mockConstructEvent(pastDueEvent);
 
       mockStorage.updateUser.mockResolvedValue({
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         subscriptionType: 'free'
       });
 
@@ -474,7 +474,7 @@ describe('Webhook Workflow', () => {
         .set('stripe-signature', signature)
         .expect(200);
 
-      expect(mockStorage.updateUser).toHaveBeenCalledWith('test-firebase-uid', {
+      expect(mockStorage.updateUser).toHaveBeenCalledWith('test-replit-user-id', {
         subscriptionType: 'free'
       });
     });
@@ -499,7 +499,7 @@ describe('Webhook Workflow', () => {
         .set('stripe-signature', signature)
         .expect(200);
 
-      expect(mockStorage.updateUser).toHaveBeenCalledWith('test-firebase-uid', {
+      expect(mockStorage.updateUser).toHaveBeenCalledWith('test-replit-user-id', {
         subscriptionType: 'free'
       });
     });
@@ -535,7 +535,7 @@ describe('Webhook Workflow', () => {
       mockConstructEvent(mockEvents.subscriptionDeleted);
 
       mockStorage.updateUser.mockResolvedValue({
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         subscriptionType: 'free'
       });
 
@@ -545,7 +545,7 @@ describe('Webhook Workflow', () => {
         .set('stripe-signature', signature)
         .expect(200);
 
-      expect(mockStorage.updateUser).toHaveBeenCalledWith('test-firebase-uid', {
+      expect(mockStorage.updateUser).toHaveBeenCalledWith('test-replit-user-id', {
         subscriptionType: 'free'
       });
 
@@ -586,12 +586,12 @@ describe('Webhook Workflow', () => {
       mockStripeInstance.subscriptions.retrieve.mockResolvedValue({
         id: 'sub_test123',
         metadata: {
-          firebaseId: 'test-firebase-uid'
+          id: 'test-replit-user-id'
         }
       });
 
       mockStorage.updateUser.mockResolvedValue({
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         subscriptionType: 'pro'
       });
 
@@ -602,7 +602,7 @@ describe('Webhook Workflow', () => {
         .expect(200);
 
       expect(mockStripeInstance.subscriptions.retrieve).toHaveBeenCalledWith('sub_test123');
-      expect(mockStorage.updateUser).toHaveBeenCalledWith('test-firebase-uid', {
+      expect(mockStorage.updateUser).toHaveBeenCalledWith('test-replit-user-id', {
         subscriptionType: 'pro'
       });
 
@@ -664,7 +664,7 @@ describe('Webhook Workflow', () => {
       mockStripeInstance.subscriptions.retrieve.mockResolvedValue({
         id: 'sub_test123',
         metadata: {
-          firebaseId: 'test-firebase-uid'
+          id: 'test-replit-user-id'
         }
       });
 
@@ -784,7 +784,7 @@ describe('Webhook Workflow', () => {
       });
 
       mockStorage.updateUser.mockResolvedValue({
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         subscriptionType: 'pro'
       });
 

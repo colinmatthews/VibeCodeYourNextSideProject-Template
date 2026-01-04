@@ -1,5 +1,5 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useAuth } from "@/lib/auth";
+import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/useToast";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,7 @@ async function createPortalSession(): Promise<{ url: string }> {
 
 function Pricing() {
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
 
   // Get URL params to handle success/cancel states
@@ -51,8 +51,8 @@ function Pricing() {
 
   const { data: userData, isLoading: userLoading } = useQuery({
     queryKey: ['/api/users/profile'],
-    queryFn: getQueryFn<any>({ on401: "throw" }),
-    enabled: !!user?.uid
+    queryFn: getQueryFn<any>({ on401: "returnNull" }),
+    enabled: !!user?.id
   });
 
   // Checkout session mutation
@@ -92,19 +92,19 @@ function Pricing() {
   const isPro = userData?.subscriptionType === 'pro';
 
   const handleUpgrade = () => {
-    if (!user?.uid) {
+    if (!user?.id) {
       setLocation("/login");
       return;
     }
 
-    console.log('[Pricing] Creating checkout session for user:', user.uid);
+    console.log('[Pricing] Creating checkout session for user:', user.id);
     checkoutMutation.mutate();
   };
 
   const handleManageSubscription = () => {
-    if (!user?.uid) return;
+    if (!user?.id) return;
 
-    console.log('[Pricing] Creating portal session for user:', user.uid);
+    console.log('[Pricing] Creating portal session for user:', user.id);
     portalMutation.mutate();
   };
 
@@ -146,7 +146,7 @@ function Pricing() {
     }
   ];
 
-  if (userLoading) {
+  if (authLoading || userLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-center h-64">

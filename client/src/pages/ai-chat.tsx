@@ -1,6 +1,6 @@
 import { Thread } from "@/components/assistant-ui/thread";
 import { AIRuntimeProvider } from "@/components/AIRuntimeProvider";
-import { useAuth } from "@/lib/auth";
+import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { MessageCircle, Zap, Clock, Menu, PlusCircle, Archive, Trash2, Check, X } from "lucide-react";

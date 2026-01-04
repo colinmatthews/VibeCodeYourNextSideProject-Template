@@ -174,7 +174,7 @@ describe('Email Workflow', () => {
     it('should send notification email when user has email notifications enabled', async () => {
       // Setup: User with email notifications enabled
       const userWithNotifications = {
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         email: 'test@example.com',
         emailNotifications: true,
         subscriptionType: 'free'
@@ -183,7 +183,7 @@ describe('Email Workflow', () => {
       const createdItem = {
         id: 1,
         item: 'Test task item',
-        userId: 'test-firebase-uid'
+        userId: 'test-replit-user-id'
       };
 
       mockStorage.getUserByFirebaseId.mockResolvedValue(userWithNotifications);
@@ -214,7 +214,7 @@ describe('Email Workflow', () => {
     it('should not send notification email when user has email notifications disabled', async () => {
       // Setup: User with email notifications disabled
       const userWithoutNotifications = {
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         email: 'test@example.com',
         emailNotifications: false,
         subscriptionType: 'free'
@@ -223,7 +223,7 @@ describe('Email Workflow', () => {
       const createdItem = {
         id: 1,
         item: 'Test task item',
-        userId: 'test-firebase-uid'
+        userId: 'test-replit-user-id'
       };
 
       mockStorage.getUserByFirebaseId.mockResolvedValue(userWithoutNotifications);
@@ -248,7 +248,7 @@ describe('Email Workflow', () => {
     it('should not send notification email when user has no email', async () => {
       // Setup: User without email
       const userWithoutEmail = {
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         email: null,
         emailNotifications: true,
         subscriptionType: 'free'
@@ -257,7 +257,7 @@ describe('Email Workflow', () => {
       const createdItem = {
         id: 1,
         item: 'Test task item',
-        userId: 'test-firebase-uid'
+        userId: 'test-replit-user-id'
       };
 
       mockStorage.getUserByFirebaseId.mockResolvedValue(userWithoutEmail);
@@ -282,7 +282,7 @@ describe('Email Workflow', () => {
     it('should continue item creation even if email notification fails', async () => {
       // Setup: User with email notifications enabled
       const userWithNotifications = {
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         email: 'test@example.com',
         emailNotifications: true,
         subscriptionType: 'free'
@@ -291,7 +291,7 @@ describe('Email Workflow', () => {
       const createdItem = {
         id: 1,
         item: 'Test task item',
-        userId: 'test-firebase-uid'
+        userId: 'test-replit-user-id'
       };
 
       mockStorage.getUserByFirebaseId.mockResolvedValue(userWithNotifications);
@@ -319,7 +319,7 @@ describe('Email Workflow', () => {
 
     it('should handle special characters in email content', async () => {
       const userWithNotifications = {
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         email: 'test@example.com',
         emailNotifications: true,
         subscriptionType: 'free'
@@ -329,7 +329,7 @@ describe('Email Workflow', () => {
       const createdItem = {
         id: 1,
         item: itemWithSpecialChars,
-        userId: 'test-firebase-uid'
+        userId: 'test-replit-user-id'
       };
 
       mockStorage.getUserByFirebaseId.mockResolvedValue(userWithNotifications);

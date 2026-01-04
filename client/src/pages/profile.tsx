@@ -1,20 +1,20 @@
-
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/useToast";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/use-auth";
 import { useUser } from "@/hooks/useUser";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { useState } from "react";
-import type { User } from "@shared/schema";
+import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 
 export default function Profile() {
-  const { user: firebaseUser } = useAuth();
+  const { user: authUser, isLoading } = useAuth();
   const { user: userData } = useUser();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
 
   const [formData, setFormData] = useState({
     firstName: userData?.firstName || "",
@@ -25,18 +25,54 @@ export default function Profile() {
     postalCode: userData?.postalCode || "",
   });
 
+  // Update form data when userData loads
+  useEffect(() => {
+    if (userData) {
+      setFormData({
+        firstName: userData.firstName || "",
+        lastName: userData.lastName || "",
+        address: userData.address || "",
+        city: userData.city || "",
+        state: userData.state || "",
+        postalCode: userData.postalCode || "",
+      });
+    }
+  }, [userData]);
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isLoading && !authUser) {
+      setLocation("/login");
+    }
+  }, [isLoading, authUser, setLocation]);
+
   const updateProfile = useMutation({
     mutationFn: async (data: typeof formData) => {
       return apiRequest("PATCH", "/api/users/profile", data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/users/${firebaseUser?.uid}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/users/profile`] });
       toast({
         title: "Success",
         description: "Profile updated successfully",
       });
     },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to update profile",
+        variant: "destructive",
+      });
+    },
   });
+
+  if (isLoading) {
+    return <div className="container mx-auto py-8">Loading...</div>;
+  }
+
+  if (!authUser) {
+    return null;
+  }
 
   return (
     <div className="container mx-auto py-8">

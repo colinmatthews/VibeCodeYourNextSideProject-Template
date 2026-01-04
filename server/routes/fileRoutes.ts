@@ -3,8 +3,9 @@ import multer from "multer";
 import path from "path";
 import { z } from "zod";
 import { storage } from "../storage/index";
-import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
-import { requiresOwnership, requiresFileOwnership } from "../middleware/authHelpers";
+import { isAuthenticated } from "../replit_integrations/auth";
+import { AuthenticatedRequest, getUserId } from "../middleware/auth";
+import { requiresFileOwnership } from "../middleware/authHelpers";
 import { firebaseStorage } from "../lib/firebaseStorage";
 import { handleError, errors } from "../lib/errors";
 
@@ -58,9 +59,12 @@ const upload = multer({
 });
 
 export async function registerFileRoutes(app: Express) {
-  app.get("/api/files", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/files", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user!.uid;
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
       const files = await storage.getFilesByUserId(userId);
       res.json(files || []);
     } catch (error) {
@@ -68,7 +72,7 @@ export async function registerFileRoutes(app: Express) {
     }
   });
 
-  app.get("/api/files/:id", requireAuth, requiresFileOwnership, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/files/:id", isAuthenticated, requiresFileOwnership, async (req: AuthenticatedRequest, res) => {
     try {
       // Validate file ID parameter
       const { id } = fileIdSchema.parse(req.params);
@@ -82,10 +86,14 @@ export async function registerFileRoutes(app: Express) {
   });
 
   // New upload endpoint - handles multipart file uploads
-  app.post("/api/files/upload", requireAuth, upload.single('file'), async (req: AuthenticatedRequest, res) => {
+  app.post("/api/files/upload", isAuthenticated, upload.single('file'), async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user!.uid;
+      const userId = getUserId(req);
       const file = req.file;
+
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
 
       if (!file) {
         throw errors.validation("No file provided");
@@ -99,7 +107,7 @@ export async function registerFileRoutes(app: Express) {
       });
 
       // Check user exists and get subscription info
-      const user = await storage.getUserByFirebaseId(userId);
+      const user = await storage.getUserById(userId);
       if (!user) {
         console.error("[Files] User not found");
         throw errors.notFound("User");
@@ -147,16 +155,20 @@ export async function registerFileRoutes(app: Express) {
   });
 
   // Legacy endpoint for metadata-only file creation (kept for compatibility)
-  app.post("/api/files", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/files", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       // Validate request body
       const validatedData = createFileSchema.parse(req.body);
       const { name, originalName, path, url, size, type } = validatedData;
-      const userId = req.user!.uid;
+      const userId = getUserId(req);
+      
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
       
       console.log("[Files] Received file data:", { name, originalName, path, size, type, userId });
 
-      const user = await storage.getUserByFirebaseId(userId);
+      const user = await storage.getUserById(userId);
       if (!user) {
         console.error("[Files] User not found");
         throw errors.notFound("User");
@@ -202,7 +214,7 @@ export async function registerFileRoutes(app: Express) {
   });
 
   // Download endpoint - streams file from Firebase Storage
-  app.get("/api/files/:id/download", requireAuth, requiresFileOwnership, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/files/:id/download", isAuthenticated, requiresFileOwnership, async (req: AuthenticatedRequest, res) => {
     try {
       // Validate file ID parameter
       const { id } = fileIdSchema.parse(req.params);
@@ -243,7 +255,7 @@ export async function registerFileRoutes(app: Express) {
     }
   });
 
-  app.delete("/api/files/:id", requireAuth, requiresFileOwnership, async (req: AuthenticatedRequest, res) => {
+  app.delete("/api/files/:id", isAuthenticated, requiresFileOwnership, async (req: AuthenticatedRequest, res) => {
     try {
       // Validate file ID parameter
       const { id } = fileIdSchema.parse(req.params);

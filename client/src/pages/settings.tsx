@@ -1,26 +1,21 @@
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/useToast";
 import { useLocation } from "wouter";
-import { useAuth } from "@/lib/auth";
+import { useAuth } from "@/hooks/use-auth";
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Loader2 } from "lucide-react";
-import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useState, useEffect } from "react";
-import { updateUserPassword } from "@/lib/firebase";
 import { useUser } from "@/hooks/useUser";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, apiPost, apiJson } from "@/lib/queryClient";
-import { signOut } from "firebase/auth";
-import { auth } from "@/lib/firebase";
 
 async function createPortalSession(): Promise<{ url: string }> {
   try {
     const response = await apiPost('/api/create-portal-session', {});
     return apiJson<{ url: string }>(response);
   } catch (error: any) {
-    // Handle specific Stripe portal configuration error
     if (error.message && error.message.includes('configuration')) {
       throw new Error('Portal Not Configured: The billing portal needs to be configured in Stripe Dashboard. Please configure it at: Settings > Billing > Customer portal');
     }
@@ -31,13 +26,9 @@ async function createPortalSession(): Promise<{ url: string }> {
 export default function Settings() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const { user: firebaseUser, loading } = useAuth();
-  const { user: userData } = useUser(); // Renamed to avoid conflict
+  const { user, isLoading, logout } = useAuth();
+  const { user: userData } = useUser();
   const queryClient = useQueryClient();
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
   // Initialize emailNotifications from user data
   const [emailNotifications, setEmailNotifications] = useState(userData?.emailNotifications ?? false);
@@ -49,12 +40,9 @@ export default function Settings() {
     }
   }, [userData?.emailNotifications]);
 
-  // Check if user logged in with email/password
-  const isEmailUser = firebaseUser?.providerData?.[0]?.providerId === 'password';
-
   const updateEmailPreferences = useMutation({
     mutationFn: async (enabled: boolean) => {
-      if (!firebaseUser?.uid) throw new Error("User not authenticated");
+      if (!user?.id) throw new Error("User not authenticated");
       return apiRequest("PATCH", `/api/users/profile`, {
         emailNotifications: enabled
       });
@@ -101,7 +89,7 @@ export default function Settings() {
     }
   });
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-border" />
@@ -109,63 +97,17 @@ export default function Settings() {
     );
   }
 
-  if (!firebaseUser) {
+  if (!user) {
     setLocation('/login');
     return null;
   }
 
-  const handlePasswordChange = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newPassword !== confirmPassword) {
-      toast({
-        title: "Error",
-        description: "New passwords do not match",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setIsUpdatingPassword(true);
-    try {
-      await updateUserPassword(firebaseUser, currentPassword, newPassword);
-      toast({
-        title: "Success",
-        description: "Password updated successfully"
-      });
-      // Clear the form
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive"
-      });
-    } finally {
-      setIsUpdatingPassword(false);
-    }
-  };
-
-  const handleSignOut = async () => {
-    try {
-      await signOut(auth);
-      toast({
-        title: "Success",
-        description: "You have been logged out successfully"
-      });
-      setLocation('/');
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to log out",
-        variant: "destructive"
-      });
-    }
+  const handleSignOut = () => {
+    logout();
   };
 
   const handleOpenBillingPortal = () => {
-    if (!firebaseUser?.uid) return;
+    if (!user?.id) return;
     portalMutation.mutate();
   };
 
@@ -179,47 +121,13 @@ export default function Settings() {
           <div className="space-y-4">
             <div className="flex items-center space-x-2">
               <strong>Email:</strong> 
-              <span>{firebaseUser.email}</span>
+              <span>{user.email || 'Not set'}</span>
             </div>
-            {isEmailUser && (
-              <form onSubmit={handlePasswordChange} className="space-y-4">
-                <h3 className="text-xl font-semibold">Change Password</h3>
-                <Input
-                  type="password"
-                  placeholder="Current Password"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  required
-                />
-                <Input
-                  type="password"
-                  placeholder="New Password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  required
-                />
-                <Input
-                  type="password"
-                  placeholder="Confirm New Password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
-                />
-                <Button 
-                  type="submit"
-                  disabled={isUpdatingPassword}
-                  className="w-full"
-                >
-                  {isUpdatingPassword ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Updating Password...
-                    </>
-                  ) : (
-                    'Update Password'
-                  )}
-                </Button>
-              </form>
+            {user.firstName && (
+              <div className="flex items-center space-x-2">
+                <strong>Name:</strong> 
+                <span>{user.firstName} {user.lastName}</span>
+              </div>
             )}
             <Button 
               variant="destructive"
@@ -313,9 +221,6 @@ export default function Settings() {
                   'Open Billing Portal'
                 )}
               </Button>
-              <p className="text-xs text-muted-foreground">
-                💡 All payment methods and billing are securely handled by Stripe.
-              </p>
             </div>
           </Card>
         )}

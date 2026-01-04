@@ -20,10 +20,11 @@ interface UpdateThreadData {
 
 export interface IStorage {
   // User operations
-  getUserByFirebaseId(firebaseId: string): Promise<User | undefined>;
+  getUserById(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
-  updateUser(firebaseId: string, data: UpdateUserData): Promise<User>;
+  upsertUser(user: InsertUser): Promise<User>;
+  updateUser(id: string, data: UpdateUserData): Promise<User>;
 
   // Item operations
   getItemsByUserId(userId: string): Promise<Item[]>;
@@ -73,8 +74,8 @@ export class PostgresStorage implements IStorage {
   }
 
   // User operations
-  async getUserByFirebaseId(firebaseId: string): Promise<User | undefined> {
-    return this.userStorage.getUserByFirebaseId(firebaseId);
+  async getUserById(id: string): Promise<User | undefined> {
+    return this.userStorage.getUserById(id);
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
@@ -85,8 +86,12 @@ export class PostgresStorage implements IStorage {
     return this.userStorage.createUser(user);
   }
 
-  async updateUser(firebaseId: string, data: UpdateUserData): Promise<User> {
-    return this.userStorage.updateUser(firebaseId, data);
+  async upsertUser(user: InsertUser): Promise<User> {
+    return this.userStorage.upsertUser(user);
+  }
+
+  async updateUser(id: string, data: UpdateUserData): Promise<User> {
+    return this.userStorage.updateUser(id, data);
   }
 
   // Item operations

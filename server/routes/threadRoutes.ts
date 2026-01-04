@@ -1,5 +1,6 @@
 import type { Express } from "express";
-import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
+import { isAuthenticated } from "../replit_integrations/auth";
+import { AuthenticatedRequest, getUserId } from "../middleware/auth";
 import { storage } from "../storage";
 import { nanoid } from "nanoid";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
@@ -33,19 +34,22 @@ export async function registerThreadRoutes(app: Express) {
     max: 60,
     standardHeaders: true,
     legacyHeaders: false,
-    keyGenerator: (req: any) => req.user?.uid ?? ipKeyGenerator(req)
+    keyGenerator: (req: any) => getUserId(req) ?? ipKeyGenerator(req)
   });
   const writeLimiter = rateLimit({
     windowMs: 60_000,
     max: 30,
     standardHeaders: true,
     legacyHeaders: false,
-    keyGenerator: (req: any) => req.user?.uid ?? ipKeyGenerator(req)
+    keyGenerator: (req: any) => getUserId(req) ?? ipKeyGenerator(req)
   });
   // Get all threads for the authenticated user
-  app.get("/api/ai/threads", requireAuth, threadsLimiter, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/ai/threads", isAuthenticated, threadsLimiter, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user!.uid;
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
       
       const activeThreads = await storage.getActiveThreadsByUserId(userId);
       const archivedThreads = await storage.getArchivedThreadsByUserId(userId);
@@ -73,9 +77,13 @@ export async function registerThreadRoutes(app: Express) {
   });
 
   // Create a new thread
-  app.post("/api/ai/threads", requireAuth, writeLimiter, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/ai/threads", isAuthenticated, writeLimiter, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user!.uid;
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+      
       const parsed = CreateThreadSchema.safeParse(req.body);
       if (!parsed.success) {
         return res.status(400).json({ error: 'Validation failed', details: parsed.error.errors.map(e => e.message) });
@@ -105,9 +113,13 @@ export async function registerThreadRoutes(app: Express) {
   });
 
   // Initialize a thread (assistant-ui requirement)
-  app.post("/api/ai/threads/:threadId/initialize", requireAuth, writeLimiter, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/ai/threads/:threadId/initialize", isAuthenticated, writeLimiter, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user!.uid;
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+      
       const { threadId } = req.params;
       
       // Check if thread already exists
@@ -131,9 +143,13 @@ export async function registerThreadRoutes(app: Express) {
   });
 
   // Get a specific thread
-  app.get("/api/ai/threads/:threadId", requireAuth, threadsLimiter, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/ai/threads/:threadId", isAuthenticated, threadsLimiter, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user!.uid;
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+      
       const { threadId } = req.params;
       
       const thread = await storage.getThreadByIdAndUserId(threadId, userId);
@@ -156,9 +172,13 @@ export async function registerThreadRoutes(app: Express) {
   });
 
   // Update a thread (rename, archive, etc.)
-  app.patch("/api/ai/threads/:threadId", requireAuth, writeLimiter, async (req: AuthenticatedRequest, res) => {
+  app.patch("/api/ai/threads/:threadId", isAuthenticated, writeLimiter, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user!.uid;
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+      
       const { threadId } = req.params;
       const parsed = UpdateThreadSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -186,9 +206,13 @@ export async function registerThreadRoutes(app: Express) {
   });
 
   // Delete a thread
-  app.delete("/api/ai/threads/:threadId", requireAuth, writeLimiter, async (req: AuthenticatedRequest, res) => {
+  app.delete("/api/ai/threads/:threadId", isAuthenticated, writeLimiter, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user!.uid;
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+      
       const { threadId } = req.params;
       
       // Delete the thread (messages will cascade via FK)
@@ -202,9 +226,13 @@ export async function registerThreadRoutes(app: Express) {
   });
 
   // Get messages for a thread
-  app.get("/api/ai/threads/:threadId/messages", requireAuth, threadsLimiter, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/ai/threads/:threadId/messages", isAuthenticated, threadsLimiter, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user!.uid;
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+      
       const { threadId } = req.params;
       
       // First verify the user owns this thread
@@ -230,9 +258,13 @@ export async function registerThreadRoutes(app: Express) {
   });
 
   // Add a message to a thread
-  app.post("/api/ai/threads/:threadId/messages", requireAuth, writeLimiter, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/ai/threads/:threadId/messages", isAuthenticated, writeLimiter, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user!.uid;
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+      
       const { threadId } = req.params;
       const parsed = CreateMessageSchema.safeParse(req.body);
       if (!parsed.success) {

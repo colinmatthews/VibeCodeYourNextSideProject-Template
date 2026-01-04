@@ -1,24 +1,18 @@
 import * as React from "react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { auth } from "@/lib/firebase";
-import { useEffect, useState } from "react";
-import { CardHeader } from "@/components/ui/card"; // Added import for CardHeader
+import { useAuth } from "@/hooks/use-auth";
 
 export default function Navbar() {
-  const [user, setUser] = useState(auth.currentUser);
+  const { user, isLoading, logout } = useAuth();
   const [, setLocation] = useLocation();
 
-  useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      setUser(user);
-    });
-    return () => unsubscribe();
-  }, []);
-
   const handleSignOut = () => {
-    auth.signOut();
-    setLocation("/login");
+    logout();
+  };
+
+  const handleSignIn = () => {
+    window.location.href = "/api/login";
   };
 
   return (
@@ -35,7 +29,9 @@ export default function Navbar() {
           <Link href="/pricing">
             <Button variant="ghost">Pricing</Button>
           </Link>
-          {user ? (
+          {isLoading ? (
+            <div className="w-20 h-9 bg-muted animate-pulse rounded" />
+          ) : user ? (
             <>
               <Link href="/">
                 <Button variant="ghost">Dashboard</Button>
@@ -49,9 +45,7 @@ export default function Navbar() {
               <Button onClick={handleSignOut} variant="outline">Sign Out</Button>
             </>
           ) : (
-            <Link href="/login">
-              <Button>Sign In</Button>
-            </Link>
+            <Button onClick={handleSignIn}>Sign In</Button>
           )}
         </div>
       </div>
