@@ -94,10 +94,11 @@ jest.mock('posthog-node', () => ({
 // Mock Storage - essential to prevent real DB access
 jest.mock('./server/storage/index', () => ({
   storage: {
-    getUserByFirebaseId: jest.fn().mockResolvedValue(null),
+    getUserById: jest.fn().mockResolvedValue(null),
     getUserByEmail: jest.fn().mockResolvedValue(null),
     createUser: jest.fn(),
     updateUser: jest.fn(),
+    upsertUser: jest.fn(),
     getItemsByUserId: jest.fn().mockResolvedValue([]),
     createItem: jest.fn(),
     deleteItem: jest.fn(),
@@ -116,7 +117,7 @@ const mockStripeInstance = {
     create: jest.fn().mockResolvedValue({
       id: 'cus_test123',
       email: 'test@example.com',
-      metadata: { firebaseId: 'test-firebase-uid' },
+      metadata: { userId: 'test-replit-user-id' },
       created: 1641234567,
       currency: 'usd',
       default_source: null,
@@ -215,7 +216,7 @@ const mockStripeInstance = {
     retrieve: jest.fn().mockResolvedValue({
       id: 'sub_test123',
       metadata: {
-        firebaseId: 'test-firebase-uid'
+        userId: 'test-replit-user-id'
       },
       object: 'subscription',
       application: null,
@@ -413,64 +414,23 @@ global.mockMailServiceInstance = mockMailServiceInstance;
 
 jest.mock('@sendgrid/mail', () => mockSendGrid, { virtual: true });
 
-// Mock Firebase Admin
+// Mock Firebase Admin (only needed for Firebase Storage, not auth)
 jest.mock('firebase-admin/app', () => ({
   initializeApp: jest.fn(),
   getApps: jest.fn(() => []),
   cert: jest.fn()
 }));
 
-// Enhanced Firebase Auth mock with additional error scenarios
-const mockFirebaseAuthErrors = {
-  expiredToken: () => {
-    const error = new Error('Firebase ID token has expired');
-    error.code = 'auth/id-token-expired';
-    return error;
-  },
-  
-  invalidToken: () => {
-    const error = new Error('Firebase ID token has invalid format');
-    error.code = 'auth/invalid-id-token';
-    return error;
-  },
-  
-  revokedToken: () => {
-    const error = new Error('Firebase ID token has been revoked');
-    error.code = 'auth/id-token-revoked';
-    return error;
-  },
-  
-  serviceUnavailable: () => {
-    const error = new Error('Firebase service is temporarily unavailable');
-    error.code = 'unavailable';
-    return error;
-  },
-  
-  networkTimeout: () => {
-    const error = new Error('Network timeout contacting Firebase');
-    error.code = 'TIMEOUT';
-    return error;
-  },
-  
-  malformedToken: () => {
-    const error = new Error('Malformed JWT token');
-    error.code = 'auth/argument-error';
-    return error;
-  }
-};
-
-// Export Firebase Auth errors for test use
-global.mockFirebaseAuthErrors = mockFirebaseAuthErrors;
-
+// Mock Firebase Auth (kept minimal for any legacy references, but not used for auth)
 jest.mock('firebase-admin/auth', () => ({
   getAuth: jest.fn(() => ({
     verifyIdToken: jest.fn().mockResolvedValue({
-      uid: 'test-firebase-uid',
+      uid: 'test-replit-user-id',
       email: 'test@example.com',
       email_verified: true
     }),
     getUser: jest.fn().mockResolvedValue({
-      uid: 'test-firebase-uid',
+      uid: 'test-replit-user-id',
       email: 'test@example.com',
       displayName: 'Test User',
       disabled: false,
@@ -512,8 +472,8 @@ jest.mock('./server/lib/firebaseStorage', () => {
       uploadFile: jest.fn().mockResolvedValue({
         name: `${timestamp}-${randomId}.jpg`,
         originalName: 'original.jpg',
-        path: `users/test-firebase-uid/files/${timestamp}-${randomId}.jpg`,
-        url: `https://storage.googleapis.com/bucket-name/users/test-firebase-uid/files/${timestamp}-${randomId}.jpg?GoogleAccessId=service-account%40project.iam.gserviceaccount.com&Expires=1641321600&Signature=abc123def456ghi789jkl012mno345pqr678stu901vwx234yz`,
+        path: `users/test-replit-user-id/files/${timestamp}-${randomId}.jpg`,
+        url: `https://storage.googleapis.com/bucket-name/users/test-replit-user-id/files/${timestamp}-${randomId}.jpg?GoogleAccessId=service-account%40project.iam.gserviceaccount.com&Expires=1641321600&Signature=abc123def456ghi789jkl012mno345pqr678stu901vwx234yz`,
         size: 1024,
         type: 'image/jpeg'
       }),
@@ -526,201 +486,67 @@ jest.mock('./server/lib/firebaseStorage', () => {
   };
 });
 
-// Mock Auth Middleware - must be early to intercept imports
+// Mock Auth Middleware - uses Replit session-based auth pattern
 jest.mock('./server/middleware/auth', () => ({
   requireAuth: jest.fn((req, res, next) => {
-    const authHeader = req.headers.authorization;
-    
-    // ONLY auth-middleware.test.ts needs strict token validation
-    const isMiddlewareAuthTest = expect.getState().testPath?.includes('auth-middleware');
-    
-    // If no auth header and NOT middleware test, provide default authentication
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      if (isMiddlewareAuthTest) {
-        return res.status(401).json({
-          error: 'Authentication required',
-          code: 'auth/no-token'
-        });
-      } else {
-        // Default auth for ALL other tests (auth-authorization, auth-security, payment, etc.)
-        req.user = {
-          uid: 'test-firebase-uid',
+    // Check if request has mock authentication set up
+    const isAuthenticated = req.isAuthenticated ? req.isAuthenticated() : true;
+    const user = req.user;
+
+    // For most tests, provide default Replit session authentication
+    if (!isAuthenticated || !user) {
+      // Default auth for tests - simulate authenticated Replit session
+      req.isAuthenticated = () => true;
+      req.user = {
+        claims: {
+          sub: 'test-replit-user-id',
           email: 'test@example.com',
-          email_verified: true
-        };
-        return next();
-      }
+          first_name: 'Test',
+          last_name: 'User',
+          profile_image_url: 'https://example.com/avatar.png'
+        },
+        expires_at: Math.floor(Date.now() / 1000) + 3600 // 1 hour from now
+      };
     }
 
-    const idToken = authHeader.split('Bearer ')[1];
-    
-    if (!idToken || idToken.trim() === '') {
-      if (isMiddlewareAuthTest) {
-        return res.status(401).json({
-          error: 'Authentication required',
-          code: 'auth/no-token'
-        });
-      } else {
-        // Default auth for non-middleware tests
-        req.user = {
-          uid: 'test-firebase-uid',
-          email: 'test@example.com',
-          email_verified: true
-        };
-        return next();
-      }
-    }
-
-    // Use the mocked verifyIdToken to determine success/failure for auth-specific tests
-    const mockAuth = require('firebase-admin/auth').getAuth();
-    mockAuth.verifyIdToken(idToken)
-      .then(decodedToken => {
-        req.user = {
-          uid: decodedToken.uid,
-          email: decodedToken.email,
-          email_verified: decodedToken.email_verified
-        };
-        next();
-      })
-      .catch(error => {
-        console.error('Firebase token verification error:', error);
-        
-        if (error.code === 'auth/id-token-expired') {
-          return res.status(401).json({
-            error: 'Authentication token has expired',
-            code: 'auth/expired-token'
-          });
-        }
-        
-        if (error.code === 'auth/id-token-revoked') {
-          return res.status(401).json({
-            error: 'Authentication token has been revoked',
-            code: 'auth/invalid-token'
-          });
-        }
-        
-        if (error.code === 'auth/invalid-id-token') {
-          return res.status(401).json({
-            error: 'Invalid authentication token',
-            code: 'auth/invalid-token'
-          });
-        }
-
-        return res.status(401).json({
-          error: 'Authentication failed',
-          code: 'auth/invalid-token'
-        });
-      });
-  }),
-  verifyFirebaseToken: jest.fn((req, res, next) => {
-    const authHeader = req.headers.authorization;
-    
-    // ONLY auth-middleware.test.ts needs strict token validation
-    const isMiddlewareAuthTest = expect.getState().testPath?.includes('auth-middleware');
-    
-    // If no auth header and NOT middleware test, provide default authentication
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      if (isMiddlewareAuthTest) {
-        return res.status(401).json({
-          error: 'Authentication required',
-          code: 'auth/no-token'
-        });
-      } else {
-        // Default auth for ALL other tests
-        req.user = {
-          uid: 'test-firebase-uid',
-          email: 'test@example.com',
-          email_verified: true
-        };
-        return next();
-      }
-    }
-
-    const idToken = authHeader.split('Bearer ')[1];
-    
-    if (!idToken || idToken.trim() === '') {
-      if (isMiddlewareAuthTest) {
-        return res.status(401).json({
-          error: 'Authentication required',
-          code: 'auth/no-token'
-        });
-      } else {
-        // Default auth for non-middleware tests
-        req.user = {
-          uid: 'test-firebase-uid',
-          email: 'test@example.com',
-          email_verified: true
-        };
-        return next();
-      }
-    }
-
-    const mockAuth = require('firebase-admin/auth').getAuth();
-    mockAuth.verifyIdToken(idToken)
-      .then(decodedToken => {
-        req.user = {
-          uid: decodedToken.uid,
-          email: decodedToken.email,
-          email_verified: decodedToken.email_verified
-        };
-        next();
-      })
-      .catch(error => {
-        console.error('Firebase token verification error:', error);
-        
-        if (error.code === 'auth/id-token-expired') {
-          return res.status(401).json({
-            error: 'Authentication token has expired',
-            code: 'auth/expired-token'
-          });
-        }
-        
-        if (error.code === 'auth/id-token-revoked') {
-          return res.status(401).json({
-            error: 'Authentication token has been revoked',
-            code: 'auth/invalid-token'
-          });
-        }
-        
-        if (error.code === 'auth/invalid-id-token') {
-          return res.status(401).json({
-            error: 'Invalid authentication token',
-            code: 'auth/invalid-token'
-          });
-        }
-
-        return res.status(401).json({
-          error: 'Authentication failed',
-          code: 'auth/invalid-token'
-        });
-      });
+    return next();
   }),
   optionalAuth: jest.fn((req, res, next) => {
-    const authHeader = req.headers.authorization;
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return next();
-    }
+    // Optional auth just passes through - session will be available if authenticated
+    return next();
+  }),
+  getUserId: jest.fn((req) => {
+    return req.user?.claims?.sub || null;
+  }),
+  AuthenticatedRequest: {}
+}));
 
-    const idToken = authHeader.split('Bearer ')[1];
-    
-    if (!idToken) {
-      return next();
+// Mock Replit Auth integration
+jest.mock('./server/replit_integrations/auth', () => ({
+  setupAuth: jest.fn().mockResolvedValue(undefined),
+  isAuthenticated: jest.fn((req, res, next) => {
+    // Simulate authenticated Replit session for tests
+    if (!req.isAuthenticated) {
+      req.isAuthenticated = () => true;
     }
-
-    const mockAuth = require('firebase-admin/auth').getAuth();
-    mockAuth.verifyIdToken(idToken)
-      .then(decodedToken => {
-        req.user = {
-          uid: decodedToken.uid,
-          email: decodedToken.email,
-          email_verified: decodedToken.email_verified
-        };
-        next();
-      })
-      .catch(error => {
-        // Continue without authentication if token verification fails
-        next();
-      });
-  })
+    if (!req.user) {
+      req.user = {
+        claims: {
+          sub: 'test-replit-user-id',
+          email: 'test@example.com',
+          first_name: 'Test',
+          last_name: 'User',
+          profile_image_url: 'https://example.com/avatar.png'
+        },
+        expires_at: Math.floor(Date.now() / 1000) + 3600
+      };
+    }
+    return next();
+  }),
+  getSession: jest.fn(),
+  registerAuthRoutes: jest.fn(),
+  authStorage: {
+    getUser: jest.fn().mockResolvedValue(null),
+    upsertUser: jest.fn().mockResolvedValue({ id: 'test-replit-user-id' })
+  }
 }));

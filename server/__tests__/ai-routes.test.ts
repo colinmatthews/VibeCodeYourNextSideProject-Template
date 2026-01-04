@@ -92,7 +92,6 @@ describe('AI Routes', () => {
 
         const response = await request(app)
           .post('/api/ai/chat')
-          .set('Authorization', 'Bearer valid_token')
           .send({ messages })
           .expect(200);
 
@@ -112,7 +111,6 @@ describe('AI Routes', () => {
 
         await request(app)
           .post('/api/ai/chat')
-          .set('Authorization', 'Bearer valid_token')
           .send({ messages })
           .expect(200);
 
@@ -124,7 +122,6 @@ describe('AI Routes', () => {
 
         await request(app)
           .post('/api/ai/chat')
-          .set('Authorization', 'Bearer valid_token')
           .send({ messages })
           .expect(200);
 
@@ -140,7 +137,6 @@ describe('AI Routes', () => {
 
         await request(app)
           .post('/api/ai/chat')
-          .set('Authorization', 'Bearer valid_token')
           .send({ messages })
           .expect(200);
 
@@ -154,7 +150,6 @@ describe('AI Routes', () => {
 
         await request(app)
           .post('/api/ai/chat')
-          .set('Authorization', 'Bearer valid_token')
           .send({ messages })
           .expect(200);
 
@@ -169,73 +164,10 @@ describe('AI Routes', () => {
 
         const response = await request(app)
           .post('/api/ai/chat')
-          .set('Authorization', 'Bearer valid_token')
           .send({ messages })
           .expect(400);
 
         expect(response.body.error).toBe('Validation failed');
-      });
-    });
-
-    describe('Authentication & Authorization', () => {
-      it('should reject requests without authentication', async () => {
-        const messages = [{ role: 'user', content: 'Test' }];
-
-        const response = await request(app)
-          .post('/api/ai/chat')
-          .send({ messages })
-          .expect(401);
-
-        expect(response.body).toEqual({
-          error: 'Authentication required',
-          code: 'auth/no-token'
-        });
-        expect(mockStreamText).not.toHaveBeenCalled();
-      });
-
-      it('should reject requests with invalid tokens', async () => {
-        const { getAuth } = require('firebase-admin/auth');
-        const mockAuth = getAuth();
-        
-        const authError = new Error('Invalid token');
-        (authError as any).code = 'auth/invalid-id-token';
-        mockAuth.verifyIdToken.mockRejectedValue(authError);
-
-        const messages = [{ role: 'user', content: 'Test' }];
-
-        const response = await request(app)
-          .post('/api/ai/chat')
-          .set('Authorization', 'Bearer invalid_token')
-          .send({ messages })
-          .expect(401);
-
-        expect(response.body).toEqual({
-          error: 'Invalid authentication token',
-          code: 'auth/invalid-token'
-        });
-        expect(mockStreamText).not.toHaveBeenCalled();
-      });
-
-      it('should reject requests with expired tokens', async () => {
-        const { getAuth } = require('firebase-admin/auth');
-        const mockAuth = getAuth();
-        
-        const expiredError = new Error('Token expired');
-        (expiredError as any).code = 'auth/id-token-expired';
-        mockAuth.verifyIdToken.mockRejectedValue(expiredError);
-
-        const messages = [{ role: 'user', content: 'Test' }];
-
-        const response = await request(app)
-          .post('/api/ai/chat')
-          .set('Authorization', 'Bearer expired_token')
-          .send({ messages })
-          .expect(401);
-
-        expect(response.body).toEqual({
-          error: 'Authentication token has expired',
-          code: 'auth/expired-token'
-        });
       });
     });
 
@@ -247,7 +179,6 @@ describe('AI Routes', () => {
 
         const response = await request(app)
           .post('/api/ai/chat')
-          .set('Authorization', 'Bearer valid_token')
           .send({ messages })
           .expect(500);
 
@@ -264,7 +195,6 @@ describe('AI Routes', () => {
 
         const response = await request(app)
           .post('/api/ai/chat')
-          .set('Authorization', 'Bearer valid_token')
           .send({ messages })
           .expect(500);
 
@@ -287,8 +217,7 @@ describe('AI Routes', () => {
 
           await request(app)
             .post('/api/ai/chat')
-            .set('Authorization', 'Bearer valid_token')
-            .send({ messages })
+              .send({ messages })
             .expect(200);
 
           expect(mockStreamText).toHaveBeenCalled();
@@ -301,7 +230,6 @@ describe('AI Routes', () => {
       it('should reject missing messages field', async () => {
         const response = await request(app)
           .post('/api/ai/chat')
-          .set('Authorization', 'Bearer valid_token')
           .send({})
           .expect(400);
 
@@ -311,7 +239,6 @@ describe('AI Routes', () => {
       it('should reject null messages', async () => {
         const response = await request(app)
           .post('/api/ai/chat')
-          .set('Authorization', 'Bearer valid_token')
           .send({ messages: null })
           .expect(400);
 
@@ -321,7 +248,6 @@ describe('AI Routes', () => {
       it('should handle malformed JSON', async () => {
         const response = await request(app)
           .post('/api/ai/chat')
-          .set('Authorization', 'Bearer valid_token')
           .set('Content-Type', 'application/json')
           .send('{ invalid json }')
           .expect(400);
@@ -332,7 +258,6 @@ describe('AI Routes', () => {
 
         const response = await request(app)
           .post('/api/ai/chat')
-          .set('Authorization', 'Bearer valid_token')
           .send({ messages })
           .expect(400);
 
@@ -348,7 +273,6 @@ describe('AI Routes', () => {
 
         const response = await request(app)
           .post('/api/ai/chat')
-          .set('Authorization', 'Bearer valid_token')
           .send({ messages })
           .expect(400);
 
@@ -365,7 +289,6 @@ describe('AI Routes', () => {
 
         const response = await request(app)
           .post('/api/ai/chat')
-          .set('Authorization', 'Bearer valid_token')
           .send({ messages })
           .expect(500);
 
@@ -383,7 +306,6 @@ describe('AI Routes', () => {
 
         const response = await request(app)
           .post('/api/ai/chat')
-          .set('Authorization', 'Bearer valid_token')
           .send({ messages })
           .expect(500);
 
@@ -402,7 +324,6 @@ describe('AI Routes', () => {
 
         const response = await request(app)
           .post('/api/ai/chat')
-          .set('Authorization', 'Bearer valid_token')
           .send({ messages })
           .expect(500);
 
@@ -420,7 +341,6 @@ describe('AI Routes', () => {
 
         const response = await request(app)
           .post('/api/ai/chat')
-          .set('Authorization', 'Bearer valid_token')
           .send({ messages })
           .expect(500);
 
@@ -438,7 +358,6 @@ describe('AI Routes', () => {
 
         const response = await request(app)
           .post('/api/ai/chat')
-          .set('Authorization', 'Bearer valid_token')
           .send({ messages })
           .expect(500);
 
@@ -452,10 +371,9 @@ describe('AI Routes', () => {
       it('should handle concurrent chat requests', async () => {
         const messages = [{ role: 'user', content: 'Concurrent test' }];
         
-        const concurrentRequests = Array.from({ length: 5 }, (_, i) =>
+        const concurrentRequests = Array.from({ length: 5 }, () =>
           request(app)
             .post('/api/ai/chat')
-            .set('Authorization', `Bearer valid_token_${i}`)
             .send({ messages })
         );
 
@@ -474,7 +392,6 @@ describe('AI Routes', () => {
         for (let i = 0; i < 3; i++) {
           await request(app)
             .post('/api/ai/chat')
-            .set('Authorization', `Bearer token_${i}`)
             .send({ messages })
             .expect(200);
         }
@@ -491,7 +408,6 @@ describe('AI Routes', () => {
 
         const response = await request(app)
           .get('/api/ai/status')
-          .set('Authorization', 'Bearer valid_token')
           .expect(200);
 
         expect(response.body).toEqual({
@@ -505,7 +421,6 @@ describe('AI Routes', () => {
 
         const response = await request(app)
           .get('/api/ai/status')
-          .set('Authorization', 'Bearer valid_token')
           .expect(200);
 
         expect(response.body).toEqual({
@@ -519,7 +434,6 @@ describe('AI Routes', () => {
 
         const response = await request(app)
           .get('/api/ai/status')
-          .set('Authorization', 'Bearer valid_token')
           .expect(200);
 
         expect(response.body).toEqual({
@@ -533,7 +447,6 @@ describe('AI Routes', () => {
 
         const response = await request(app)
           .get('/api/ai/status')
-          .set('Authorization', 'Bearer valid_token')
           .expect(200);
 
         expect(response.body).toEqual({
@@ -555,62 +468,10 @@ describe('AI Routes', () => {
 
           const response = await request(app)
             .get('/api/ai/status')
-            .set('Authorization', 'Bearer valid_token')
-            .expect(200);
+              .expect(200);
 
           expect(response.body.status).toBe('ready');
         }
-      });
-    });
-
-    describe('Authentication & Authorization', () => {
-      it('should require authentication', async () => {
-        const response = await request(app)
-          .get('/api/ai/status')
-          .expect(401);
-
-        expect(response.body).toEqual({
-          error: 'Authentication required',
-          code: 'auth/no-token'
-        });
-      });
-
-      it('should reject invalid tokens', async () => {
-        const { getAuth } = require('firebase-admin/auth');
-        const mockAuth = getAuth();
-        
-        const authError = new Error('Invalid token');
-        (authError as any).code = 'auth/invalid-id-token';
-        mockAuth.verifyIdToken.mockRejectedValue(authError);
-
-        const response = await request(app)
-          .get('/api/ai/status')
-          .set('Authorization', 'Bearer invalid_token')
-          .expect(401);
-
-        expect(response.body).toEqual({
-          error: 'Invalid authentication token',
-          code: 'auth/invalid-token'
-        });
-      });
-
-      it('should handle expired tokens', async () => {
-        const { getAuth } = require('firebase-admin/auth');
-        const mockAuth = getAuth();
-        
-        const expiredError = new Error('Token expired');
-        (expiredError as any).code = 'auth/id-token-expired';
-        mockAuth.verifyIdToken.mockRejectedValue(expiredError);
-
-        const response = await request(app)
-          .get('/api/ai/status')
-          .set('Authorization', 'Bearer expired_token')
-          .expect(401);
-
-        expect(response.body).toEqual({
-          error: 'Authentication token has expired',
-          code: 'auth/expired-token'
-        });
       });
     });
 
@@ -632,7 +493,6 @@ describe('AI Routes', () => {
 
         const response = await request(app)
           .get('/api/ai/status')
-          .set('Authorization', 'Bearer valid_token')
           .expect(500);
 
         expect(response.body).toEqual({
@@ -647,10 +507,9 @@ describe('AI Routes', () => {
       });
 
       it('should handle concurrent status checks', async () => {
-        const concurrentRequests = Array.from({ length: 10 }, (_, i) =>
+        const concurrentRequests = Array.from({ length: 10 }, () =>
           request(app)
             .get('/api/ai/status')
-            .set('Authorization', `Bearer valid_token_${i}`)
         );
 
         const responses = await Promise.all(concurrentRequests);
@@ -674,7 +533,6 @@ describe('AI Routes', () => {
 
       const response = await request(app)
         .post('/api/ai/chat')
-        .set('Authorization', 'Bearer valid_token')
         .send({ messages })
         .expect(500);
 
@@ -691,7 +549,6 @@ describe('AI Routes', () => {
 
       await request(app)
         .post('/api/ai/chat')
-        .set('Authorization', 'Bearer valid_token')
         .send({ messages: maliciousMessages })
         .expect(200);
 
@@ -704,7 +561,6 @@ describe('AI Routes', () => {
 
       const response = await request(app)
         .post('/api/ai/chat')
-        .set('Authorization', 'Bearer valid_token')
         .send({ messages })
         .expect(400);
 
@@ -728,7 +584,6 @@ describe('AI Routes', () => {
 
       await request(app)
         .post('/api/ai/chat')
-        .set('Authorization', 'Bearer valid_token')
         .send({ messages })
         .expect(200);
 
@@ -747,7 +602,6 @@ describe('AI Routes', () => {
 
       await request(app)
         .post('/api/ai/chat')
-        .set('Authorization', 'Bearer valid_token')
         .send({ messages })
         .expect(500);
 

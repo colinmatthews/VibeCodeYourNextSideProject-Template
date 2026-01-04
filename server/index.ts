@@ -103,7 +103,7 @@ import { posthog, logEvent, logSecurity } from './lib/audit';
     (res as any).locals.requestId = requestId;
     res.setHeader('X-Request-Id', requestId);
     const start = Date.now();
-    const userId = (req as any).user?.uid || undefined;
+    const userId = (req as any).user?.claims?.sub || undefined;
 
     // Log request start (no body)
     logEvent('api.request', {
@@ -123,7 +123,7 @@ import { posthog, logEvent, logSecurity } from './lib/audit';
         path: req.path,
         status: res.statusCode,
         durationMs,
-        userId: (req as any).user?.uid || userId
+        userId: (req as any).user?.claims?.sub || userId
       });
     });
 
@@ -141,10 +141,10 @@ import { posthog, logEvent, logSecurity } from './lib/audit';
     standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
     legacyHeaders: false, // Disable the `X-RateLimit-*` headers
     // Prefer per-user limits when authenticated, otherwise fall back to IP
-    keyGenerator: (req: any) => req.user?.uid ?? ipKeyGenerator(req),
+    keyGenerator: (req: any) => req.user?.claims?.sub ?? ipKeyGenerator(req),
     handler: (req: any, res, _next, options) => {
       const requestId = (res as any)?.locals?.requestId;
-      const userId = req.user?.uid;
+      const userId = req.user?.claims?.sub;
       logSecurity('rate_limit', {
         requestId,
         method: req.method,

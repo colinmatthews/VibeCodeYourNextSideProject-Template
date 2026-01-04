@@ -1,11 +1,11 @@
 import request from 'supertest';
 import express from 'express';
-import { 
-  requiresOwnership, 
-  requiresFileOwnership, 
-  requiresItemOwnership, 
+import {
+  requiresOwnership,
+  requiresFileOwnership,
+  requiresItemOwnership,
   requiresUserExists,
-  extractFirebaseUid,
+  extractUserId,
   isOwner
 } from '../middleware/authHelpers';
 import { requireAuth } from '../middleware/auth';
@@ -135,14 +135,14 @@ describe('Authorization & Ownership', () => {
       });
     });
 
-    describe('Firebase ID Parameter Ownership', () => {
+    describe('ID Parameter Ownership', () => {
       it('should handle id parameter as alias for userId', async () => {
-        app.get('/api/firebase/:id/data', requireAuth, requiresOwnership, (req: any, res) => {
-          res.json({ message: 'Firebase ID accessed', id: req.params.id });
+        app.get('/api/resource/:id/data', requireAuth, requiresOwnership, (req: any, res) => {
+          res.json({ message: 'Resource accessed', id: req.params.id });
         });
 
         const response = await request(app)
-          .get('/api/firebase/test-replit-user-id/data')
+          .get('/api/resource/test-replit-user-id/data')
           .expect(200);
 
         expect(response.body.id).toBe('test-replit-user-id');
@@ -348,18 +348,18 @@ describe('Authorization & Ownership', () => {
     };
 
     it('should allow access when user exists', async () => {
-      mockStorage.getUserByFirebaseId.mockResolvedValue(mockUserProfile);
+      mockStorage.getUserById.mockResolvedValue(mockUserProfile);
 
       const response = await request(app)
         .get('/api/protected/user')
         .expect(200);
 
       expect(response.body.userProfile).toEqual(mockUserProfile);
-      expect(mockStorage.getUserByFirebaseId).toHaveBeenCalledWith('test-replit-user-id');
+      expect(mockStorage.getUserById).toHaveBeenCalledWith('test-replit-user-id');
     });
 
     it('should deny access when user does not exist', async () => {
-      mockStorage.getUserByFirebaseId.mockResolvedValue(null);
+      mockStorage.getUserById.mockResolvedValue(null);
 
       const response = await request(app)
         .get('/api/protected/user')
@@ -371,7 +371,7 @@ describe('Authorization & Ownership', () => {
     });
 
     it('should handle database errors during user lookup', async () => {
-      mockStorage.getUserByFirebaseId.mockRejectedValue(new Error('Database error'));
+      mockStorage.getUserById.mockRejectedValue(new Error('Database error'));
 
       const response = await request(app)
         .get('/api/protected/user')
@@ -383,7 +383,7 @@ describe('Authorization & Ownership', () => {
     });
 
     it('should attach user profile to request', async () => {
-      mockStorage.getUserByFirebaseId.mockResolvedValue(mockUserProfile);
+      mockStorage.getUserById.mockResolvedValue(mockUserProfile);
 
       app.get('/api/test-user-attachment', requireAuth, requiresUserExists, (req: any, res) => {
         res.json({ 
@@ -420,7 +420,7 @@ describe('Authorization & Ownership', () => {
           userId: 'test-replit-user-id'
         }));
 
-        mockStorage.getUserByFirebaseId.mockResolvedValue(freeUser);
+        mockStorage.getUserById.mockResolvedValue(freeUser);
         mockStorage.getItemsByUserId.mockResolvedValue(existingItems);
 
         // Test route that simulates item creation logic
@@ -458,7 +458,7 @@ describe('Authorization & Ownership', () => {
           userId: 'test-replit-user-id'
         }));
 
-        mockStorage.getUserByFirebaseId.mockResolvedValue(freeUser);
+        mockStorage.getUserById.mockResolvedValue(freeUser);
         mockStorage.getFilesByUserId.mockResolvedValue(existingFiles);
 
         app.post('/api/test-file-limit', requireAuth, requiresUserExists, (req: any, res) => {
@@ -491,7 +491,7 @@ describe('Authorization & Ownership', () => {
           { id: 1, size: 99 * 1024 * 1024, userId: 'test-replit-user-id' } // 99MB
         ];
 
-        mockStorage.getUserByFirebaseId.mockResolvedValue(freeUser);
+        mockStorage.getUserById.mockResolvedValue(freeUser);
         mockStorage.getFilesByUserId.mockResolvedValue(existingFiles);
 
         app.post('/api/test-storage-limit', requireAuth, requiresUserExists, (req: any, res) => {
@@ -540,7 +540,7 @@ describe('Authorization & Ownership', () => {
           userId: 'test-replit-user-id'
         }));
 
-        mockStorage.getUserByFirebaseId.mockResolvedValue(proUser);
+        mockStorage.getUserById.mockResolvedValue(proUser);
         mockStorage.getFilesByUserId.mockResolvedValue(existingFiles);
 
         app.post('/api/test-pro-file-limit', requireAuth, requiresUserExists, (req: any, res) => {
@@ -577,7 +577,7 @@ describe('Authorization & Ownership', () => {
           { id: 1, size: 500 * 1024 * 1024, userId: 'test-replit-user-id' } // 500MB
         ];
 
-        mockStorage.getUserByFirebaseId.mockResolvedValue(proUser);
+        mockStorage.getUserById.mockResolvedValue(proUser);
         mockStorage.getFilesByUserId.mockResolvedValue(existingFiles);
 
         app.post('/api/test-pro-storage-limit', requireAuth, requiresUserExists, (req: any, res) => {
@@ -627,7 +627,7 @@ describe('Authorization & Ownership', () => {
           userId: 'test-replit-user-id'
         }));
 
-        mockStorage.getUserByFirebaseId.mockResolvedValue(downgradeUser);
+        mockStorage.getUserById.mockResolvedValue(downgradeUser);
         mockStorage.getItemsByUserId.mockResolvedValue(excessItems);
 
         app.get('/api/test-downgrade-status', requireAuth, requiresUserExists, (req: any, res) => {
@@ -657,54 +657,54 @@ describe('Authorization & Ownership', () => {
   });
 
   describe('Helper Functions', () => {
-    describe('extractFirebaseUid', () => {
-      it('should extract UID from authenticated request', () => {
+    describe('extractUserId', () => {
+      it('should extract user ID from authenticated request', () => {
         const mockRequest = {
-          user: { uid: 'test-uid', email: 'test@example.com' }
+          user: { claims: { sub: 'test-user-id', email: 'test@example.com' } }
         } as any;
 
-        const uid = extractFirebaseUid(mockRequest);
-        expect(uid).toBe('test-uid');
+        const userId = extractUserId(mockRequest);
+        expect(userId).toBe('test-user-id');
       });
 
       it('should return null for unauthenticated request', () => {
         const mockRequest = {} as any;
-        const uid = extractFirebaseUid(mockRequest);
-        expect(uid).toBeNull();
+        const userId = extractUserId(mockRequest);
+        expect(userId).toBeNull();
       });
 
-      it('should return null for request without UID', () => {
+      it('should return null for request without user claims', () => {
         const mockRequest = {
           user: { email: 'test@example.com' }
         } as any;
 
-        const uid = extractFirebaseUid(mockRequest);
-        expect(uid).toBeNull();
+        const userId = extractUserId(mockRequest);
+        expect(userId).toBeNull();
       });
     });
 
     describe('isOwner', () => {
       it('should return true when user owns resource', () => {
         const mockRequest = {
-          user: { uid: 'test-uid', email: 'test@example.com' }
+          user: { claims: { sub: 'test-user-id', email: 'test@example.com' } }
         } as any;
 
-        const owns = isOwner(mockRequest, 'test-uid');
+        const owns = isOwner(mockRequest, 'test-user-id');
         expect(owns).toBe(true);
       });
 
       it('should return false when user does not own resource', () => {
         const mockRequest = {
-          user: { uid: 'test-uid', email: 'test@example.com' }
+          user: { claims: { sub: 'test-user-id', email: 'test@example.com' } }
         } as any;
 
-        const owns = isOwner(mockRequest, 'other-uid');
+        const owns = isOwner(mockRequest, 'other-user-id');
         expect(owns).toBe(false);
       });
 
       it('should return false for unauthenticated request', () => {
         const mockRequest = {} as any;
-        const owns = isOwner(mockRequest, 'test-uid');
+        const owns = isOwner(mockRequest, 'test-user-id');
         expect(owns).toBe(false);
       });
     });

@@ -69,11 +69,6 @@ export function handleError(error: unknown, res: Response): void {
 }
 
 function getStatusFromError(error: Error): number {
-  // Check for Firebase Auth errors
-  if (error.message.includes('auth/')) {
-    return 401;
-  }
-  
   // Check for common error patterns
   if (error.message.toLowerCase().includes('not found')) {
     return 404;

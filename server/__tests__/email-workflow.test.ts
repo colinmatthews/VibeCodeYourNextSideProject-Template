@@ -186,7 +186,7 @@ describe('Email Workflow', () => {
         userId: 'test-replit-user-id'
       };
 
-      mockStorage.getUserByFirebaseId.mockResolvedValue(userWithNotifications);
+      mockStorage.getUserById.mockResolvedValue(userWithNotifications);
       mockStorage.getItemsByUserId.mockResolvedValue([]); // Under limit
       mockStorage.createItem.mockResolvedValue(createdItem);
 
@@ -226,7 +226,7 @@ describe('Email Workflow', () => {
         userId: 'test-replit-user-id'
       };
 
-      mockStorage.getUserByFirebaseId.mockResolvedValue(userWithoutNotifications);
+      mockStorage.getUserById.mockResolvedValue(userWithoutNotifications);
       mockStorage.getItemsByUserId.mockResolvedValue([]);
       mockStorage.createItem.mockResolvedValue(createdItem);
 
@@ -260,7 +260,7 @@ describe('Email Workflow', () => {
         userId: 'test-replit-user-id'
       };
 
-      mockStorage.getUserByFirebaseId.mockResolvedValue(userWithoutEmail);
+      mockStorage.getUserById.mockResolvedValue(userWithoutEmail);
       mockStorage.getItemsByUserId.mockResolvedValue([]);
       mockStorage.createItem.mockResolvedValue(createdItem);
 
@@ -294,7 +294,7 @@ describe('Email Workflow', () => {
         userId: 'test-replit-user-id'
       };
 
-      mockStorage.getUserByFirebaseId.mockResolvedValue(userWithNotifications);
+      mockStorage.getUserById.mockResolvedValue(userWithNotifications);
       mockStorage.getItemsByUserId.mockResolvedValue([]);
       mockStorage.createItem.mockResolvedValue(createdItem);
 
@@ -332,7 +332,7 @@ describe('Email Workflow', () => {
         userId: 'test-replit-user-id'
       };
 
-      mockStorage.getUserByFirebaseId.mockResolvedValue(userWithNotifications);
+      mockStorage.getUserById.mockResolvedValue(userWithNotifications);
       mockStorage.getItemsByUserId.mockResolvedValue([]);
       mockStorage.createItem.mockResolvedValue(createdItem);
 

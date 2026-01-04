@@ -93,22 +93,22 @@ jest.mock('posthog-node', () => mockPostHogNode);
 // Export reset function for test cleanup
 export const resetAllMocks = () => {
   jest.clearAllMocks();
-  
+
   // Reset mock implementations to defaults
-  mockStorage.getUserById.mockResolvedValue(null);
-  mockStorage.getUserByEmail.mockResolvedValue(null);
-  mockStorage.getItemsByUserId.mockResolvedValue([]);
-  mockStorage.getFilesByUserId.mockResolvedValue([]);
-  mockStorage.getFileById.mockResolvedValue(null);
-  mockStorage.createUser.mockResolvedValue({ id: 'test-replit-user-id' });
-  mockStorage.updateUser.mockResolvedValue({ id: 'test-replit-user-id' });
-  mockStorage.upsertUser.mockResolvedValue({ id: 'test-replit-user-id' });
-  mockStorage.createItem.mockResolvedValue({ id: 1, item: 'test', userId: 'test-replit-user-id' });
-  mockStorage.deleteItem.mockResolvedValue(undefined);
-  mockStorage.createFile.mockResolvedValue({ id: 1, name: 'test.jpg', userId: 'test-replit-user-id' });
-  mockStorage.deleteFile.mockResolvedValue(undefined);
-  mockStorage.getFileByPath.mockResolvedValue(null);
-  mockStorage.getFileByIdAndUserId.mockResolvedValue(null);
+  if (mockStorage.getUserById) mockStorage.getUserById.mockResolvedValue(null);
+  if (mockStorage.getUserByEmail) mockStorage.getUserByEmail.mockResolvedValue(null);
+  if (mockStorage.getItemsByUserId) mockStorage.getItemsByUserId.mockResolvedValue([]);
+  if (mockStorage.getFilesByUserId) mockStorage.getFilesByUserId.mockResolvedValue([]);
+  if (mockStorage.getFileById) mockStorage.getFileById.mockResolvedValue(null);
+  if (mockStorage.createUser) mockStorage.createUser.mockResolvedValue({ id: 'test-replit-user-id' });
+  if (mockStorage.updateUser) mockStorage.updateUser.mockResolvedValue({ id: 'test-replit-user-id' });
+  if (mockStorage.upsertUser) mockStorage.upsertUser.mockResolvedValue({ id: 'test-replit-user-id' });
+  if (mockStorage.createItem) mockStorage.createItem.mockResolvedValue({ id: 1, item: 'test', userId: 'test-replit-user-id' });
+  if (mockStorage.deleteItem) mockStorage.deleteItem.mockResolvedValue(undefined);
+  if (mockStorage.createFile) mockStorage.createFile.mockResolvedValue({ id: 1, name: 'test.jpg', userId: 'test-replit-user-id' });
+  if (mockStorage.deleteFile) mockStorage.deleteFile.mockResolvedValue(undefined);
+  if (mockStorage.getFileByPath) mockStorage.getFileByPath.mockResolvedValue(null);
+  if (mockStorage.getFileByIdAndUserId) mockStorage.getFileByIdAndUserId.mockResolvedValue(null);
   
   // Reset SendGrid mock defaults
   if ((global as any).mockMailServiceInstance) {

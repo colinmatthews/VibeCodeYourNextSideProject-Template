@@ -92,7 +92,7 @@ describe('File Workflow', () => {
         { id: 2, size: 2048, userId: 'test-replit-user-id' }
       ]; // Total: 3072 bytes, under 100MB limit
 
-      mockStorage.getUserByFirebaseId.mockResolvedValue(freeUser);
+      mockStorage.getUserById.mockResolvedValue(freeUser);
       mockStorage.getFilesByUserId.mockResolvedValue(existingFiles);
       
       // Get the mock response from Firebase Storage service (from mocks.ts)
@@ -166,7 +166,7 @@ describe('File Workflow', () => {
         userId: 'test-replit-user-id'
       })); // Total: 50 files, 500MB
 
-      mockStorage.getUserByFirebaseId.mockResolvedValue(proUser);
+      mockStorage.getUserById.mockResolvedValue(proUser);
       mockStorage.getFilesByUserId.mockResolvedValue(existingFiles);
       
       // Update Firebase Storage mock for large file upload
@@ -218,7 +218,7 @@ describe('File Workflow', () => {
         userId: 'test-replit-user-id'
       })); // Already at 10 file limit
 
-      mockStorage.getUserByFirebaseId.mockResolvedValue(freeUser);
+      mockStorage.getUserById.mockResolvedValue(freeUser);
       mockStorage.getFilesByUserId.mockResolvedValue(existingFiles);
 
       const response = await request(app)
@@ -247,7 +247,7 @@ describe('File Workflow', () => {
         subscriptionType: 'free'
       };
 
-      mockStorage.getUserByFirebaseId.mockResolvedValue(freeUser);
+      mockStorage.getUserById.mockResolvedValue(freeUser);
       mockStorage.getFilesByUserId.mockResolvedValue([]);
 
       const response = await request(app)
@@ -276,7 +276,7 @@ describe('File Workflow', () => {
         { id: 1, size: 99 * 1024 * 1024, userId: 'test-replit-user-id' } // 99MB
       ];
 
-      mockStorage.getUserByFirebaseId.mockResolvedValue(freeUser);
+      mockStorage.getUserById.mockResolvedValue(freeUser);
       mockStorage.getFilesByUserId.mockResolvedValue(existingFiles);
 
       const response = await request(app)
@@ -300,7 +300,7 @@ describe('File Workflow', () => {
         subscriptionType: 'free'
       };
 
-      mockStorage.getUserByFirebaseId.mockResolvedValue(freeUser);
+      mockStorage.getUserById.mockResolvedValue(freeUser);
       mockStorage.getFilesByUserId.mockResolvedValue([]);
 
       const response = await request(app)
@@ -321,7 +321,7 @@ describe('File Workflow', () => {
         subscriptionType: 'free'
       };
 
-      mockStorage.getUserByFirebaseId.mockResolvedValue(freeUser);
+      mockStorage.getUserById.mockResolvedValue(freeUser);
       mockStorage.getFilesByUserId.mockResolvedValue([]);
       
       // Mock Firebase Storage error
@@ -480,7 +480,7 @@ describe('File Workflow', () => {
         subscriptionType: 'free'
       };
 
-      mockStorage.getUserByFirebaseId.mockResolvedValue(freeUser);
+      mockStorage.getUserById.mockResolvedValue(freeUser);
       mockStorage.getFilesByUserId.mockResolvedValue([]);
 
       // Test mismatched extension and MIME type - currently allowed by validation

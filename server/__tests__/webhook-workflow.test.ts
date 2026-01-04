@@ -42,7 +42,7 @@ describe('Webhook Workflow', () => {
           mode: 'subscription',
           payment_status: 'paid',
           metadata: {
-            id: 'test-replit-user-id'
+            userId: 'test-replit-user-id'
           },
           subscription: 'sub_test123'
         }
@@ -59,7 +59,7 @@ describe('Webhook Workflow', () => {
           id: 'cs_test_expired123',
           object: 'checkout.session',
           metadata: {
-            id: 'test-replit-user-id'
+            userId: 'test-replit-user-id'
           }
         }
       }
@@ -76,7 +76,7 @@ describe('Webhook Workflow', () => {
           object: 'subscription',
           status: 'active',
           metadata: {
-            id: 'test-replit-user-id'
+            userId: 'test-replit-user-id'
           }
         }
       }
@@ -93,7 +93,7 @@ describe('Webhook Workflow', () => {
           object: 'subscription',
           status: 'active',
           metadata: {
-            id: 'test-replit-user-id'
+            userId: 'test-replit-user-id'
           }
         }
       }
@@ -110,7 +110,7 @@ describe('Webhook Workflow', () => {
           object: 'subscription',
           status: 'canceled',
           metadata: {
-            id: 'test-replit-user-id'
+            userId: 'test-replit-user-id'
           }
         }
       }
@@ -322,7 +322,7 @@ describe('Webhook Workflow', () => {
       expect(response.body).toEqual({ received: true });
     });
 
-    it('should handle missing firebase ID in metadata', async () => {
+    it('should handle missing user ID in metadata', async () => {
       const noMetadataEvent = {
         ...mockEvents.checkoutSessionCompleted,
         data: {
@@ -504,7 +504,7 @@ describe('Webhook Workflow', () => {
       });
     });
 
-    it('should handle missing firebase ID in subscription metadata', async () => {
+    it('should handle missing user ID in subscription metadata', async () => {
       const noMetadataEvent = {
         ...mockEvents.subscriptionUpdated,
         data: {
@@ -552,7 +552,7 @@ describe('Webhook Workflow', () => {
       expect(response.body).toEqual({ received: true });
     });
 
-    it('should handle missing firebase ID in deleted subscription', async () => {
+    it('should handle missing user ID in deleted subscription', async () => {
       const noMetadataEvent = {
         ...mockEvents.subscriptionDeleted,
         data: {
@@ -586,7 +586,7 @@ describe('Webhook Workflow', () => {
       mockStripeInstance.subscriptions.retrieve.mockResolvedValue({
         id: 'sub_test123',
         metadata: {
-          id: 'test-replit-user-id'
+          userId: 'test-replit-user-id'
         }
       });
 
@@ -634,11 +634,11 @@ describe('Webhook Workflow', () => {
       expect(response.body).toEqual({ received: true });
     });
 
-    it('should handle subscription without firebase ID', async () => {
+    it('should handle subscription without user ID', async () => {
       const { payload, signature } = createWebhookPayload(mockEvents.invoicePaymentSucceeded);
       mockConstructEvent(mockEvents.invoicePaymentSucceeded);
 
-      // Mock subscription without firebase ID
+      // Mock subscription without user ID
       mockStripeInstance.subscriptions.retrieve.mockResolvedValue({
         id: 'sub_test123',
         metadata: {}
@@ -664,7 +664,7 @@ describe('Webhook Workflow', () => {
       mockStripeInstance.subscriptions.retrieve.mockResolvedValue({
         id: 'sub_test123',
         metadata: {
-          id: 'test-replit-user-id'
+          userId: 'test-replit-user-id'
         }
       });
 

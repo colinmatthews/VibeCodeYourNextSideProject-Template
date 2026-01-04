@@ -24,29 +24,29 @@ describe('Storage Layer', () => {
       stripeCustomerId: 'cus_test123'
     };
 
-    describe('getUserByFirebaseId', () => {
-      it('should retrieve user by Firebase ID', async () => {
-        mockStorage.getUserByFirebaseId.mockResolvedValue(mockUser);
+    describe('getUserById', () => {
+      it('should retrieve user by ID', async () => {
+        mockStorage.getUserById.mockResolvedValue(mockUser);
 
-        const result = await mockStorage.getUserByFirebaseId('test-replit-user-id');
+        const result = await mockStorage.getUserById('test-replit-user-id');
 
-        expect(mockStorage.getUserByFirebaseId).toHaveBeenCalledWith('test-replit-user-id');
+        expect(mockStorage.getUserById).toHaveBeenCalledWith('test-replit-user-id');
         expect(result).toEqual(mockUser);
       });
 
       it('should return null when user not found', async () => {
-        mockStorage.getUserByFirebaseId.mockResolvedValue(null);
+        mockStorage.getUserById.mockResolvedValue(null);
 
-        const result = await mockStorage.getUserByFirebaseId('nonexistent-uid');
+        const result = await mockStorage.getUserById('nonexistent-uid');
 
         expect(result).toBeNull();
       });
 
       it('should handle database errors', async () => {
         const dbError = new Error('Database connection failed');
-        mockStorage.getUserByFirebaseId.mockRejectedValue(dbError);
+        mockStorage.getUserById.mockRejectedValue(dbError);
 
-        await expect(mockStorage.getUserByFirebaseId('test-replit-user-id'))
+        await expect(mockStorage.getUserById('test-replit-user-id'))
           .rejects.toThrow('Database connection failed');
       });
     });
@@ -407,15 +407,15 @@ describe('Storage Layer', () => {
   describe('Data Integrity and Security', () => {
     it('should enforce user ownership in all operations', async () => {
       const userId = 'test-replit-user-id';
-      
+
       // Test user operations
-      await mockStorage.getUserByFirebaseId(userId);
-      expect(mockStorage.getUserByFirebaseId).toHaveBeenCalledWith(userId);
-      
+      await mockStorage.getUserById(userId);
+      expect(mockStorage.getUserById).toHaveBeenCalledWith(userId);
+
       // Test item operations
       await mockStorage.getItemsByUserId(userId);
       expect(mockStorage.getItemsByUserId).toHaveBeenCalledWith(userId);
-      
+
       // Test file operations
       await mockStorage.getFilesByUserId(userId);
       expect(mockStorage.getFilesByUserId).toHaveBeenCalledWith(userId);
@@ -424,20 +424,20 @@ describe('Storage Layer', () => {
     it('should handle concurrent operations safely', async () => {
       // Simulate concurrent operations
       const promises = [
-        mockStorage.getUserByFirebaseId('user1'),
-        mockStorage.getUserByFirebaseId('user2'),
+        mockStorage.getUserById('user1'),
+        mockStorage.getUserById('user2'),
         mockStorage.getItemsByUserId('user1'),
         mockStorage.getFilesByUserId('user2')
       ];
 
-      mockStorage.getUserByFirebaseId.mockResolvedValue({ id: 'user1' });
+      mockStorage.getUserById.mockResolvedValue({ id: 'user1' });
       mockStorage.getItemsByUserId.mockResolvedValue([]);
       mockStorage.getFilesByUserId.mockResolvedValue([]);
 
       await Promise.all(promises);
 
       // Verify all operations completed
-      expect(mockStorage.getUserByFirebaseId).toHaveBeenCalledTimes(2);
+      expect(mockStorage.getUserById).toHaveBeenCalledTimes(2);
       expect(mockStorage.getItemsByUserId).toHaveBeenCalledTimes(1);
       expect(mockStorage.getFilesByUserId).toHaveBeenCalledTimes(1);
     });
