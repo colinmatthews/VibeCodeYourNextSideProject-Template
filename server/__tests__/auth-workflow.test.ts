@@ -19,103 +19,16 @@ describe('Authentication Workflow', () => {
     resetAllMocks();
   });
 
-  describe('POST /api/login - User Login and Creation', () => {
-    it('should create new user and track in PostHog when user does not exist', async () => {
-      // Setup: No existing user
-      mockStorage.getUserByFirebaseId.mockResolvedValue(null);
-      
-      const newUser = {
-        firebaseId: 'test-firebase-uid',
-        email: 'test@example.com',
-        firstName: '',
-        lastName: '',
-        subscriptionType: 'free',
-        isPremium: false,
-        emailNotifications: false
-      };
-      
-      mockStorage.createUser.mockResolvedValue(newUser);
-
-      const response = await request(app)
-        .post('/api/login')
-        .expect(200);
-
-      // Verify user creation
-      expect(mockStorage.createUser).toHaveBeenCalledWith({
-        firebaseId: 'test-firebase-uid',
-        email: 'test@example.com',
-        firstName: '',
-        lastName: '',
-        address: '',
-        city: '',
-        state: '',
-        postalCode: '',
-        isPremium: false,
-        subscriptionType: 'free',
-        emailNotifications: false
-      });
-
-      // Note: PostHog analytics tracking is mocked but not tested
-      // Analytics is an external service integration that should be tested separately
-
-      // Verify response
-      expect(response.body).toEqual({
-        firebaseId: 'test-firebase-uid',
-        email: 'test@example.com',
-        subscriptionType: 'free',
-        firstName: '',
-        lastName: '',
-        emailNotifications: false,
-        isPremium: false
-      });
-    });
-
-    it('should track existing user login in PostHog', async () => {
-      // Setup: Existing user
-      const existingUser = {
-        firebaseId: 'test-firebase-uid',
-        email: 'test@example.com',
-        firstName: 'John',
-        lastName: 'Doe',
-        subscriptionType: 'pro',
-        isPremium: true,
-        emailNotifications: true
-      };
-      
-      mockStorage.getUserByFirebaseId.mockResolvedValue(existingUser);
-
-      const response = await request(app)
-        .post('/api/login')
-        .expect(200);
-
-      // Verify no user creation
-      expect(mockStorage.createUser).not.toHaveBeenCalled();
-
-      // Note: PostHog analytics tracking is mocked but not tested
-      // Analytics is an external service integration that should be tested separately
-    });
-
-    it('should handle login errors gracefully', async () => {
-      // Setup: Database error
-      mockStorage.getUserByFirebaseId.mockRejectedValue(new Error('Database error'));
-
-      const response = await request(app)
-        .post('/api/login')
-        .expect(500);
-
-      expect(response.body).toEqual({
-        error: 'Login failed'
-      });
-    });
-  });
+  // Note: POST /api/login is now handled by Replit Auth redirect flow
+  // The old Firebase-based login endpoint has been removed
 
   describe('POST /api/users/ensure-stripe - Stripe Customer Creation', () => {
     it('should create new user with Stripe customer when user does not exist', async () => {
       // Setup: No existing user
-      mockStorage.getUserByFirebaseId.mockResolvedValue(null);
+      mockStorage.getUserById.mockResolvedValue(null);
       
       const newUser = {
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         email: 'test@example.com',
         stripeCustomerId: 'cus_test123',
         subscriptionType: 'free'
@@ -130,15 +43,16 @@ describe('Authentication Workflow', () => {
       // Verify Stripe customer creation
       expect(mockStripeInstance.customers.create).toHaveBeenCalledWith({
         email: 'test@example.com',
-        metadata: { firebaseId: 'test-firebase-uid' }
+        metadata: { userId: 'test-replit-user-id' }
       });
 
-      // Verify user creation with Stripe customer ID
-      expect(mockStorage.createUser).toHaveBeenCalledWith({
-        firebaseId: 'test-firebase-uid',
+      // Verify user creation with Stripe customer ID (uses upsertUser for new users)
+      expect(mockStorage.upsertUser).toHaveBeenCalledWith({
+        id: 'test-replit-user-id',
         email: 'test@example.com',
-        firstName: '',
-        lastName: '',
+        firstName: 'Test',
+        lastName: 'User',
+        profileImageUrl: 'https://example.com/avatar.png',
         address: '',
         city: '',
         state: '',
@@ -157,12 +71,12 @@ describe('Authentication Workflow', () => {
     it('should return existing Stripe customer ID when user exists', async () => {
       // Setup: Existing user with Stripe customer
       const existingUser = {
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         email: 'test@example.com',
         stripeCustomerId: 'cus_existing123'
       };
       
-      mockStorage.getUserByFirebaseId.mockResolvedValue(existingUser);
+      mockStorage.getUserById.mockResolvedValue(existingUser);
 
       const response = await request(app)
         .post('/api/users/ensure-stripe')
@@ -170,7 +84,7 @@ describe('Authentication Workflow', () => {
 
       // Verify no new customer creation
       expect(mockStripeInstance.customers.create).not.toHaveBeenCalled();
-      expect(mockStorage.createUser).not.toHaveBeenCalled();
+      expect(mockStorage.upsertUser).not.toHaveBeenCalled();
 
       expect(response.body).toEqual({
         stripeCustomerId: 'cus_existing123'
@@ -179,7 +93,7 @@ describe('Authentication Workflow', () => {
 
     it('should handle Stripe errors', async () => {
       // Setup: Stripe error
-      mockStorage.getUserByFirebaseId.mockResolvedValue(null);
+      mockStorage.getUserById.mockResolvedValue(null);
       mockStripeInstance.customers.create.mockRejectedValue(new Error('Stripe API Error'));
 
       const response = await request(app)
@@ -196,7 +110,7 @@ describe('Authentication Workflow', () => {
     it('should update user profile successfully', async () => {
       // Setup: Existing user
       const existingUser = {
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         email: 'test@example.com',
         firstName: 'John',
         lastName: 'Doe'
@@ -208,7 +122,7 @@ describe('Authentication Workflow', () => {
         emailNotifications: true
       };
       
-      mockStorage.getUserByFirebaseId.mockResolvedValue(existingUser);
+      mockStorage.getUserById.mockResolvedValue(existingUser);
       mockStorage.updateUser.mockResolvedValue(updatedUser);
 
       const response = await request(app)
@@ -220,7 +134,7 @@ describe('Authentication Workflow', () => {
         .expect(200);
 
       // Verify update call
-      expect(mockStorage.updateUser).toHaveBeenCalledWith('test-firebase-uid', {
+      expect(mockStorage.updateUser).toHaveBeenCalledWith('test-replit-user-id', {
         firstName: 'Jane',
         emailNotifications: true
       });
@@ -241,7 +155,7 @@ describe('Authentication Workflow', () => {
     });
 
     it('should handle user not found', async () => {
-      mockStorage.getUserByFirebaseId.mockResolvedValue(null);
+      mockStorage.getUserById.mockResolvedValue(null);
 
       const response = await request(app)
         .patch('/api/users/profile')
@@ -260,7 +174,7 @@ describe('Authentication Workflow', () => {
     it('should retrieve user profile successfully', async () => {
       // Setup: Existing user
       const existingUser = {
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         email: 'test@example.com',
         firstName: 'John',
         lastName: 'Doe',
@@ -269,14 +183,14 @@ describe('Authentication Workflow', () => {
         emailNotifications: true
       };
       
-      mockStorage.getUserByFirebaseId.mockResolvedValue(existingUser);
+      mockStorage.getUserById.mockResolvedValue(existingUser);
 
       const response = await request(app)
         .get('/api/users/profile')
         .expect(200);
 
       expect(response.body).toEqual({
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         email: 'test@example.com',
         subscriptionType: 'pro',
         firstName: 'John',
@@ -287,7 +201,7 @@ describe('Authentication Workflow', () => {
     });
 
     it('should handle user not found', async () => {
-      mockStorage.getUserByFirebaseId.mockResolvedValue(null);
+      mockStorage.getUserById.mockResolvedValue(null);
 
       const response = await request(app)
         .get('/api/users/profile')

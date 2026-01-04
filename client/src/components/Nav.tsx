@@ -1,17 +1,20 @@
 import { Button } from "@/components/ui/button";
-import { User } from "firebase/auth";
+import type { User } from "@shared/schema";
 
 interface NavProps {
   user: User | null;
-  signOut: () => void;
-  signIn: () => void;
+  onLogout: () => void;
 }
 
-function Nav({ user, signOut, signIn }: NavProps) {
+function Nav({ user, onLogout }: NavProps) {
+  const handleLogin = () => {
+    window.location.href = "/api/login";
+  };
+
   return (
     <nav>
       <div className="ml-auto flex items-center gap-2">
-        <Button variant="ghost" onClick={user ? signOut : signIn}>
+        <Button variant="ghost" onClick={user ? onLogout : handleLogin}>
           {user ? 'Sign out' : 'Sign in'}
         </Button>
       </div>

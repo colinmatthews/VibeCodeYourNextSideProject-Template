@@ -10,7 +10,6 @@ import { registerRoutes } from "./routes";
 import { registerWebhookRoutes } from "./routes/webhookRoutes";
 import { setupVite, serveStatic, log } from "./vite";
 import { sanitizeInputs } from './middleware/sanitize';
-import { optionalAuth } from './middleware/auth';
 
 const app = express();
 // ALWAYS serve the app on the configured port (default 5000)
@@ -60,12 +59,8 @@ import { posthog, logEvent, logSecurity } from './lib/audit';
         connectSrc: [
           "'self'",
           "https://api.stripe.com",
-          "https://firebasestorage.googleapis.com",
-          "https://identitytoolkit.googleapis.com",
-          "https://securetoken.googleapis.com",
           "https://accounts.google.com",
           "https://www.googleapis.com",
-          "https://*.firebaseapp.com",
           "https://us.i.posthog.com",
           "https://us-assets.i.posthog.com",
           "https://*.posthog.com",
@@ -75,13 +70,11 @@ import { posthog, logEvent, logSecurity } from './lib/audit';
         imgSrc: [
           "'self'",
           "data:",
-          "https://firebasestorage.googleapis.com",
           "https://*.googleusercontent.com"
         ],
         frameSrc: [
           "https://js.stripe.com",
           "https://accounts.google.com",
-          "https://*.firebaseapp.com",
           "https://cdn.platform.openai.com",
           "https://platform.openai.com"
         ]
@@ -111,7 +104,7 @@ import { posthog, logEvent, logSecurity } from './lib/audit';
     (res as any).locals.requestId = requestId;
     res.setHeader('X-Request-Id', requestId);
     const start = Date.now();
-    const userId = (req as any).user?.uid || undefined;
+    const userId = (req as any).user?.claims?.sub || undefined;
 
     // Log request start (no body)
     logEvent('api.request', {
@@ -131,7 +124,7 @@ import { posthog, logEvent, logSecurity } from './lib/audit';
         path: req.path,
         status: res.statusCode,
         durationMs,
-        userId: (req as any).user?.uid || userId
+        userId: (req as any).user?.claims?.sub || userId
       });
     });
 
@@ -149,10 +142,10 @@ import { posthog, logEvent, logSecurity } from './lib/audit';
     standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
     legacyHeaders: false, // Disable the `X-RateLimit-*` headers
     // Prefer per-user limits when authenticated, otherwise fall back to IP
-    keyGenerator: (req: any) => req.user?.uid ?? ipKeyGenerator(req),
+    keyGenerator: (req: any) => req.user?.claims?.sub ?? ipKeyGenerator(req),
     handler: (req: any, res, _next, options) => {
       const requestId = (res as any)?.locals?.requestId;
-      const userId = req.user?.uid;
+      const userId = req.user?.claims?.sub;
       logSecurity('rate_limit', {
         requestId,
         method: req.method,
@@ -173,9 +166,7 @@ import { posthog, logEvent, logSecurity } from './lib/audit';
     }
   });
 
-  // Apply optional auth before limiter so per-user keys can be used
-  app.use('/api', optionalAuth);
-  // Apply rate limiting to API routes (per-user when available, else IP)
+  // Apply rate limiting to API routes
   app.use('/api', limiter);
 
   // Lightweight health and readiness endpoints
@@ -295,24 +286,6 @@ import { posthog, logEvent, logSecurity } from './lib/audit';
       });
     }
 
-    // Handle multer errors (file upload)
-    if (err.code === 'LIMIT_FILE_SIZE') {
-      const requestId = (res as any)?.locals?.requestId;
-      logEvent('api.error', { requestId, method: req.method, path: req.path, status: 413, code: 'payload_too_large' });
-      return res.status(413).json({
-        error: 'File too large',
-        requestId
-      });
-    }
-
-    if (err.code === 'LIMIT_UNEXPECTED_FILE') {
-      const requestId = (res as any)?.locals?.requestId;
-      logEvent('api.error', { requestId, method: req.method, path: req.path, status: 400, code: 'unexpected_file_field' });
-      return res.status(400).json({
-        error: 'Unexpected file field',
-        requestId
-      });
-    }
     const requestId = (res as any)?.locals?.requestId;
     logEvent('api.error', { requestId, method: req.method, path: req.path, status, code: err.code || 'internal_error' });
     res.status(status).json({ error: message, requestId });

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/useToast";
 import { SearchBar } from "@/components/SearchBar";
@@ -12,12 +12,11 @@ import { Input } from "@/components/ui/input";
 import { useUser } from "@/hooks/useUser";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Trash2 } from "lucide-react";
-//import { sendContactNotification } from "@/lib/mail"; // Removed as it's not relevant to items
 
 export default function Dashboard() {
   const [, setLocation] = useLocation();
-  const { user: firebaseUser, loading } = useAuth();
-  const { user } = useUser();
+  const { user, isLoading } = useAuth();
+  const { user: userData } = useUser();
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [isNewItemOpen, setIsNewItemOpen] = useState(false);
@@ -32,7 +31,7 @@ export default function Dashboard() {
 
     if (success === 'true' && sessionId) {
       toast({
-        title: "Welcome to Pro! 🎉",
+        title: "Welcome to Pro!",
         description: "Your subscription is now active. Enjoy unlimited items and all Pro features!",
       });
       // Clean up URL
@@ -41,21 +40,20 @@ export default function Dashboard() {
   }, [toast]);
 
   const { data: items = [], refetch } = useQuery({
-    queryKey: ['items', firebaseUser?.uid], // Changed queryKey
+    queryKey: ['items', user?.id],
     queryFn: async () => {
-      const response = await apiRequest('GET', `/api/items?userId=${firebaseUser?.uid}`); // Changed API endpoint
+      const response = await apiRequest('GET', `/api/items`);
       const data = await response.json();
       return Array.isArray(data) ? data : [];
     },
-    enabled: !!firebaseUser,
-    // Ensure we always refetch on mount/navigation and mark as immediately stale
+    enabled: !!user,
     refetchOnMount: 'always',
     staleTime: 0,
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      await apiRequest("DELETE", `/api/items/${id}`); // Changed API endpoint
+      await apiRequest("DELETE", `/api/items/${id}`);
     },
     onSuccess: () => {
       refetch();
@@ -69,7 +67,6 @@ export default function Dashboard() {
   const addItemMutation = useMutation({
     mutationFn: async (item: string) => {
       await apiRequest('POST', '/api/items', {
-        userId: firebaseUser?.uid,
         item: item.trim()
       });
     },
@@ -94,25 +91,25 @@ export default function Dashboard() {
 
   // Redirect to login if not authenticated
   useEffect(() => {
-    if (!loading && !firebaseUser) {
+    if (!isLoading && !user) {
       setLocation("/login");
     }
-  }, [loading, firebaseUser, setLocation]);
+  }, [isLoading, user, setLocation]);
 
-  if (loading) {
+  if (isLoading) {
     return <div className="container mx-auto py-8">Loading...</div>;
   }
 
-  if (!firebaseUser) {
+  if (!user) {
     return null;
   }
 
   const filteredItems = items.filter(
-    (item: { item: string; id: number }) => item.item.toLowerCase().includes(search.toLowerCase()), //Simplified filtering
+    (item: { item: string; id: number }) => item.item.toLowerCase().includes(search.toLowerCase()),
   );
 
   const handleNewItem = () => {
-    if (user?.subscriptionType === 'free' && items.length >= 5) {
+    if (userData?.subscriptionType === 'free' && items.length >= 5) {
       setShowUpgradeDialog(true);
     } else {
       setIsNewItemOpen(true);
@@ -121,7 +118,7 @@ export default function Dashboard() {
 
   const handleItemSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!firebaseUser?.uid || !newItem.trim()) return;
+    if (!user?.id || !newItem.trim()) return;
 
     try {
       await addItemMutation.mutateAsync(newItem);
@@ -178,7 +175,6 @@ export default function Dashboard() {
 
       <SearchBar value={search} onChange={setSearch} />
 
-      {/* Simplified item list -  no longer needs ContactList component */}
       <div className="mt-4">
         <Table>
           <TableHeader>

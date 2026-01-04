@@ -9,9 +9,9 @@ import { getStripeClient } from '../lib/stripe';
 
 // Fulfillment helper function for checkout sessions
 async function fulfillCheckoutSession(session: Stripe.Checkout.Session, stripe: Stripe) {
-  const firebaseId = session.metadata?.firebaseId;
-  if (!firebaseId) {
-    console.error('[Webhook] No firebase ID in session metadata');
+  const userId = session.metadata?.userId;
+  if (!userId) {
+    console.error('[Webhook] No user ID in session metadata');
     return;
   }
 
@@ -19,12 +19,12 @@ async function fulfillCheckoutSession(session: Stripe.Checkout.Session, stripe: 
     // Handle subscription completion
     if (session.mode === 'subscription' && session.subscription) {
       // Update user subscription status
-      await storage.updateUser(firebaseId, {
+      await storage.updateUser(userId, {
         subscriptionType: 'pro'
       });
       
       // Optional: Send confirmation email, update user permissions, etc.
-      // await sendSubscriptionConfirmationEmail(firebaseId);
+      // await sendSubscriptionConfirmationEmail(userId);
       
     } else if (session.mode === 'payment' && session.payment_intent) {
       // Handle one-time payment fulfillment
@@ -34,7 +34,7 @@ async function fulfillCheckoutSession(session: Stripe.Checkout.Session, stripe: 
       });
       
       // Optional: Process specific products, send digital goods, etc.
-      // await processOneTimePayment(firebaseId, lineItems);
+      // await processOneTimePayment(userId, lineItems);
     }
     
   } catch (error) {
@@ -104,15 +104,15 @@ export async function registerWebhookRoutes(app: Express) {
         case 'customer.subscription.updated':
           const updatedSubscription = event.data.object as Stripe.Subscription;
           
-          const firebaseIdFromSub = updatedSubscription.metadata.firebaseId;
-          if (firebaseIdFromSub) {
+          const userIdFromSub = updatedSubscription.metadata.userId;
+          if (userIdFromSub) {
             // Handle subscription status changes
             if (updatedSubscription.status === 'active') {
-              await storage.updateUser(firebaseIdFromSub, {
+              await storage.updateUser(userIdFromSub, {
                 subscriptionType: 'pro'
               });
             } else if (['canceled', 'unpaid', 'past_due'].includes(updatedSubscription.status)) {
-              await storage.updateUser(firebaseIdFromSub, {
+              await storage.updateUser(userIdFromSub, {
                 subscriptionType: 'free'
               });
             }
@@ -122,9 +122,9 @@ export async function registerWebhookRoutes(app: Express) {
         case 'customer.subscription.deleted':
           const deletedSubscription = event.data.object as Stripe.Subscription;
           
-          const firebaseIdFromDeleted = deletedSubscription.metadata.firebaseId;
-          if (firebaseIdFromDeleted) {
-            await storage.updateUser(firebaseIdFromDeleted, {
+          const userIdFromDeleted = deletedSubscription.metadata.userId;
+          if (userIdFromDeleted) {
+            await storage.updateUser(userIdFromDeleted, {
               subscriptionType: 'free'
             });
           }
@@ -138,10 +138,10 @@ export async function registerWebhookRoutes(app: Express) {
           // Ensure subscription is marked as active
           if (paidInvoice.subscription && typeof paidInvoice.subscription === 'string') {
             const subscription = await stripe.subscriptions.retrieve(paidInvoice.subscription);
-            const firebaseIdFromInvoice = subscription.metadata.firebaseId;
+            const userIdFromInvoice = subscription.metadata.userId;
 
-            if (firebaseIdFromInvoice) {
-              await storage.updateUser(firebaseIdFromInvoice, {
+            if (userIdFromInvoice) {
+              await storage.updateUser(userIdFromInvoice, {
                 subscriptionType: 'pro'
               });
             }
@@ -156,11 +156,11 @@ export async function registerWebhookRoutes(app: Express) {
           // Optional: Handle failed invoice payments (send notification, etc.)
           if (failedInvoice.subscription && typeof failedInvoice.subscription === 'string') {
             const subscription = await stripe.subscriptions.retrieve(failedInvoice.subscription);
-            const firebaseIdFromFailedInvoice = subscription.metadata.firebaseId;
+            const userIdFromFailedInvoice = subscription.metadata.userId;
 
-            if (firebaseIdFromFailedInvoice) {
+            if (userIdFromFailedInvoice) {
               // Don't immediately downgrade - Stripe will retry payment
-              console.log('[Webhook] Invoice payment failed for user:', firebaseIdFromFailedInvoice);
+              console.log('[Webhook] Invoice payment failed for user:', userIdFromFailedInvoice);
             }
           }
           break;

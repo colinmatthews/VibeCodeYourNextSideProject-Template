@@ -1,26 +1,34 @@
 import { Readable } from 'stream';
 
-// Mock Firebase Admin
-export const mockFirebaseAdmin = {
-  auth: jest.fn(() => ({
-    verifyIdToken: jest.fn().mockResolvedValue({
-      uid: 'test-firebase-uid',
-      email: 'test@example.com',
-      email_verified: true
-    }),
-    getUser: jest.fn().mockResolvedValue({
-      uid: 'test-firebase-uid',
-      email: 'test@example.com',
-      displayName: 'Test User'
-    })
-  })),
-  initializeApp: jest.fn(),
-  credential: {
-    cert: jest.fn()
-  }
+// Mock Replit Auth session user
+export const mockReplitUser = {
+  id: 'test-replit-user-id',
+  email: 'test@example.com',
+  firstName: 'Test',
+  lastName: 'User',
+  profileImageUrl: 'https://example.com/avatar.png'
 };
 
+// Mock authenticated request with Replit Auth session
+export const createAuthenticatedRequest = (overrides = {}) => ({
+  isAuthenticated: () => true,
+  user: {
+    claims: {
+      sub: mockReplitUser.id,
+      email: mockReplitUser.email,
+      first_name: mockReplitUser.firstName,
+      last_name: mockReplitUser.lastName,
+      profile_image: mockReplitUser.profileImageUrl
+    }
+  },
+  ...overrides
+});
 
+// Mock unauthenticated request
+export const createUnauthenticatedRequest = () => ({
+  isAuthenticated: () => false,
+  user: null
+});
 
 // SendGrid mock is now in jest.setup.js for proper timing
 // Export these responses for test use
@@ -65,67 +73,44 @@ export const mockPostHogNode = {
   }))
 };
 
-// Firebase Storage mock is defined in global jest.setup.js
-
 // Import the storage mock from the global jest setup
 // Note: this will be the same mock instance that routes will use
 export const mockStorage = require('../../storage/index').storage;
-
-// Import the Firebase Storage mock from the global jest setup
-export const mockFirebaseStorage = require('../../lib/firebaseStorage').firebaseStorage;
 
 // Import the Stripe mock from jest.setup.js (will be same instance as routes)
 const StripeClass = require('stripe');
 export const mockStripeInstance = new StripeClass();
 
-// Apply all mocks
-jest.mock('firebase-admin', () => mockFirebaseAdmin);
-// SendGrid mock is now applied in jest.setup.js
+// Apply mocks
 jest.mock('posthog-node', () => mockPostHogNode);
-// Firebase Storage mock is now in global jest.setup.js
 
 // Export reset function for test cleanup
 export const resetAllMocks = () => {
   jest.clearAllMocks();
-  
+
   // Reset mock implementations to defaults
-  mockStorage.getUserByFirebaseId.mockResolvedValue(null);
-  mockStorage.getUserByEmail.mockResolvedValue(null);
-  mockStorage.getItemsByUserId.mockResolvedValue([]);
-  mockStorage.getFilesByUserId.mockResolvedValue([]);
-  mockStorage.getFileById.mockResolvedValue(null);
-  mockStorage.createUser.mockResolvedValue({ id: 1, firebaseId: 'test-firebase-uid' });
-  mockStorage.updateUser.mockResolvedValue({ id: 1, firebaseId: 'test-firebase-uid' });
-  mockStorage.createItem.mockResolvedValue({ id: 1, item: 'test', userId: 'test-firebase-uid' });
-  mockStorage.deleteItem.mockResolvedValue(undefined);
-  mockStorage.createFile.mockResolvedValue({ id: 1, name: 'test.jpg', userId: 'test-firebase-uid' });
-  mockStorage.deleteFile.mockResolvedValue(undefined);
-  mockStorage.getFileByPath.mockResolvedValue(null);
-  mockStorage.getFileByIdAndUserId.mockResolvedValue(null);
-  
-  // Reset Firebase Auth mock to default success state
-  const { getAuth } = require('firebase-admin/auth');
-  const mockAuth = getAuth();
-  if (mockAuth && mockAuth.verifyIdToken) {
-    mockAuth.verifyIdToken.mockResolvedValue({
-      uid: 'test-firebase-uid',
-      email: 'test@example.com',
-      email_verified: true
-    });
-  }
-  
+  if (mockStorage.getUserById) mockStorage.getUserById.mockResolvedValue(null);
+  if (mockStorage.getUserByEmail) mockStorage.getUserByEmail.mockResolvedValue(null);
+  if (mockStorage.getItemsByUserId) mockStorage.getItemsByUserId.mockResolvedValue([]);
+  if (mockStorage.createUser) mockStorage.createUser.mockResolvedValue({ id: 'test-replit-user-id' });
+  if (mockStorage.updateUser) mockStorage.updateUser.mockResolvedValue({ id: 'test-replit-user-id' });
+  if (mockStorage.upsertUser) mockStorage.upsertUser.mockResolvedValue({ id: 'test-replit-user-id' });
+  if (mockStorage.createItem) mockStorage.createItem.mockResolvedValue({ id: 1, item: 'test', userId: 'test-replit-user-id' });
+  if (mockStorage.updateItemStatus) mockStorage.updateItemStatus.mockResolvedValue({ id: 1, item: 'test', userId: 'test-replit-user-id', status: 'completed' });
+  if (mockStorage.deleteItem) mockStorage.deleteItem.mockResolvedValue(undefined);
+
   // Reset SendGrid mock defaults
   if ((global as any).mockMailServiceInstance) {
     (global as any).mockMailServiceInstance.send.mockResolvedValue(mockSendGridResponse);
     (global as any).mockMailServiceInstance.setApiKey.mockClear();
     (global as any).mockMailServiceInstance.send.mockClear();
   }
-  
+
   // Reset Stripe mock defaults
   mockStripeInstance.customers.create.mockResolvedValue({
     id: 'cus_test123',
     email: 'test@example.com',
-    metadata: { firebaseId: 'test-firebase-uid' },
+    metadata: { userId: 'test-replit-user-id' },
     created: 1641234567,
     currency: 'usd',
     default_source: null,
@@ -201,18 +186,4 @@ export const resetAllMocks = () => {
     return_url: 'https://example.com/account',
     url: 'https://billing.stripe.com/p/session/test_YWNjdF8xTEJEMjlBN3g5RFFuVUpy'
   });
-
-  // Reset Firebase Storage mock defaults with realistic signed URLs
-  const timestamp = Date.now();
-  const randomId = Math.random().toString(36).substring(7);
-  mockFirebaseStorage.uploadFile.mockResolvedValue({
-    name: `${timestamp}-${randomId}.jpg`,
-    originalName: 'original.jpg',
-    path: `users/test-firebase-uid/files/${timestamp}-${randomId}.jpg`,
-    url: `https://storage.googleapis.com/bucket-name/users/test-firebase-uid/files/${timestamp}-${randomId}.jpg?GoogleAccessId=service-account%40project.iam.gserviceaccount.com&Expires=1641321600&Signature=abc123def456ghi789jkl012mno345pqr678stu901vwx234yz`,
-    size: 1024,
-    type: 'image/jpeg'
-  });
-  mockFirebaseStorage.fileExists.mockResolvedValue(true);
-  mockFirebaseStorage.deleteFile.mockResolvedValue(true);
 };

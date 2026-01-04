@@ -1,4 +1,4 @@
-import { useAuth } from "@/lib/auth";
+import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { MessageCircle, Zap, Clock, Info } from "lucide-react";
@@ -19,8 +19,8 @@ const AIChat = () => {
 
   // Helper to refresh todos via React Query
   const refreshTodos = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ['items', user?.uid] });
-  }, [queryClient, user?.uid]);
+    queryClient.invalidateQueries({ queryKey: ['items', user?.id] });
+  }, [queryClient, user?.id]);
 
   // Check ChatKit service status
   useEffect(() => {

@@ -24,12 +24,12 @@ describe('Payment Workflow', () => {
     it('should create checkout session for new user without Stripe customer', async () => {
       // Setup: User exists but no Stripe customer
       const user = {
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         email: 'test@example.com',
         stripeCustomerId: null
       };
       
-      mockStorage.getUserByFirebaseId.mockResolvedValue(user);
+      mockStorage.getUserById.mockResolvedValue(user);
       mockStorage.updateUser.mockResolvedValue({
         ...user,
         stripeCustomerId: 'cus_test123'
@@ -49,12 +49,12 @@ describe('Payment Workflow', () => {
       expect(mockStripeInstance.customers.create).toHaveBeenCalledWith({
         email: 'test@example.com',
         metadata: {
-          firebaseId: 'test-firebase-uid'
+          userId: 'test-replit-user-id'
         }
       });
 
       // Verify user update with Stripe customer ID
-      expect(mockStorage.updateUser).toHaveBeenCalledWith('test-firebase-uid', {
+      expect(mockStorage.updateUser).toHaveBeenCalledWith('test-replit-user-id', {
         stripeCustomerId: 'cus_test123'
       });
 
@@ -71,14 +71,14 @@ describe('Payment Workflow', () => {
         success_url: 'https://example.com/success',
         cancel_url: 'https://example.com/cancel',
         metadata: {
-          firebaseId: 'test-firebase-uid'
+          userId: 'test-replit-user-id'
         },
         allow_promotion_codes: true,
         billing_address_collection: 'required',
         automatic_tax: { enabled: false },
         subscription_data: {
           metadata: {
-            firebaseId: 'test-firebase-uid'
+            userId: 'test-replit-user-id'
           }
         }
       });
@@ -92,12 +92,12 @@ describe('Payment Workflow', () => {
     it('should create checkout session for existing user with Stripe customer', async () => {
       // Setup: User exists with Stripe customer
       const user = {
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         email: 'test@example.com',
         stripeCustomerId: 'cus_existing123'
       };
       
-      mockStorage.getUserByFirebaseId.mockResolvedValue(user);
+      mockStorage.getUserById.mockResolvedValue(user);
 
       const response = await request(app)
         .post('/api/create-checkout-session')
@@ -125,7 +125,7 @@ describe('Payment Workflow', () => {
         success_url: 'https://example.com/success',
         cancel_url: expect.any(String), // Default cancel URL
         metadata: {
-          firebaseId: 'test-firebase-uid'
+          userId: 'test-replit-user-id'
         },
         allow_promotion_codes: true,
         billing_address_collection: 'required',
@@ -136,12 +136,12 @@ describe('Payment Workflow', () => {
     it('should use default price ID when none provided', async () => {
       // Setup: User exists with Stripe customer
       const user = {
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         email: 'test@example.com',
         stripeCustomerId: 'cus_existing123'
       };
       
-      mockStorage.getUserByFirebaseId.mockResolvedValue(user);
+      mockStorage.getUserById.mockResolvedValue(user);
 
       const response = await request(app)
         .post('/api/create-checkout-session')
@@ -162,7 +162,7 @@ describe('Payment Workflow', () => {
     });
 
     it('should handle user not found', async () => {
-      mockStorage.getUserByFirebaseId.mockResolvedValue(null);
+      mockStorage.getUserById.mockResolvedValue(null);
 
       const response = await request(app)
         .post('/api/create-checkout-session')
@@ -181,12 +181,12 @@ describe('Payment Workflow', () => {
       delete process.env.STRIPE_PRICE_ID_PRO;
       
       const user = {
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         email: 'test@example.com',
         stripeCustomerId: 'cus_existing123'
       };
       
-      mockStorage.getUserByFirebaseId.mockResolvedValue(user);
+      mockStorage.getUserById.mockResolvedValue(user);
 
       const response = await request(app)
         .post('/api/create-checkout-session')
@@ -200,12 +200,12 @@ describe('Payment Workflow', () => {
 
     it('should handle Stripe errors', async () => {
       const user = {
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         email: 'test@example.com',
         stripeCustomerId: 'cus_existing123'
       };
       
-      mockStorage.getUserByFirebaseId.mockResolvedValue(user);
+      mockStorage.getUserById.mockResolvedValue(user);
       
       // Setup Stripe error - use the global Stripe errors  
       const Stripe = require('stripe');
@@ -229,12 +229,12 @@ describe('Payment Workflow', () => {
     it('should create portal session for user with Stripe customer', async () => {
       // Setup: User exists with Stripe customer
       const user = {
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         email: 'test@example.com',
         stripeCustomerId: 'cus_existing123'
       };
       
-      mockStorage.getUserByFirebaseId.mockResolvedValue(user);
+      mockStorage.getUserById.mockResolvedValue(user);
       process.env.FRONTEND_URL = 'https://myapp.com';
 
       const response = await request(app)
@@ -257,12 +257,12 @@ describe('Payment Workflow', () => {
       delete process.env.FRONTEND_URL;
       
       const user = {
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         email: 'test@example.com',
         stripeCustomerId: 'cus_existing123'
       };
       
-      mockStorage.getUserByFirebaseId.mockResolvedValue(user);
+      mockStorage.getUserById.mockResolvedValue(user);
 
       const response = await request(app)
         .post('/api/create-portal-session')
@@ -276,7 +276,7 @@ describe('Payment Workflow', () => {
     });
 
     it('should handle user not found', async () => {
-      mockStorage.getUserByFirebaseId.mockResolvedValue(null);
+      mockStorage.getUserById.mockResolvedValue(null);
 
       const response = await request(app)
         .post('/api/create-portal-session')
@@ -289,12 +289,12 @@ describe('Payment Workflow', () => {
 
     it('should handle user without Stripe customer ID', async () => {
       const user = {
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         email: 'test@example.com',
         stripeCustomerId: null
       };
       
-      mockStorage.getUserByFirebaseId.mockResolvedValue(user);
+      mockStorage.getUserById.mockResolvedValue(user);
 
       const response = await request(app)
         .post('/api/create-portal-session')
@@ -307,12 +307,12 @@ describe('Payment Workflow', () => {
 
     it('should handle Stripe portal errors', async () => {
       const user = {
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         email: 'test@example.com',
         stripeCustomerId: 'cus_existing123'
       };
       
-      mockStorage.getUserByFirebaseId.mockResolvedValue(user);
+      mockStorage.getUserById.mockResolvedValue(user);
       
       // Setup Stripe error
       const Stripe = require('stripe');
@@ -332,12 +332,12 @@ describe('Payment Workflow', () => {
 
     it('should handle non-Stripe errors', async () => {
       const user = {
-        firebaseId: 'test-firebase-uid',
+        id: 'test-replit-user-id',
         email: 'test@example.com',
         stripeCustomerId: 'cus_existing123'
       };
       
-      mockStorage.getUserByFirebaseId.mockResolvedValue(user);
+      mockStorage.getUserById.mockResolvedValue(user);
       
       // Setup non-Stripe error
       mockStripeInstance.billingPortal.sessions.create.mockRejectedValue(

@@ -1,5 +1,4 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
-import { auth } from "./firebase";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -8,32 +7,12 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
-export async function getAuthHeaders(): Promise<Record<string, string>> {
-  const user = auth.currentUser;
-  if (!user) {
-    return {};
-  }
-  
-  try {
-    // Use cached token by default; refresh on 401 at call sites
-    const token = await user.getIdToken();
-    return {
-      'Authorization': `Bearer ${token}`
-    };
-  } catch (error) {
-    console.error('Error getting auth token:', error);
-    return {};
-  }
-}
-
 export async function apiRequest(
   method: string,
   url: string,
   data?: unknown | FormData | undefined,
 ): Promise<Response> {
-  const authHeaders = await getAuthHeaders();
-  const headers = {
-    ...authHeaders,
+  const headers: Record<string, string> = {
     // Don't set Content-Type for FormData - browser will set it with boundary
     ...(data && !(data instanceof FormData) ? { "Content-Type": "application/json" } : {}),
   };
@@ -44,26 +23,6 @@ export async function apiRequest(
     body: data instanceof FormData ? data : (data ? JSON.stringify(data) : undefined),
     credentials: "include",
   });
-
-  if (res.status === 401 && auth.currentUser) {
-    // Retry once with a forced refresh
-    try {
-      const freshToken = await auth.currentUser.getIdToken(true);
-      const retryRes = await fetch(url, {
-        method,
-        headers: {
-          ...(data && !(data instanceof FormData) ? { "Content-Type": "application/json" } : {}),
-          'Authorization': `Bearer ${freshToken}`
-        },
-        body: data instanceof FormData ? data : (data ? JSON.stringify(data) : undefined),
-        credentials: "include",
-      });
-      await throwIfResNotOk(retryRes);
-      return retryRes;
-    } catch (e) {
-      // fallthrough to original error handling below
-    }
-  }
 
   await throwIfResNotOk(res);
   return res;
@@ -95,30 +54,16 @@ export async function apiJson<T>(response: Response): Promise<T> {
   return response.json();
 }
 
-// Streaming-compatible fetch function that includes auth headers
+// Streaming-compatible fetch function that includes cookies
 export async function streamingFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  const authHeaders = await getAuthHeaders();
-
-  const doFetch = async (extraHeaders: Record<string, string>) => {
-    const mergedHeaders: Record<string, string> = {
-      ...(init?.headers as Record<string, string> | undefined),
-      ...extraHeaders,
-    };
-    return fetch(input as any, {
-      ...init,
-      headers: mergedHeaders,
-      credentials: "include",
-    });
+  const mergedHeaders: Record<string, string> = {
+    ...(init?.headers as Record<string, string> | undefined),
   };
-
-  let res = await doFetch(authHeaders);
-  if (res.status === 401 && auth.currentUser) {
-    try {
-      const freshToken = await auth.currentUser.getIdToken(true);
-      res = await doFetch({ Authorization: `Bearer ${freshToken}` });
-    } catch {}
-  }
-  return res;
+  return fetch(input as any, {
+    ...init,
+    headers: mergedHeaders,
+    credentials: "include",
+  });
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
@@ -127,9 +72,7 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const authHeaders = await getAuthHeaders();
     const res = await fetch(queryKey[0] as string, {
-      headers: authHeaders,
       credentials: "include",
     });
 

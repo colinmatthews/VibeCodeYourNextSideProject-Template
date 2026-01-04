@@ -2,8 +2,9 @@ import type { Express } from "express";
 import { z } from "zod";
 import { storage } from "../storage/index";
 import { sendEmail } from "../mail";
-import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
-import { requiresOwnership, requiresItemOwnership } from "../middleware/authHelpers";
+import { isAuthenticated } from "../replit_integrations/auth";
+import { AuthenticatedRequest, getUserId } from "../middleware/auth";
+import { requiresItemOwnership } from "../middleware/authHelpers";
 import { handleError, errors } from "../lib/errors";
 import { updateItemStatusSchema } from "@shared/schema";
 
@@ -17,9 +18,12 @@ const createItemSchema = z.object({
 });
 
 export async function registerItemRoutes(app: Express) {
-  app.get("/api/items", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/items", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user!.uid;
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
       const items = await storage.getItemsByUserId(userId);
       res.json(items || []);
     } catch (error) {
@@ -28,15 +32,19 @@ export async function registerItemRoutes(app: Express) {
     }
   });
 
-  app.post("/api/items", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/items", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
       // Validate request body
       const { item } = createItemSchema.parse(req.body);
-      const userId = req.user!.uid;
-      
+      const userId = getUserId(req);
+
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
       console.log("[Items] Received item data:", { item, userId });
 
-      const user = await storage.getUserByFirebaseId(userId);
+      const user = await storage.getUserById(userId);
       console.log("[Items] User data:", {
         email: user?.email,
         emailNotifications: user?.emailNotifications,
@@ -73,7 +81,7 @@ export async function registerItemRoutes(app: Express) {
     }
   });
 
-  app.patch("/api/items/:id/status", requireAuth, requiresItemOwnership, async (req: AuthenticatedRequest, res) => {
+  app.patch("/api/items/:id/status", isAuthenticated, requiresItemOwnership, async (req: AuthenticatedRequest, res) => {
     try {
       // Validate item ID parameter
       const { id } = itemIdSchema.parse(req.params);
@@ -89,7 +97,7 @@ export async function registerItemRoutes(app: Express) {
     }
   });
 
-  app.delete("/api/items/:id", requireAuth, requiresItemOwnership, async (req: AuthenticatedRequest, res) => {
+  app.delete("/api/items/:id", isAuthenticated, requiresItemOwnership, async (req: AuthenticatedRequest, res) => {
     try {
       // Validate item ID parameter
       const { id } = itemIdSchema.parse(req.params);

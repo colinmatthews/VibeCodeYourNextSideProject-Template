@@ -10,7 +10,7 @@ describe('Storage Layer', () => {
 
   describe('User Storage Operations', () => {
     const mockUser = {
-      firebaseId: 'test-firebase-uid',
+      id: 'test-replit-user-id',
       email: 'test@example.com',
       firstName: 'John',
       lastName: 'Doe',
@@ -24,29 +24,29 @@ describe('Storage Layer', () => {
       stripeCustomerId: 'cus_test123'
     };
 
-    describe('getUserByFirebaseId', () => {
-      it('should retrieve user by Firebase ID', async () => {
-        mockStorage.getUserByFirebaseId.mockResolvedValue(mockUser);
+    describe('getUserById', () => {
+      it('should retrieve user by ID', async () => {
+        mockStorage.getUserById.mockResolvedValue(mockUser);
 
-        const result = await mockStorage.getUserByFirebaseId('test-firebase-uid');
+        const result = await mockStorage.getUserById('test-replit-user-id');
 
-        expect(mockStorage.getUserByFirebaseId).toHaveBeenCalledWith('test-firebase-uid');
+        expect(mockStorage.getUserById).toHaveBeenCalledWith('test-replit-user-id');
         expect(result).toEqual(mockUser);
       });
 
       it('should return null when user not found', async () => {
-        mockStorage.getUserByFirebaseId.mockResolvedValue(null);
+        mockStorage.getUserById.mockResolvedValue(null);
 
-        const result = await mockStorage.getUserByFirebaseId('nonexistent-uid');
+        const result = await mockStorage.getUserById('nonexistent-uid');
 
         expect(result).toBeNull();
       });
 
       it('should handle database errors', async () => {
         const dbError = new Error('Database connection failed');
-        mockStorage.getUserByFirebaseId.mockRejectedValue(dbError);
+        mockStorage.getUserById.mockRejectedValue(dbError);
 
-        await expect(mockStorage.getUserByFirebaseId('test-firebase-uid'))
+        await expect(mockStorage.getUserById('test-replit-user-id'))
           .rejects.toThrow('Database connection failed');
       });
     });
@@ -73,7 +73,7 @@ describe('Storage Layer', () => {
     describe('createUser', () => {
       it('should create new user with all required fields', async () => {
         const newUserData = {
-          firebaseId: 'new-firebase-uid',
+          id: 'new-replit-user-id',
           email: 'new@example.com',
           firstName: 'Jane',
           lastName: 'Smith',
@@ -97,7 +97,7 @@ describe('Storage Layer', () => {
 
       it('should create user with minimal required fields', async () => {
         const minimalUserData = {
-          firebaseId: 'minimal-firebase-uid',
+          id: 'minimal-replit-user-id',
           email: 'minimal@example.com',
           firstName: '',
           lastName: '',
@@ -140,9 +140,9 @@ describe('Storage Layer', () => {
 
         mockStorage.updateUser.mockResolvedValue(updatedUser);
 
-        const result = await mockStorage.updateUser('test-firebase-uid', updateData);
+        const result = await mockStorage.updateUser('test-replit-user-id', updateData);
 
-        expect(mockStorage.updateUser).toHaveBeenCalledWith('test-firebase-uid', updateData);
+        expect(mockStorage.updateUser).toHaveBeenCalledWith('test-replit-user-id', updateData);
         expect(result).toEqual(updatedUser);
       });
 
@@ -159,7 +159,7 @@ describe('Storage Layer', () => {
 
         mockStorage.updateUser.mockResolvedValue(updatedUser);
 
-        const result = await mockStorage.updateUser('test-firebase-uid', updateData);
+        const result = await mockStorage.updateUser('test-replit-user-id', updateData);
 
         expect(result.subscriptionType).toBe('pro');
         expect(result.isPremium).toBe(true);
@@ -180,12 +180,12 @@ describe('Storage Layer', () => {
       {
         id: 1,
         item: 'Test item 1',
-        userId: 'test-firebase-uid'
+        userId: 'test-replit-user-id'
       },
       {
         id: 2,
         item: 'Test item 2',
-        userId: 'test-firebase-uid'
+        userId: 'test-replit-user-id'
       }
     ];
 
@@ -193,16 +193,16 @@ describe('Storage Layer', () => {
       it('should retrieve items for user', async () => {
         mockStorage.getItemsByUserId.mockResolvedValue(mockItems);
 
-        const result = await mockStorage.getItemsByUserId('test-firebase-uid');
+        const result = await mockStorage.getItemsByUserId('test-replit-user-id');
 
-        expect(mockStorage.getItemsByUserId).toHaveBeenCalledWith('test-firebase-uid');
+        expect(mockStorage.getItemsByUserId).toHaveBeenCalledWith('test-replit-user-id');
         expect(result).toEqual(mockItems);
       });
 
       it('should return empty array when no items found', async () => {
         mockStorage.getItemsByUserId.mockResolvedValue([]);
 
-        const result = await mockStorage.getItemsByUserId('test-firebase-uid');
+        const result = await mockStorage.getItemsByUserId('test-replit-user-id');
 
         expect(result).toEqual([]);
       });
@@ -210,14 +210,14 @@ describe('Storage Layer', () => {
       it('should not return items from other users', async () => {
         // Verify user isolation
         mockStorage.getItemsByUserId.mockImplementation((userId: string) => {
-          if (userId === 'test-firebase-uid') {
+          if (userId === 'test-replit-user-id') {
             return Promise.resolve(mockItems);
           }
           return Promise.resolve([]);
         });
 
-        const userItems = await mockStorage.getItemsByUserId('test-firebase-uid');
-        const otherUserItems = await mockStorage.getItemsByUserId('other-firebase-uid');
+        const userItems = await mockStorage.getItemsByUserId('test-replit-user-id');
+        const otherUserItems = await mockStorage.getItemsByUserId('other-replit-user-id');
 
         expect(userItems).toEqual(mockItems);
         expect(otherUserItems).toEqual([]);
@@ -227,7 +227,7 @@ describe('Storage Layer', () => {
     describe('createItem', () => {
       it('should create new item for user', async () => {
         const newItemData = {
-          userId: 'test-firebase-uid',
+          userId: 'test-replit-user-id',
           item: 'New test item'
         };
 
@@ -246,7 +246,7 @@ describe('Storage Layer', () => {
 
       it('should validate item ownership during creation', async () => {
         const itemData = {
-          userId: 'test-firebase-uid',
+          userId: 'test-replit-user-id',
           item: 'Test item'
         };
 
@@ -257,7 +257,7 @@ describe('Storage Layer', () => {
 
         const result = await mockStorage.createItem(itemData);
 
-        expect(result.userId).toBe('test-firebase-uid');
+        expect(result.userId).toBe('test-replit-user-id');
       });
     });
 
@@ -286,21 +286,21 @@ describe('Storage Layer', () => {
         id: 1,
         name: 'test-file-1.jpg',
         originalName: 'original1.jpg',
-        path: 'uploads/test-firebase-uid/test-file-1.jpg',
+        path: 'uploads/test-replit-user-id/test-file-1.jpg',
         url: 'https://storage.example.com/test-file-1.jpg',
         size: 1024,
         type: 'image/jpeg',
-        userId: 'test-firebase-uid'
+        userId: 'test-replit-user-id'
       },
       {
         id: 2,
         name: 'test-file-2.pdf',
         originalName: 'document.pdf',
-        path: 'uploads/test-firebase-uid/test-file-2.pdf',
+        path: 'uploads/test-replit-user-id/test-file-2.pdf',
         url: 'https://storage.example.com/test-file-2.pdf',
         size: 2048,
         type: 'application/pdf',
-        userId: 'test-firebase-uid'
+        userId: 'test-replit-user-id'
       }
     ];
 
@@ -308,16 +308,16 @@ describe('Storage Layer', () => {
       it('should retrieve files for user', async () => {
         mockStorage.getFilesByUserId.mockResolvedValue(mockFiles);
 
-        const result = await mockStorage.getFilesByUserId('test-firebase-uid');
+        const result = await mockStorage.getFilesByUserId('test-replit-user-id');
 
-        expect(mockStorage.getFilesByUserId).toHaveBeenCalledWith('test-firebase-uid');
+        expect(mockStorage.getFilesByUserId).toHaveBeenCalledWith('test-replit-user-id');
         expect(result).toEqual(mockFiles);
       });
 
       it('should return empty array when no files found', async () => {
         mockStorage.getFilesByUserId.mockResolvedValue([]);
 
-        const result = await mockStorage.getFilesByUserId('test-firebase-uid');
+        const result = await mockStorage.getFilesByUserId('test-replit-user-id');
 
         expect(result).toEqual([]);
       });
@@ -325,14 +325,14 @@ describe('Storage Layer', () => {
       it('should enforce user file isolation', async () => {
         // Verify files are isolated by user
         mockStorage.getFilesByUserId.mockImplementation((userId: string) => {
-          if (userId === 'test-firebase-uid') {
+          if (userId === 'test-replit-user-id') {
             return Promise.resolve(mockFiles);
           }
           return Promise.resolve([]);
         });
 
-        const userFiles = await mockStorage.getFilesByUserId('test-firebase-uid');
-        const otherUserFiles = await mockStorage.getFilesByUserId('other-firebase-uid');
+        const userFiles = await mockStorage.getFilesByUserId('test-replit-user-id');
+        const otherUserFiles = await mockStorage.getFilesByUserId('other-replit-user-id');
 
         expect(userFiles).toEqual(mockFiles);
         expect(otherUserFiles).toEqual([]);
@@ -342,10 +342,10 @@ describe('Storage Layer', () => {
     describe('createFile', () => {
       it('should create new file record for user', async () => {
         const newFileData = {
-          userId: 'test-firebase-uid',
+          userId: 'test-replit-user-id',
           name: 'new-file.jpg',
           originalName: 'photo.jpg',
-          path: 'uploads/test-firebase-uid/new-file.jpg',
+          path: 'uploads/test-replit-user-id/new-file.jpg',
           url: 'https://storage.example.com/new-file.jpg',
           size: 1536,
           type: 'image/jpeg'
@@ -366,10 +366,10 @@ describe('Storage Layer', () => {
 
       it('should validate file metadata', async () => {
         const fileData = {
-          userId: 'test-firebase-uid',
+          userId: 'test-replit-user-id',
           name: 'test.jpg',
           originalName: 'test.jpg',
-          path: 'uploads/test-firebase-uid/test.jpg',
+          path: 'uploads/test-replit-user-id/test.jpg',
           url: 'https://storage.example.com/test.jpg',
           size: 1024,
           type: 'image/jpeg'
@@ -379,7 +379,7 @@ describe('Storage Layer', () => {
 
         const result = await mockStorage.createFile(fileData);
 
-        expect(result.userId).toBe('test-firebase-uid');
+        expect(result.userId).toBe('test-replit-user-id');
         expect(result.size).toBeGreaterThan(0);
         expect(result.type).toMatch(/^[a-z]+\/[a-z]+$/);
       });
@@ -406,16 +406,16 @@ describe('Storage Layer', () => {
 
   describe('Data Integrity and Security', () => {
     it('should enforce user ownership in all operations', async () => {
-      const userId = 'test-firebase-uid';
-      
+      const userId = 'test-replit-user-id';
+
       // Test user operations
-      await mockStorage.getUserByFirebaseId(userId);
-      expect(mockStorage.getUserByFirebaseId).toHaveBeenCalledWith(userId);
-      
+      await mockStorage.getUserById(userId);
+      expect(mockStorage.getUserById).toHaveBeenCalledWith(userId);
+
       // Test item operations
       await mockStorage.getItemsByUserId(userId);
       expect(mockStorage.getItemsByUserId).toHaveBeenCalledWith(userId);
-      
+
       // Test file operations
       await mockStorage.getFilesByUserId(userId);
       expect(mockStorage.getFilesByUserId).toHaveBeenCalledWith(userId);
@@ -424,20 +424,20 @@ describe('Storage Layer', () => {
     it('should handle concurrent operations safely', async () => {
       // Simulate concurrent operations
       const promises = [
-        mockStorage.getUserByFirebaseId('user1'),
-        mockStorage.getUserByFirebaseId('user2'),
+        mockStorage.getUserById('user1'),
+        mockStorage.getUserById('user2'),
         mockStorage.getItemsByUserId('user1'),
         mockStorage.getFilesByUserId('user2')
       ];
 
-      mockStorage.getUserByFirebaseId.mockResolvedValue({ firebaseId: 'user1' });
+      mockStorage.getUserById.mockResolvedValue({ id: 'user1' });
       mockStorage.getItemsByUserId.mockResolvedValue([]);
       mockStorage.getFilesByUserId.mockResolvedValue([]);
 
       await Promise.all(promises);
 
       // Verify all operations completed
-      expect(mockStorage.getUserByFirebaseId).toHaveBeenCalledTimes(2);
+      expect(mockStorage.getUserById).toHaveBeenCalledTimes(2);
       expect(mockStorage.getItemsByUserId).toHaveBeenCalledTimes(1);
       expect(mockStorage.getFilesByUserId).toHaveBeenCalledTimes(1);
     });
@@ -446,7 +446,7 @@ describe('Storage Layer', () => {
       // Test subscription type validation
       const validSubscriptions = ['free', 'pro'];
       const userData = {
-        firebaseId: 'test-uid',
+        id: 'test-uid',
         email: 'test@example.com',
         subscriptionType: 'pro'
       };

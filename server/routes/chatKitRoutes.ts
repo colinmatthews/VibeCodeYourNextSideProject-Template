@@ -1,5 +1,6 @@
 import type { Express } from "express";
-import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
+import { AuthenticatedRequest, getUserId } from "../middleware/auth";
+import { isAuthenticated } from "../replit_integrations/auth";
 import { storage } from "../storage";
 import { randomUUID } from "crypto";
 
@@ -28,14 +29,13 @@ async function fetchWithRetry(url: string, options: RequestInit, retries = MAX_R
 
 export async function registerChatKitRoutes(app: Express) {
   // Create ChatKit session with user authentication
-  app.post("/api/chatkit/session", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/chatkit/session", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      // Defensive auth guard
-      if (!req.user?.uid) {
+      // Get user ID from Replit Auth session
+      const userId = getUserId(req);
+      if (!userId) {
         return res.status(401).json({ error: 'Authentication required', code: 'auth/no-token' });
       }
-
-      const userId = req.user.uid;
 
       // Check if OpenAI API key is configured
       if (!process.env.OPENAI_API_KEY) {
@@ -57,8 +57,8 @@ export async function registerChatKitRoutes(app: Express) {
         sessionId = randomUUID();
       }
 
-      // Get user information for metadata
-      const userRecord = await storage.getUserByFirebaseId(userId);
+      // Get user information for metadata (optional)
+      const userRecord = await storage.getUserById(userId);
 
       // Call OpenAI ChatKit API directly to create a session
       // This uses the REST API since the Node.js SDK doesn't have chatkit.sessions.create yet
@@ -77,7 +77,7 @@ export async function registerChatKitRoutes(app: Express) {
           workflow: {
             id: process.env.OPENAI_CHATKIT_WORKFLOW_ID
           },
-          user: userId, // Use Firebase UID as the ChatKit user ID
+          user: userId, // Use Replit user ID as the ChatKit user ID
         }),
       });
 
@@ -114,7 +114,7 @@ export async function registerChatKitRoutes(app: Express) {
       });
     } catch (error: any) {
       console.error("[ChatKit] Session creation error:", {
-        userId: req.user?.uid,
+        userId: getUserId(req),
         error: error.message,
         stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
       });
@@ -126,9 +126,10 @@ export async function registerChatKitRoutes(app: Express) {
   });
 
   // Health check for ChatKit service
-  app.get("/api/chatkit/status", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/chatkit/status", isAuthenticated, async (req: AuthenticatedRequest, res) => {
     try {
-      if (!req.user?.uid) {
+      const userId = getUserId(req);
+      if (!userId) {
         return res.status(401).json({ error: 'Authentication required', code: 'auth/no-token' });
       }
 
